@@ -122,6 +122,26 @@ export class BattlePanel {
       if (animate) void hitstop(this.scene, 60);
       return animate;
     }
+    if (e.kind === 'enrage') {
+      if (animate) {
+        this.scene.cameras.main.flash(250, 200, 30, 30);
+        this.caption.setText('광폭화! 적 공격력 상승');
+      }
+      return false;
+    }
+    if (e.kind === 'hazard') {
+      const v = this.views.ally[e.idx];
+      if (!v) return false;
+      v.hp = Math.max(0, v.hp - e.dmg);
+      v.bar.width = Math.max(0, ((UW - 12) * v.hp) / v.max);
+      if (animate) {
+        v.box.setFillStyle(0x7048e8);
+        this.scene.time.delayedCall(120, () => v.box.active && v.box.setFillStyle(0x1e2230));
+        if (settings.speed < 4) damageNumber(this.scene, v.x + UW / 2, v.y, e.dmg, false);
+        this.caption.setText(HAZARD_KO[e.name]);
+      }
+      return false;
+    }
     const atk = (e.side === 'ally' ? this.views.ally : this.views.enemy)[e.src];
     const def = (e.side === 'ally' ? this.views.enemy : this.views.ally)[e.dst];
     if (!def) return false;
@@ -142,3 +162,9 @@ export class BattlePanel {
     return false;
   }
 }
+
+const HAZARD_KO: Record<'burn' | 'rowBlast' | 'pulse', string> = {
+  burn: '화염 낙인! 가장 약한 드래곤이 탄다',
+  rowBlast: '용암탄! 한 줄 전체 피해',
+  pulse: '월식의 파동! 아군 전체 피해',
+};

@@ -5,7 +5,9 @@ export interface Unit { speciesId: string; elements: Element[]; hp: number; atk:
 
 export type BattleEvent =
   | { tick: number; kind: 'attack'; side: 'ally' | 'enemy'; src: number; dst: number; dmg: number; mult: number; heal: number }
-  | { tick: number; kind: 'death'; side: 'ally' | 'enemy'; idx: number };
+  | { tick: number; kind: 'death'; side: 'ally' | 'enemy'; idx: number }
+  | { tick: number; kind: 'hazard'; name: 'burn' | 'rowBlast' | 'pulse'; idx: number; dmg: number }
+  | { tick: number; kind: 'enrage' };
 
 export interface BattleResult {
   winner: 'ally' | 'enemy';

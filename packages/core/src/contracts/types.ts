@@ -10,6 +10,16 @@ export interface Stats { hp: number; atk: number; cooldownTicks: number }
 export interface DragonSpec { id: string; nameKo: string; tier: Tier; elements: Element[]; role: Role; stats: Stats; traitId: string }
 export interface TraitSpec { id: string; nameKo: string; kind: TraitKind; value: number }
 export interface Recipe { a: string; b: string; result: string }
+/** 심판 보스 기믹. 피해는 대상 최대 체력의 %(정수 내림, 최소 1) */
+export interface BossRules {
+  healCutPct?: number;
+  healCutFromTick?: number;
+  burn?: { everyTicks: number; pct: number };
+  rowBlast?: { everyTicks: number; pct: number };
+  allySlowPct?: number;
+  enrage?: { atTick: number; atkPct: number };
+  pulse?: { everyTicks: number; pct: number };
+}
 export type RewardKind = 'mana' | 'egg' | 't2egg' | 'trait' | 'nudge' | 'freeSpin' | 'life';
 /** 웨이브 승리 보상. weight는 일반 웨이브, bossWeight는 심판 보스 웨이브 확률 가중치 */
 export interface RewardSpec { id: string; nameKo: string; kind: RewardKind; amount: number; weight: number; bossWeight: number }

@@ -1,5 +1,5 @@
 import type { BattleEvent, BattleResult, Unit } from './contracts/events.ts';
-import type { BattleConfig, DragonInst, Element, GameData } from './contracts/types.ts';
+import type { BattleConfig, BossRules, DragonInst, Element, GameData } from './contracts/types.ts';
 
 const BEATS: Record<Element, Element> = { fire: 'ice', ice: 'lightning', lightning: 'fire' };
 
@@ -42,13 +42,59 @@ function firstAlive(side: (Fighter | null)[]): number {
   return side.findIndex((f) => f !== null && f.hp > 0);
 }
 
-export function simulateBattle(cfg: BattleConfig, allies: (Unit | null)[], enemies: (Unit | null)[]): BattleResult {
+function hazardDamage(f: Fighter, pct: number): number {
+  return Math.max(1, Math.floor((f.unit.hp * pct) / 100));
+}
+
+export function simulateBattle(cfg: BattleConfig, allies: (Unit | null)[], enemies: (Unit | null)[], rules: BossRules = {}): BattleResult {
   const sides = { ally: prepare(allies), enemy: prepare(enemies) };
+  if (rules.allySlowPct) {
+    for (const f of sides.ally) if (f) f.unit = { ...f.unit, cooldownTicks: Math.floor((f.unit.cooldownTicks * (100 + rules.allySlowPct)) / 100) };
+  }
   const events: BattleEvent[] = [];
   let tick = 0;
   let winner: 'ally' | 'enemy' | null = null;
+  let blastFront = true;
+  let enraged = false;
+  const hurtAlly = (idx: number, dmg: number, name: 'burn' | 'rowBlast' | 'pulse') => {
+    const f = sides.ally[idx];
+    if (!f || f.hp <= 0) return;
+    f.hp -= dmg;
+    events.push({ tick, kind: 'hazard', name, idx, dmg });
+    if (f.hp <= 0) events.push({ tick, kind: 'death', side: 'ally', idx });
+  };
   while (winner === null && tick < cfg.maxTicks) {
     tick++;
+    // 1) 보스 기믹
+    if (rules.burn && tick % rules.burn.everyTicks === 0) {
+      let low = -1;
+      sides.ally.forEach((f, i) => {
+        if (f && f.hp > 0 && (low < 0 || f.hp < (sides.ally[low] as Fighter).hp)) low = i;
+      });
+      if (low >= 0) hurtAlly(low, hazardDamage(sides.ally[low] as Fighter, rules.burn.pct), 'burn');
+    }
+    if (rules.rowBlast && tick % rules.rowBlast.everyTicks === 0) {
+      const row = blastFront ? [0, 1, 2] : [3, 4, 5];
+      blastFront = !blastFront;
+      for (const i of row) {
+        const f = sides.ally[i];
+        if (f && f.hp > 0) hurtAlly(i, hazardDamage(f, rules.rowBlast.pct), 'rowBlast');
+      }
+    }
+    if (rules.pulse && tick % rules.pulse.everyTicks === 0) {
+      sides.ally.forEach((f, i) => {
+        if (f && f.hp > 0) hurtAlly(i, hazardDamage(f, rules.pulse!.pct), 'pulse');
+      });
+    }
+    if (rules.enrage && !enraged && tick >= rules.enrage.atTick) {
+      enraged = true;
+      events.push({ tick, kind: 'enrage' });
+    }
+    if (firstAlive(sides.ally) < 0) {
+      winner = 'enemy';
+      break;
+    }
+    // 2) 아군, 3) 적 공격
     for (const side of ['ally', 'enemy'] as const) {
       const mine = sides[side];
       const theirs = sides[side === 'ally' ? 'enemy' : 'ally'];
@@ -62,9 +108,12 @@ export function simulateBattle(cfg: BattleConfig, allies: (Unit | null)[], enemi
         f.timer = 0;
         const target = theirs[dst] as Fighter;
         const mult = elementMult(cfg, f.unit.elements[0] as Element, target.unit.elements[0] as Element);
-        const dmg = Math.max(1, Math.floor((f.unit.atk * mult) / 100));
+        let dmg = Math.max(1, Math.floor((f.unit.atk * mult) / 100));
+        if (side === 'enemy' && enraged && rules.enrage) dmg = Math.floor((dmg * rules.enrage.atkPct) / 100);
         target.hp -= dmg;
-        const heal = Math.min(Math.floor((dmg * f.unit.lifestealPct) / 100), f.unit.hp - f.hp);
+        let raw = Math.floor((dmg * f.unit.lifestealPct) / 100);
+        if (side === 'ally' && rules.healCutPct && tick >= (rules.healCutFromTick ?? 0)) raw = Math.floor((raw * (100 - rules.healCutPct)) / 100);
+        const heal = Math.max(0, Math.min(raw, f.unit.hp - f.hp));
         f.hp += heal;
         events.push({ tick, kind: 'attack', side, src: i, dst, dmg, mult, heal });
         if (target.hp <= 0) events.push({ tick, kind: 'death', side: side === 'ally' ? 'enemy' : 'ally', idx: dst });
