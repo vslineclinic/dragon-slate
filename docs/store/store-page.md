@@ -45,7 +45,7 @@ Auto Battler, Roguelite, Creature Collector, Dragons, Strategy, Singleplayer, Fa
 
 ### AI 사용 공시
 
-게임 그림과 도감 문구의 초안을 만드는 데 생성형 AI를 사용했습니다. 개발자가 결과물을 골라 다듬었습니다. 코드 작성에도 AI 도구를 사용했습니다.
+게임 안의 드래곤 그림, 상점 페이지 그림, 게임 안 문구(도감·안내·보스 설명), 상점 문구에 생성형 AI를 사용했습니다. 코드 작성에도 AI 도구를 사용했습니다. 개발자가 결과물을 고르고 검토했습니다.
 
 ### 출시 정보 (예정)
 
@@ -55,13 +55,13 @@ Auto Battler, Roguelite, Creature Collector, Dragons, Strategy, Singleplayer, Fa
 
 ### Short description
 
-Spin a 3×3 rune tablet to choose dragon eggs, then merge pairs to discover dragons from world mythology. Build a formation around fire, ice, and lightning matchups in this roguelite auto battler. Take on 20 waves and four Judgment bosses.
+Turn a 3×3 rune tablet to choose dragon eggs, then merge pairs to discover dragons from world mythology. Build a formation around fire, ice, and lightning matchups in this roguelite auto battler. Take on 20 waves and four Judgment bosses.
 
 ### Long description
 
 #### Choose an egg from the rune tablet
 
-Spin the 3×3 rune tablet and pick one of the three options in the middle row. If the element you want lands on another row, shift a column to change your choices. Place your new dragon in the nest and prepare for the next fight.
+Turn the 3×3 rune tablet and pick one of the three options in the middle row. If the element you want lands on another row, shift a column to change your choices. Place your new dragon in the nest and prepare for the next fight.
 
 #### Merge dragons and piece together their myths
 
@@ -96,7 +96,7 @@ Auto Battler, Roguelite, Creature Collector, Dragons, Strategy, Singleplayer, Fa
 
 ### AI usage disclosure
 
-Generative AI was used to draft in-game artwork and codex text. The developer selected and refined the results. AI tools were also used to help write the code.
+Generative AI was used for the in-game dragon artwork, store artwork, in-game text (codex, tutorial and boss descriptions) and store text. AI tools were also used to help write the code. The developer selected and reviewed the results.
 
 ### Release information (planned)
 

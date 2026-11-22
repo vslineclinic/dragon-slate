@@ -1,0 +1,15 @@
+# 데모용 포장: 본편과 앱 ID·이름이 달라서 저장 데이터(튜토리얼·해금)와 단일 실행 잠금이 섞이지 않아요.
+appId: com.wyrmslot.demo
+productName: Wyrmslot Demo
+directories:
+  output: release-demo/
+files:
+  - from: dist-demo
+    to: dist
+  - apps/desktop/main.cjs
+  - package.json
+win:
+  target:
+    - target: portable
+      arch:
+        - x64

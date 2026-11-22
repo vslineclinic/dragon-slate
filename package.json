@@ -12,7 +12,8 @@
     "sim": "node tools/sim/run.ts",
     "build:demo": "vite build --mode demo --outDir ../../dist-demo",
     "desktop": "vite build && electron .",
-    "desktop:pack": "vite build && electron-builder --config apps/desktop/electron-builder.yml"
+    "desktop:pack": "vite build && electron-builder --config apps/desktop/electron-builder.yml",
+    "desktop:pack:demo": "vite build --mode demo --outDir ../../dist-demo && electron-builder --config apps/desktop/electron-builder-demo.yml"
   },
   "license": "UNLICENSED",
   "type": "module",
@@ -23,9 +24,7 @@
     "electron-builder": "^26.18.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
-    "vitest": "^5.1.1"
-  },
-  "dependencies": {
+    "vitest": "^5.1.1",
     "phaser": "^4.2.1"
   },
   "main": "apps/desktop/main.cjs"
