@@ -33,7 +33,7 @@ export class NestPanel {
     this.releaseRect = { x: a.x + 430, y: a.y + 34, w: 190, h: H };
     const r = this.releaseRect;
     scene.add.rectangle(r.x, r.y, r.w, r.h, 0x3b2a2a).setOrigin(0).setStrokeStyle(2, 0xff8787, 0.5);
-    text(scene, r.x + r.w / 2, r.y + r.h / 2, '여기에 놓으면\n놓아주기 (마력)', 15, '#ffc9c9').setOrigin(0.5).setAlign('center');
+    text(scene, r.x + r.w / 2, r.y + r.h / 2, '여기에 놓으면\n놓아주고 마력을 받아요', 14, '#ffc9c9').setOrigin(0.5).setAlign('center');
     this.battleBtn = button(scene, a.x + 430, a.y + 140, 190, 72, '전투 시작', () => this.ctl.dispatch({ type: 'startBattle' }), 0xc92a2a);
     this.layer = scene.add.container(0, 0);
     this.preview = text(scene, 0, 0, '', 17, '#fff3bf').setDepth(40).setBackgroundColor('#000000cc').setPadding(6, 4, 6, 4).setVisible(false);

@@ -15,7 +15,7 @@ interface Step {
 
 const STEPS: Step[] = [
   { when: (s) => s.phase === 'spin' && s.wave === 1, msg: '① 이 버튼을 눌러 룬 석판을 돌려요.', at: { x: 800, y: 556 }, point: { x: 1060, y: 652 } },
-  { when: (s) => s.phase === 'pick', msg: '② 보라 띠 줄의 알 3개가 오른쪽 카드예요.\n하나를 고르세요. 노란 테두리가 추천이에요.', at: { x: 560, y: 248 }, point: { x: 930, y: 420 } },
+  { when: (s) => s.phase === 'pick', msg: '② 보라 띠의 알 3개가 오른쪽 카드로 나와요.\n하나를 고르세요. 노란 테두리가 추천이에요.', at: { x: 560, y: 248 }, point: { x: 930, y: 420 } },
   { when: (s) => s.phase === 'manage' && s.nest.every((n) => !n), msg: '③ 대기칸의 드래곤을 아래 둥지 칸으로 끌어 놓아요.\n같은 드래곤끼리 겹치면 합체해요!', at: { x: 30, y: 248 }, point: { x: 80, y: 600 } },
   { when: (s) => s.phase === 'manage' && s.nest.some((n) => n), msg: '④ 준비되면 전투 시작! 전투는 자동이에요.', at: { x: 300, y: 248 }, point: { x: 525, y: 500 } },
   { when: (s) => s.wave === 2 && s.phase === 'spin', msg: '⑤ 위쪽에 다음 보스 예보가 있어요. 눌러서 대응법을 보세요.\n이제 혼자 해 볼까요? 행운을 빌어요!', at: { x: 420, y: 60 }, point: { x: 600, y: 22 } },

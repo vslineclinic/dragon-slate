@@ -106,7 +106,7 @@ export class GameScene extends Phaser.Scene {
     const d = this.ctl.data;
     if (kind === 'mana') return '마력 +' + amount;
     if (kind === 'egg' || kind === 't2egg') return (d.dragons[detail ?? '']?.nameKo ?? '드래곤') + ' 알을 얻었어요';
-    if (kind === 'trait') return detail ? '특성 「' + (d.traits[detail]?.nameKo ?? detail) + '」을 계승했어요' : '마력 +3';
+    if (kind === 'trait') return detail ? '특성 「' + (d.traits[detail]?.nameKo ?? detail) + '」 계승!' : '마력 +3';
     if (kind === 'nudge') return '다음 웨이브 밀기 +' + amount;
     if (kind === 'freeSpin') return '다시 돌리기 ' + amount + '회 무료';
     return '생명 +' + amount + ' (가득 차 있으면 마력 +3)';
@@ -191,7 +191,7 @@ const REJECT_KO: Record<string, string> = {
   benchFull: '대기칸이 꽉 찼어요',
   emptySlot: '빈칸이에요',
   slotLocked: '아직 잠긴 칸이에요',
-  nestEmpty: '둥지에 드래곤을 1마리 이상 놓아요',
+  nestEmpty: '둥지에 드래곤을 1마리 이상 놓아 주세요',
   sameSlot: '같은 칸이에요',
   needDragon: '드래곤이 최소 1마리는 있어야 해요',
 };

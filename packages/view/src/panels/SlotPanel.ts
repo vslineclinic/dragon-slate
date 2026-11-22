@@ -32,7 +32,7 @@ export class SlotPanel {
     scene.add.rectangle(a.x, a.y, a.w, a.h, UI.panel).setOrigin(0).setStrokeStyle(1, UI.panelLine);
     this.layer = scene.add.container(0, 0);
     this.hint = text(scene, a.x + 290, a.y + 8, '', 14, UI.dim).setWordWrapWidth(330);
-    this.reward = text(scene, a.x + 290, a.y + 30, '', 14, '#ffe066').setWordWrapWidth(330).setLineSpacing(2);
+    this.reward = text(scene, a.x + 290, a.y + 30, '', 13, '#ffe066').setWordWrapWidth(330).setLineSpacing(2);
     this.spinBtn = button(scene, a.x + 290, a.y + 318, 330, 56, '', () => this.ctl.dispatch({ type: 'spin' }), 0x5f3dc4);
   }
 
@@ -55,11 +55,12 @@ export class SlotPanel {
     this.spinBtn.setEnabled(canSpin);
     const full = s.bench.every((b) => b);
     this.hint.setText(
-      s.phase === 'spin' ? '석판을 돌리면 보라 띠 줄의 알 3개 중 하나를 받아요.'
-        : s.phase === 'pick' ? (full ? '대기칸이 꽉 찼어요. 왼쪽에서 끌어서 합치거나 놓아주세요.' : '보라 띠 줄(받을 알) 3개 중 하나를 오른쪽 카드에서 골라요.')
+      s.phase === 'spin' ? '석판을 돌리면 알 3개가 나와요.'
+        : s.phase === 'pick' ? (full ? '대기칸이 꽉 찼어요. 끌어서 합치거나 놓아주세요.' : '보라 띠의 알 3개 중 하나를 카드에서 골라요.')
           : s.phase === 'manage' ? '둥지를 정리하고 전투를 시작해요.' : '',
     );
-    this.reward.setText(this.rewardText(s));
+    // 안내가 두 줄이 되어도 겹치지 않게 보상 문구를 바로 아래에 붙인다
+    this.reward.setText(this.rewardText(s)).setY(this.hint.y + this.hint.height + 4);
   }
 
   /** 줄 맞춤이 무엇을 주는지 알려 주는 문구 */
@@ -67,9 +68,10 @@ export class SlotPanel {
     const d = this.ctl.data;
     const describe = (r: ReturnType<typeof lineRewards>) => {
       const eggs = r.eggs.map((e) => ELEMENT_KO[e.element] + (e.tier === 't2' ? ' 2티어 알 1개' : ' 알 1개')).join(', ');
-      return [eggs, r.mana ? '마력 ' + r.mana + ' 획득' : ''].filter(Boolean).join(' + ');
+      const mana = r.mana ? '마력 ' + r.mana : '';
+      return eggs && mana ? eggs + '와 ' + mana : eggs || mana;
     };
-    if (s.phase === 'spin') return '같은 그림 3개가 한 줄(가로·세로·대각)이면 보너스 알과 마력을 더 받아요. 드래곤이 빨리 모일수록 합체가 빨라져요.';
+    if (s.phase === 'spin') return '같은 그림 3개가 한 줄이면 알과 마력을 더 받아요. 가로·세로·대각선 모두 돼요.';
     if (s.phase !== 'pick' || !s.grid) return '';
     const now = lineRewards(d, s.grid);
     if (now.lines > 0) {
@@ -80,15 +82,15 @@ export class SlotPanel {
       const groups = evaluateLines(s.grid)
         .map((g) => (g.element === 'gold' ? '황금' : g.element === 'wild' ? '여의주' : ELEMENT_KO[g.element]) + ' ' + g.lines.length + '줄')
         .join(', ');
-      return groups + ' 맞춤 → 알을 고르면 보너스로 ' + describe(now) + (usesWild ? '\n보라 여의주(만능)는 어떤 그림으로도 쳐요.' : '');
+      return groups + ' 맞춤! 알을 고르면 함께 받아요: ' + describe(now) + '.' + (usesWild ? '\n분홍 여의주는 어떤 그림으로든 쳐요.' : '');
     }
     const reco = bestNudge(s.grid, s.nudgesLeft);
     if (reco) {
       const after = lineRewards(d, nudge(s.grid, reco.col, reco.dir));
-      return '추천: ' + (reco.col + 1) + '번째 줄 ' + (reco.dir === -1 ? '▼' : '▲') + ' 버튼을 누르면 줄이 맞아요 → 보너스 ' + describe(after);
+      return '추천: ' + (reco.col + 1) + '번째 줄의 ' + (reco.dir === -1 ? '▼' : '▲') + '를 누르면 줄이 맞아요(보너스: ' + describe(after) + ').';
     }
     const goldOnly = now.mana;
-    return (goldOnly ? '황금 칸 보너스: 마력 +' + goldOnly + '. ' : '') + (s.nudgesLeft > 0 ? '▼▲ 버튼은 숨은 알을 끌어와 그 줄을 한 칸 밀어요 (웨이브당 1번).' : '');
+    return (goldOnly ? '황금 칸 보너스: 마력 +' + goldOnly + '. ' : '') + (s.nudgesLeft > 0 ? '▼▲를 누르면 숨은 알이 들어오며 줄이 한 칸 밀려요(웨이브당 1번).' : '');
   }
 
   private cellXY(col: number, row: number): { x: number; y: number } {

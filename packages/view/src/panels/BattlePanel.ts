@@ -125,7 +125,7 @@ export class BattlePanel {
     if (e.kind === 'enrage') {
       if (animate) {
         this.scene.cameras.main.flash(250, 200, 30, 30);
-        this.caption.setText('광폭화! 적 공격력 상승');
+        this.caption.setText('광폭화! 적의 공격력이 올라가요');
       }
       return false;
     }
@@ -164,7 +164,7 @@ export class BattlePanel {
 }
 
 const HAZARD_KO: Record<'burn' | 'rowBlast' | 'pulse', string> = {
-  burn: '화염 낙인! 가장 약한 드래곤이 탄다',
-  rowBlast: '용암탄! 한 줄 전체 피해',
-  pulse: '월식의 파동! 아군 전체 피해',
+  burn: '화염 낙인! 가장 약한 드래곤이 타요',
+  rowBlast: '용암탄! 한 줄 전체가 피해를 입어요',
+  pulse: '월식의 파동! 아군 모두 피해를 입어요',
 };
