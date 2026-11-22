@@ -33,7 +33,7 @@ export class GameScene extends Phaser.Scene {
     this.slot = new SlotPanel(this, this.ctl);
     this.nest = new NestPanel(this, this.ctl);
     this.banner = text(this, 640, 170, '', 40, '#fff3bf').setOrigin(0.5).setAlign('center').setDepth(60).setStroke('#5f3dc4', 8).setAlpha(0);
-    this.toast = text(this, 640, 300, '', 22, '#ffd8a8').setOrigin(0.5).setDepth(50);
+    this.toast = text(this, 640, 250, '', 22, '#ffd8a8').setOrigin(0.5).setAlign('center').setDepth(50).setBackgroundColor('#000000aa').setPadding(10, 6, 10, 6);
     this.endBtn = button(this, 540, 230, 200, 56, '새 판 시작', () => this.ctl.restart((this.ctl.state.seed * 7 + 13) % 1_000_000_007), 0x2f9e44);
     this.endBtn.root.setDepth(61).setVisible(false);
     this.ctl.on((events, state) => void this.onChange(events, state));
@@ -44,6 +44,14 @@ export class GameScene extends Phaser.Scene {
     for (const e of events) {
       if (e.t === 'rejected') this.flash(REJECT_KO[e.reason] ?? '할 수 없어요');
       if (e.t === 'evolved' && markDiscovered(e.inst.speciesId)) this.discover(this.ctl.data.dragons[e.inst.speciesId]?.nameKo ?? e.inst.speciesId);
+    }
+    const bonus = events.filter((e) => e.t === 'gained' && e.via === 'bonus');
+    const lineMana = events.reduce((n, e) => n + (e.t === 'mana' && ['line', 'goldLine', 'wildLine', 'goldCells', 'benchFull'].includes(e.reason) ? e.delta : 0), 0);
+    if (bonus.length || lineMana) {
+      const names = bonus.map((e) => (e.t === 'gained' ? (this.ctl.data.dragons[e.inst.speciesId]?.nameKo ?? '') + ' 알' : ''));
+      const converted = events.some((e) => e.t === 'mana' && e.reason === 'benchFull');
+      this.flash('보너스! ' + [...names, lineMana ? '마력 +' + lineMana : ''].filter(Boolean).join(' · ') + (converted ? '
+(대기칸이 꽉 차서 보너스 알은 마력으로 바뀌었어요)' : ''));
     }
     const fight = events.find((e) => e.t === 'battle');
     if (fight && fight.t === 'battle') {
@@ -94,7 +102,7 @@ export class GameScene extends Phaser.Scene {
   flash(msg: string): void {
     this.toast.setText(msg).setAlpha(1);
     this.tweens.killTweensOf(this.toast);
-    this.tweens.add({ targets: this.toast, alpha: 0, delay: 900, duration: 400 });
+    this.tweens.add({ targets: this.toast, alpha: 0, delay: 1600, duration: 400 });
   }
 }
 

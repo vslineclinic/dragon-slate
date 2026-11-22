@@ -1,6 +1,6 @@
-import type { DragonInst, GameData, Grid, RunState, SlotRef } from './contracts/types.ts';
+import type { DragonInst, Element, GameData, Grid, RunState, SlotRef } from './contracts/types.ts';
 import { findRecipe } from './fusion.ts';
-import { evaluateLines, nudge, offersFrom } from './slot.ts';
+import { evaluateLines, nudge, offersFrom, visible } from './slot.ts';
 
 /** 추천 표시용 도우미. 상태를 바꾸지 않는다. */
 
@@ -63,4 +63,22 @@ export function evolvablePairs(data: GameData, s: RunState): { a: SlotRef; b: Sl
     }
   }
   return out;
+}
+
+/** 지금 알을 고르면 줄 맞춤으로 함께 받는 것(알 종류와 마력). run.ts의 고르기 정산과 같은 규칙. */
+export function lineRewards(data: GameData, grid: Grid): { lines: number; eggs: { element: Element; tier: 'base' | 't2' }[]; mana: number } {
+  let lines = 0;
+  let mana = 0;
+  const eggs: { element: Element; tier: 'base' | 't2' }[] = [];
+  for (const g of evaluateLines(grid)) {
+    lines += g.lines.length;
+    if (g.element === 'gold') mana += data.slot.goldLineMana;
+    else if (g.element === 'wild') mana += data.slot.wildLineMana;
+    else {
+      eggs.push({ element: g.element, tier: g.lines.length >= 2 ? 't2' : 'base' });
+      mana += data.slot.lineMana;
+    }
+  }
+  for (let c = 0; c < 3; c++) for (const r of [0, 1, 2] as const) if (visible(grid, c, r).symbol === 'gold') mana += data.slot.goldMana;
+  return { lines, eggs, mana };
 }

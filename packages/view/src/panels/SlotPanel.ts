@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
-import { bestNudge, evaluateLines, LINES, offersFrom, recommendOffer } from '../../../core/src/index.ts';
+import { bestNudge, evaluateLines, lineRewards, LINES, nudge, offersFrom, recommendOffer } from '../../../core/src/index.ts';
 import type { GameEvent, Grid, RunState } from '../../../core/src/index.ts';
 import type { GameController } from '../controller.ts';
-import { AREA, COLOR, SYMBOL_LABEL, TIER_KO, UI } from '../layout.ts';
+import { AREA, COLOR, ELEMENT_KO, SYMBOL_LABEL, TIER_KO, UI } from '../layout.ts';
 import { settings } from '../settings.ts';
 import { button, text, type Button } from '../ui.ts';
 import { pulse } from '../fx/juice.ts';
@@ -22,6 +22,7 @@ export class SlotPanel {
   private layer: Phaser.GameObjects.Container;
   private spinBtn: Button;
   private hint: Phaser.GameObjects.Text;
+  private reward: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, ctl: GameController) {
     this.scene = scene;
@@ -29,7 +30,8 @@ export class SlotPanel {
     const a = AREA.slab;
     scene.add.rectangle(a.x, a.y, a.w, a.h, UI.panel).setOrigin(0).setStrokeStyle(1, UI.panelLine);
     this.layer = scene.add.container(0, 0);
-    this.hint = text(scene, a.x + 290, a.y + 10, '', 15, UI.dim).setWordWrapWidth(330);
+    this.hint = text(scene, a.x + 290, a.y + 8, '', 14, UI.dim).setWordWrapWidth(330);
+    this.reward = text(scene, a.x + 290, a.y + 30, '', 14, '#ffe066').setWordWrapWidth(330).setLineSpacing(2);
     this.spinBtn = button(scene, a.x + 290, a.y + 318, 330, 56, '', () => this.ctl.dispatch({ type: 'spin' }), 0x5f3dc4);
   }
 
@@ -48,12 +50,31 @@ export class SlotPanel {
     this.spinBtn.setEnabled(canSpin);
     const full = s.bench.every((b) => b);
     this.hint.setText(
-      s.phase === 'spin' ? '석판을 돌리면 가운데 줄의 알 3개 중 하나를 받아요.\n같은 그림 3개가 한 줄이면 보너스!'
-        : s.phase === 'pick'
-          ? (full ? '대기칸이 꽉 찼어요. 왼쪽에서 끌어서 합치거나 놓아주세요.' : '노란 테두리 줄의 알 중 하나를 골라요.') +
-            (s.nudgesLeft > 0 ? '\n▼▲ 버튼: 숨은 알을 끌어와 그 줄을 한 칸 밀어요 (웨이브당 1번)' : '')
-          : s.phase === 'manage' ? '둥지를 정리하고 전투를 시작해요' : '',
+      s.phase === 'spin' ? '석판을 돌리면 노란 줄의 알 3개 중 하나를 받아요.'
+        : s.phase === 'pick' ? (full ? '대기칸이 꽉 찼어요. 왼쪽에서 끌어서 합치거나 놓아주세요.' : '노란 줄의 알 중 하나를 골라요.')
+          : s.phase === 'manage' ? '둥지를 정리하고 전투를 시작해요.' : '',
     );
+    this.reward.setText(this.rewardText(s));
+  }
+
+  /** 줄 맞춤이 무엇을 주는지 알려 주는 문구 */
+  private rewardText(s: RunState): string {
+    const d = this.ctl.data;
+    const describe = (r: ReturnType<typeof lineRewards>) => {
+      const eggs = r.eggs.map((e) => ELEMENT_KO[e.element] + (e.tier === 't2' ? ' 2티어 알' : ' 알')).join(', ');
+      return [eggs, r.mana ? '마력 +' + r.mana : ''].filter(Boolean).join(' · ');
+    };
+    if (s.phase === 'spin') return '같은 그림 3개가 한 줄(가로·세로·대각)이면 보너스 알과 마력을 더 받아요. 드래곤이 빨리 모일수록 합체가 빨라져요.';
+    if (s.phase !== 'pick' || !s.grid) return '';
+    const now = lineRewards(d, s.grid);
+    if (now.lines > 0) return '줄 맞춤 ' + now.lines + '줄! 알을 고르면 보너스도 함께 받아요: ' + describe(now);
+    const reco = bestNudge(s.grid, s.nudgesLeft);
+    if (reco) {
+      const after = lineRewards(d, nudge(s.grid, reco.col, reco.dir));
+      return '추천: ' + (reco.col + 1) + '번째 줄 ' + (reco.dir === -1 ? '▼' : '▲') + ' 버튼을 누르면 줄이 맞아요 → 보너스 ' + describe(after);
+    }
+    const goldOnly = now.mana;
+    return (goldOnly ? '황금 칸 보너스: 마력 +' + goldOnly + '. ' : '') + (s.nudgesLeft > 0 ? '▼▲ 버튼은 숨은 알을 끌어와 그 줄을 한 칸 밀어요 (웨이브당 1번).' : '');
   }
 
   private cellXY(col: number, row: number): { x: number; y: number } {
@@ -140,7 +161,7 @@ export class SlotPanel {
     const offers = s.grid ? offersFrom(this.ctl.data, s.grid) : [];
     const reco = s.phase === 'pick' ? recommendOffer(this.ctl.data, s) : null;
     for (let i = 0; i < 3; i++) {
-      const y = a.y + 82 + i * 76;
+      const y = a.y + 86 + i * 76;
       const o = offers[i];
       const isReco = reco?.index === i;
       const bg = this.scene.add.rectangle(x0, y, 330, 68, 0x2b3045).setOrigin(0).setStrokeStyle(isReco ? 3 : 1, isReco ? RECO : UI.panelLine);

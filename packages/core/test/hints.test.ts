@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { bestNudge, evolvablePairs, recommendOffer } from '../src/hints.ts';
+import { bestNudge, evolvablePairs, lineRewards, recommendOffer } from '../src/hints.ts';
 import { createRun } from '../src/run.ts';
 import type { DragonInst, Grid, RunState, SymbolId } from '../src/contracts/types.ts';
 import { gridFrom, testData } from './helpers.ts';
@@ -46,6 +46,16 @@ describe('hints', () => {
     const s: RunState = { ...base, phase: 'pick', nest: [inst(1, 'storm_wyvern'), null, null, null, null, null], grid: g };
     expect(recommendOffer(d, s)).toEqual({ index: 1, reason: 'element', result: null });
     expect(recommendOffer(d, { ...s, nest: [null, null, null, null, null, null] })).toBeNull();
+  });
+
+  test('lineRewards summarizes what picking now would give', () => {
+    const d = testData();
+    // 가로 0줄 불 3개(1줄) + 가운데 칸 황금 1개
+    expect(lineRewards(d, gridFrom([[F, F, F], [I, G, L], [L, I, I]]))).toEqual({ lines: 1, eggs: [{ element: 'fire', tier: 'base' }], mana: 2 + 1 });
+    // 불 2줄(가로0 + 세로0) → 2티어 알
+    expect(lineRewards(d, gridFrom([[F, F, F], [F, L, I], [F, I, L]])).eggs).toEqual([{ element: 'fire', tier: 't2' }]);
+    // 줄 없음, 황금 칸 없음
+    expect(lineRewards(d, gridFrom([[F, I, L], [I, L, F], [F, F, I]]))).toEqual({ lines: 0, eggs: [], mana: 0 });
   });
 
   test('evolvablePairs lists recipe pairs across nest and bench', () => {
