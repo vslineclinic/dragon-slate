@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import {
-  applyCommand, createRun, loadGameData,
+  applyCommand, createRun, isBoss, loadGameData,
   type GameData, type RawGameData,
 } from '../../packages/core/src/index.ts';
 import { chooseCommand } from './bot.ts';
@@ -11,7 +11,10 @@ const commandLimit = 2000;
 export interface SimStats {
   runs: number;
   clearRate: number;
-  averageWaveReached: number;
+  firstLossWave: Record<string, number>;
+  bossFirstAttempts: Record<number, { attempts: number; wins: number }>;
+  averageBattles: number;
+  gameOverWave: Record<string, number>;
   averageLivesOnClear: number;
   tier2PlusAtWave5Rate: number;
   firstTier1Wave: Record<string, number>;
@@ -32,7 +35,7 @@ export function simulate(data: GameData, runs: number, seed: number): SimStats {
   }
 
   let clears = 0;
-  let waveSum = 0;
+  let battles = 0;
   let livesOnClear = 0;
   let tier2PlusAtWave5 = 0;
   let absorptions = 0;
@@ -40,12 +43,20 @@ export function simulate(data: GameData, runs: number, seed: number): SimStats {
   let spins = 0;
   let hitsBeforeNudge = 0;
   let hitsAfterNudge = 0;
+  const firstLossWave: Record<string, number> & { none: number } = { none: 0 };
+  const gameOverWave: Record<string, number> = {};
+  const bossFirstAttempts = new Map(Object.keys(data.waves.bossPct)
+    .map(Number)
+    .filter((wave) => isBoss(data.waves, wave))
+    .map((wave) => [wave, { attempts: 0, wins: 0 }]));
   const firstTier1Wave: Record<string, number> = { none: 0 };
   const finalNestCounts = new Map(Object.keys(data.dragons).map((id) => [id, 0]));
 
   for (let i = 0; i < runs; i++) {
     const runSeed = seed + i;
     let { state } = createRun(data, runSeed);
+    let firstLoss: number | undefined;
+    let previousBattleWave: number | undefined;
     let firstTier1: number | undefined;
     let checkedWave5 = false;
     let currentSpinHit = false;
@@ -83,7 +94,16 @@ export function simulate(data: GameData, runs: number, seed: number): SimStats {
           case 'gained':
             if (firstTier1 === undefined && data.dragons[event.inst.speciesId]?.tier === 't1') firstTier1 = wave;
             break;
-          case 'battle':
+          case 'battle': {
+            battles++;
+            const won = event.result.winner === 'ally';
+            if (!won) firstLoss ??= wave;
+            const boss = bossFirstAttempts.get(wave);
+            if (boss && wave !== previousBattleWave) {
+              boss.attempts++;
+              if (won) boss.wins++;
+            }
+            previousBattleWave = wave;
             if (wave === 5 && !checkedWave5) {
               checkedWave5 = true;
               const hasTier2Plus = [...state.nest, ...state.bench].some((inst) => {
@@ -93,14 +113,21 @@ export function simulate(data: GameData, runs: number, seed: number): SimStats {
               if (hasTier2Plus) tier2PlusAtWave5++;
             }
             break;
+          }
         }
       }
     }
 
-    waveSum += state.wave;
     if (state.phase === 'victory') {
       clears++;
       livesOnClear += state.lives;
+      if (firstLoss === undefined) firstLossWave.none++;
+    }
+    if (firstLoss !== undefined) {
+      firstLossWave[firstLoss] = (firstLossWave[firstLoss] ?? 0) + 1;
+    }
+    if (state.phase === 'gameOver') {
+      gameOverWave[state.wave] = (gameOverWave[state.wave] ?? 0) + 1;
     }
     const firstWave = firstTier1 === undefined ? 'none' : String(firstTier1);
     firstTier1Wave[firstWave] = (firstTier1Wave[firstWave] ?? 0) + 1;
@@ -111,7 +138,10 @@ export function simulate(data: GameData, runs: number, seed: number): SimStats {
   return {
     runs,
     clearRate: ratio(clears, runs),
-    averageWaveReached: ratio(waveSum, runs),
+    firstLossWave,
+    bossFirstAttempts: Object.fromEntries(bossFirstAttempts),
+    averageBattles: ratio(battles, runs),
+    gameOverWave,
     averageLivesOnClear: ratio(livesOnClear, clears),
     tier2PlusAtWave5Rate: ratio(tier2PlusAtWave5, runs),
     firstTier1Wave,
