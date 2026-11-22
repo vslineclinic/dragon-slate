@@ -64,7 +64,7 @@ export class NestPanel {
 
   render(s: RunState): void {
     this.layer.removeAll(true);
-    const manage = s.phase === 'manage';
+    const manage = s.phase === 'manage' || s.phase === 'pick' || s.phase === 'spin';
     for (const ref of this.allRefs()) {
       const r = this.slotRect(ref);
       const locked = ref.zone === 'nest' && ref.index >= s.nestOpen;
@@ -73,7 +73,7 @@ export class NestPanel {
       const inst = this.instAt(s, ref);
       if (inst) this.layer.add(this.card(s, ref, inst, manage));
     }
-    this.battleBtn.setEnabled(manage && s.nest.some((n, i) => n !== null && i < s.nestOpen));
+    this.battleBtn.setEnabled(s.phase === 'manage' && s.nest.some((n, i) => n !== null && i < s.nestOpen));
   }
 
   private card(s: RunState, ref: SlotRef, inst: DragonInst, draggable: boolean): Phaser.GameObjects.Container {

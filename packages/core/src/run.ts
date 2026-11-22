@@ -61,7 +61,7 @@ function dragonCount(s: RunState): number {
   return s.nest.filter((n) => n !== null).length + s.bench.filter((b) => b !== null).length;
 }
 
-const ARRANGE_PHASES = ['manage', 'pick'];
+const ARRANGE_PHASES = ['manage', 'pick', 'spin'];
 
 function sameRef(a: SlotRef, b: SlotRef): boolean {
   return a.zone === b.zone && a.index === b.index;
@@ -92,7 +92,8 @@ function addMana(s: RunState, delta: number, reason: string, events: GameEvent[]
 function doSpin(data: GameData, s: RunState, rng: Rng, events: GameEvent[]): RejectReason | null {
   if (s.phase !== 'spin' && s.phase !== 'pick') return 'wrongPhase';
   const costs = data.slot.rerollCosts;
-  const cost = costs[Math.min(s.spinsThisWave, costs.length - 1)] ?? 0;
+  // 드래곤이 하나도 없으면 다시 돌리기는 무료(첫 판 막힘 방지)
+  const cost = dragonCount(s) === 0 ? 0 : (costs[Math.min(s.spinsThisWave, costs.length - 1)] ?? 0);
   if (s.mana < cost) return 'notEnoughMana';
   s.mana -= cost;
   const grid = spinGrid(data, rng, s.pity >= data.slot.pityThreshold);

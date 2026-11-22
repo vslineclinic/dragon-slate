@@ -31,6 +31,7 @@ function gridOf(rows: SymbolId[][]): Grid {
 
 const inst = (uid: number, speciesId: string, bonusPct = 0): DragonInst => ({ uid, speciesId, traits: [], bonusPct });
 const fresh = (seed = 1): RunState => createRun(data, seed).state;
+const owning = (seed = 1): RunState => ({ ...fresh(seed), bench: [inst(99, 'fire_drake'), null, null, null] });
 const run = (s: RunState, cmd: Command) => applyCommand(data, s, cmd);
 const rejected = (events: GameEvent[]) => events.find((e) => e.t === 'rejected');
 const F = 'fire', I = 'ice', L = 'lightning';
@@ -50,7 +51,7 @@ describe('run state machine', () => {
   });
 
   test('first spin free, second costs 2', () => {
-    const a = run(fresh(), { type: 'spin' });
+    const a = run(owning(), { type: 'spin' });
     expect(a.state.mana).toBe(3);
     expect(a.state.phase).toBe('pick');
     const b = run(a.state, { type: 'spin' });
@@ -58,7 +59,7 @@ describe('run state machine', () => {
   });
 
   test('reroll rejected without mana', () => {
-    let s = run(fresh(), { type: 'spin' }).state;
+    let s = run(owning(), { type: 'spin' }).state;
     s = run(s, { type: 'spin' }).state;
     const r = run(s, { type: 'spin' });
     expect(rejected(r.events)).toEqual({ t: 'rejected', reason: 'notEnoughMana' });
@@ -210,6 +211,19 @@ describe('run state machine', () => {
   test('fractional slot index rejected', () => {
     const s: RunState = { ...fresh(), phase: 'manage', bench: [inst(1, 'fire_drake'), inst(2, 'fire_drake'), null, null] };
     expect(rejected(run(s, { type: 'move', from: { zone: 'bench', index: 0 }, to: { zone: 'nest', index: 0.5 } }).events)).toEqual({ t: 'rejected', reason: 'emptySlot' });
+  });
+
+  // 최종 검토(2026-11-23)에서 찾은 것
+  test('arranging allowed before spinning', () => {
+    const s: RunState = { ...fresh(), phase: 'spin', bench: [inst(1, 'fire_drake'), null, null, null] };
+    expect(rejected(run(s, { type: 'move', from: { zone: 'bench', index: 0 }, to: { zone: 'nest', index: 0 } }).events)).toBeUndefined();
+  });
+
+  test('reroll is free while player has no dragons', () => {
+    const s: RunState = { ...fresh(), phase: 'pick', mana: 0, spinsThisWave: 2, grid: gridOf([[I, L, I], [F, I, L], [L, F, F]]) };
+    const r = run(s, { type: 'spin' });
+    expect(rejected(r.events)).toBeUndefined();
+    expect(r.events).toContainEqual(expect.objectContaining({ t: 'spun', cost: 0 }));
   });
 
   test('losing the final boss with lives left retries the final wave', () => {

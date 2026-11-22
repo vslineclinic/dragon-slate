@@ -38,13 +38,14 @@ export class SlotPanel {
     else this.drawEmpty();
     this.drawOffers(s);
     const costs = this.ctl.data.slot.rerollCosts;
-    const cost = costs[Math.min(s.spinsThisWave, costs.length - 1)] ?? 0;
+    const owned = s.nest.some((n) => n) || s.bench.some((b) => b);
+    const cost = owned ? (costs[Math.min(s.spinsThisWave, costs.length - 1)] ?? 0) : 0;
     const canSpin = (s.phase === 'spin' || s.phase === 'pick') && s.mana >= cost;
     this.spinBtn.setLabel(s.phase === 'pick' ? '다시 돌리기 (마력 ' + cost + ')' : cost === 0 ? '룬 석판 돌리기 (무료)' : '룬 석판 돌리기 (마력 ' + cost + ')');
     this.spinBtn.setEnabled(canSpin);
     this.hint.setText(
       s.phase === 'spin' ? '석판을 돌려 알을 받아요'
-        : s.phase === 'pick' ? '가운데 줄에서 알 하나를 골라요\n위·아래 흐린 칸을 누르면 밀기 (남은 ' + s.nudgesLeft + '회)'
+        : s.phase === 'pick' ? (s.bench.every((b) => b) ? '대기칸이 꽉 찼어요. 끌어서 합치거나 놓아주세요' : '가운데 줄에서 알 하나를 골라요') + '\n위·아래 흐린 칸을 누르면 밀기 (남은 ' + s.nudgesLeft + '회)'
           : s.phase === 'manage' ? '둥지를 정리하고 전투를 시작해요' : '',
     );
   }
