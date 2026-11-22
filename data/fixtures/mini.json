@@ -1,0 +1,12 @@
+{
+  "dragons": [
+    { "id": "fire_drake", "nameKo": "마그마 드레이크", "tier": "base", "elements": ["fire"], "role": "front", "stats": { "hp": 130, "atk": 8, "cooldownTicks": 20 }, "traitId": "tr_ember" },
+    { "id": "fire_wyvern", "nameKo": "화염 와이번", "tier": "base", "elements": ["fire"], "role": "back", "stats": { "hp": 80, "atk": 12, "cooldownTicks": 20 }, "traitId": "tr_ember" },
+    { "id": "beowulf_firedrake", "nameKo": "베오울프 화룡", "tier": "t2", "elements": ["fire"], "role": "front", "stats": { "hp": 286, "atk": 17, "cooldownTicks": 20 }, "traitId": "tr_ember" }
+  ],
+  "traits": [{ "id": "tr_ember", "nameKo": "불씨", "kind": "atkPct", "value": 10 }],
+  "recipes": [{ "a": "fire_drake", "b": "fire_drake", "result": "beowulf_firedrake" }],
+  "slot": { "weights": { "fire": 26, "ice": 26, "lightning": 26, "gold": 13, "wild": 9 }, "pityThreshold": 4, "nudgesPerWave": 1, "rerollCosts": [0, 2, 3, 4, 5, 6], "lineMana": 2, "goldMana": 1, "goldLineMana": 5, "wildLineMana": 3, "goldOfferMana": 3 },
+  "waves": { "maxWave": 10, "basePower": 100, "growthPct": 118, "bossPct": { "5": 165, "10": 180, "15": 195, "20": 230 }, "startLives": 5, "lossLife": 1, "bossLossLife": 2, "nestUnlockAfter": [5, 10, 15], "winMana": 5, "lossMana": 3, "startMana": 3, "releaseMana": { "base": 1, "t2": 2, "t1": 4, "dual": 4, "secret": 6 } },
+  "battle": { "ticksPerSecond": 20, "maxTicks": 1200, "strongPct": 135, "weakPct": 75, "absorbBonusPct": { "base": 12, "t2": 25, "t1": 40, "dual": 40, "secret": 60 }, "maxTraits": 2 }
+}
