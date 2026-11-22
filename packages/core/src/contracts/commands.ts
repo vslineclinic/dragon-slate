@@ -17,4 +17,5 @@ export type RejectReason =
   | 'emptySlot'
   | 'slotLocked'
   | 'nestEmpty'
-  | 'sameSlot';
+  | 'sameSlot'
+  | 'needDragon';

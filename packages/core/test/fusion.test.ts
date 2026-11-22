@@ -65,6 +65,12 @@ describe('fusion', () => {
     expect(r.trait).toBeNull();
   });
 
+  test('absorb does not copy main species own trait', () => {
+    const r = merge(data(), inst(1, 'fafnir'), inst(2, 'fafnir'), 9);
+    expect(r.trait).toBeNull();
+    expect(r.inst.traits).toEqual([]);
+  });
+
   test('evolve keeps main traits and resets bonus', () => {
     const r = merge(data(), inst(1, 'fire_drake', ['tr_icy'], 36), inst(2, 'fire_drake', ['tr_x'], 12), 7);
     expect(r.inst).toEqual({ uid: 7, speciesId: 'beowulf_firedrake', traits: ['tr_icy'], bonusPct: 0 });

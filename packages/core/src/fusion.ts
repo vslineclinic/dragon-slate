@@ -10,7 +10,8 @@ export function findRecipe(data: GameData, a: string, b: string): string | undef
 
 function absorbedTrait(data: GameData, main: DragonInst, material: DragonInst): string | null {
   const trait = data.dragons[material.speciesId]?.traitId ?? null;
-  if (trait === null || main.traits.includes(trait) || main.traits.length >= data.battle.maxTraits) return null;
+  const own = data.dragons[main.speciesId]?.traitId;
+  if (trait === null || trait === own || main.traits.includes(trait) || main.traits.length >= data.battle.maxTraits) return null;
   return trait;
 }
 

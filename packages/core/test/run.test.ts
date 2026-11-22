@@ -123,7 +123,7 @@ describe('run state machine', () => {
   });
 
   test('release gives mana by tier', () => {
-    const s: RunState = { ...fresh(), phase: 'manage', bench: [inst(1, 'fafnir'), null, null, null] };
+    const s: RunState = { ...fresh(), phase: 'manage', bench: [inst(1, 'fafnir'), inst(2, 'fire_drake'), null, null] };
     const r = run(s, { type: 'release', from: { zone: 'bench', index: 0 } });
     expect(r.state.mana).toBe(3 + 2);
     expect(r.state.bench[0]).toBeNull();
@@ -177,5 +177,44 @@ describe('run state machine', () => {
     for (const cmd of a.log) c = run(c, cmd).state;
     expect(stateHash(c)).toBe(stateHash(a));
     expect(a.log.length).toBeGreaterThan(10);
+  });
+
+  // 코덱스 검수(2026-11-23)에서 찾은 막힘·경계 상황
+  test('bench can be cleared during pick phase', () => {
+    const full = [inst(1, 'fire_drake'), inst(2, 'fire_wyvern'), inst(3, 'ice_drake'), inst(4, 'ice_wyvern')];
+    const s: RunState = { ...fresh(), phase: 'pick', grid: gridOf([[I, L, I], [F, I, L], [L, F, F]]), bench: full, nest: [inst(5, 'storm_drake'), null, null, null, null, null] };
+    const r = run(s, { type: 'release', from: { zone: 'bench', index: 0 } });
+    expect(rejected(r.events)).toBeUndefined();
+    expect(r.state.phase).toBe('pick');
+    expect(rejected(run(r.state, { type: 'pick', index: 0 }).events)).toBeUndefined();
+  });
+
+  test('mana pick rejected when it would leave no dragons', () => {
+    const s: RunState = { ...fresh(), phase: 'pick', grid: gridOf([[I, L, I], [F, 'gold', L], [L, F, F]]) };
+    expect(rejected(run(s, { type: 'pick', index: 1 }).events)).toEqual({ t: 'rejected', reason: 'needDragon' });
+  });
+
+  test('releasing the last dragon is rejected', () => {
+    const s: RunState = { ...fresh(), phase: 'manage', bench: [inst(1, 'fire_drake'), null, null, null] };
+    expect(rejected(run(s, { type: 'release', from: { zone: 'bench', index: 0 } }).events)).toEqual({ t: 'rejected', reason: 'needDragon' });
+  });
+
+  test('log keeps a copy of each command', () => {
+    const s = run(fresh(1), { type: 'spin' }).state;
+    const cmd: Command = { type: 'pick', index: 0 };
+    const r = run(s, cmd);
+    (cmd as { index: number }).index = 1;
+    expect(r.state.log[1]).toEqual({ type: 'pick', index: 0 });
+  });
+
+  test('fractional slot index rejected', () => {
+    const s: RunState = { ...fresh(), phase: 'manage', bench: [inst(1, 'fire_drake'), inst(2, 'fire_drake'), null, null] };
+    expect(rejected(run(s, { type: 'move', from: { zone: 'bench', index: 0 }, to: { zone: 'nest', index: 0.5 } }).events)).toEqual({ t: 'rejected', reason: 'emptySlot' });
+  });
+
+  test('losing the final boss with lives left retries the final wave', () => {
+    const s: RunState = { ...fresh(), wave: 10, phase: 'manage', nest: [inst(1, 'fire_wyvern'), null, null, null, null, null] };
+    const r = run(s, { type: 'startBattle' });
+    expect(r.state).toMatchObject({ wave: 10, phase: 'spin', lives: 3 });
   });
 });

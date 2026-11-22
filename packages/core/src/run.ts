@@ -52,10 +52,16 @@ function zoneOf(s: RunState, ref: SlotRef): (DragonInst | null)[] {
 
 function validRef(s: RunState, ref: SlotRef): RejectReason | null {
   const size = ref.zone === 'nest' ? NEST_SIZE : BENCH_SIZE;
-  if (ref.index < 0 || ref.index >= size) return 'emptySlot';
+  if (!Number.isInteger(ref.index) || ref.index < 0 || ref.index >= size) return 'emptySlot';
   if (ref.zone === 'nest' && ref.index >= s.nestOpen) return 'slotLocked';
   return null;
 }
+
+function dragonCount(s: RunState): number {
+  return s.nest.filter((n) => n !== null).length + s.bench.filter((b) => b !== null).length;
+}
+
+const ARRANGE_PHASES = ['manage', 'pick'];
 
 function sameRef(a: SlotRef, b: SlotRef): boolean {
   return a.zone === b.zone && a.index === b.index;
@@ -135,13 +141,14 @@ function doPick(data: GameData, s: RunState, index: number, rng: Rng, events: Ga
   for (let c = 0; c < 3; c++) for (const r of [0, 1, 2] as const) if (visible(s.grid, c, r).symbol === 'gold') gold++;
   addMana(s, gold * data.slot.goldMana, 'goldCells', events);
 
+  if (dragonCount(s) === 0) return 'needDragon';
   s.grid = null;
   s.phase = 'manage';
   return null;
 }
 
 function doMerge(data: GameData, s: RunState, main: SlotRef, material: SlotRef, events: GameEvent[]): RejectReason | null {
-  if (s.phase !== 'manage') return 'wrongPhase';
+  if (!ARRANGE_PHASES.includes(s.phase)) return 'wrongPhase';
   if (sameRef(main, material)) return 'sameSlot';
   const bad = validRef(s, main) ?? validRef(s, material);
   if (bad) return bad;
@@ -163,7 +170,7 @@ function doMerge(data: GameData, s: RunState, main: SlotRef, material: SlotRef, 
 }
 
 function doMove(s: RunState, from: SlotRef, to: SlotRef): RejectReason | null {
-  if (s.phase !== 'manage') return 'wrongPhase';
+  if (!ARRANGE_PHASES.includes(s.phase)) return 'wrongPhase';
   if (sameRef(from, to)) return 'sameSlot';
   const bad = validRef(s, from) ?? validRef(s, to);
   if (bad) return bad;
@@ -176,11 +183,12 @@ function doMove(s: RunState, from: SlotRef, to: SlotRef): RejectReason | null {
 }
 
 function doRelease(data: GameData, s: RunState, from: SlotRef, events: GameEvent[]): RejectReason | null {
-  if (s.phase !== 'manage') return 'wrongPhase';
+  if (!ARRANGE_PHASES.includes(s.phase)) return 'wrongPhase';
   const bad = validRef(s, from);
   if (bad) return bad;
   const a = zoneOf(s, from)[from.index];
   if (!a) return 'emptySlot';
+  if (dragonCount(s) <= 1) return 'needDragon';
   zoneOf(s, from)[from.index] = null;
   const tier = data.dragons[a.speciesId]?.tier ?? 'base';
   addMana(s, data.waves.releaseMana[tier] ?? 0, 'release', events);
@@ -244,6 +252,6 @@ export function applyCommand(data: GameData, state: RunState, cmd: Command): Res
   }
   if (reason) return { state, events: [{ t: 'rejected', reason }] };
   s.rngState = rng.state();
-  s.log.push(cmd);
+  s.log.push(structuredClone(cmd));
   return { state: s, events };
 }
