@@ -12,6 +12,7 @@ import { UI } from '../layout.ts';
 import { preloadDragons } from '../fx/sprites.ts';
 import { DexOverlay, type CodexEntry } from '../panels/DexOverlay.ts';
 import { showResult } from '../panels/ResultOverlay.ts';
+import { Tutorial } from '../panels/Tutorial.ts';
 import { loadUnlocked, nextUnlocked, saveUnlocked } from '../calamity-store.ts';
 
 export class GameScene extends Phaser.Scene {
@@ -29,6 +30,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private dex!: DexOverlay;
+  private tutorial!: Tutorial;
   private codex: CodexEntry[] = [];
 
   init(data: { ctl: GameController; codex?: CodexEntry[] }): void {
@@ -45,6 +47,7 @@ export class GameScene extends Phaser.Scene {
     this.hud = new Hud(this, this.ctl.data);
     this.hud.onBossInfo = (msg) => this.flash(msg);
     this.dex = new DexOverlay(this, this.ctl, this.codex);
+    this.tutorial = new Tutorial(this);
     button(this, 952, 0, 80, 44, '도감', () => (this.dex.isOpen() ? this.dex.close() : !this.ctl.busy && this.dex.open()), 0x2b3045);
     this.slot = new SlotPanel(this, this.ctl);
     this.nest = new NestPanel(this, this.ctl);
@@ -96,6 +99,7 @@ export class GameScene extends Phaser.Scene {
     this.slot.render(state, events);
     this.nest.render(state);
     this.battle.showIdle(state);
+    this.tutorial.update(state);
   }
 
   private rewardDetail(kind: string, amount: number, detail: string | null): string {
