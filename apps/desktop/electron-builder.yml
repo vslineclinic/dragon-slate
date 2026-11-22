@@ -1,0 +1,13 @@
+appId: com.wyrmslot.game
+productName: Wyrmslot
+directories:
+  output: release/
+files:
+  - dist/**
+  - apps/desktop/main.cjs
+  - package.json
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
