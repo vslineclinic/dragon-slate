@@ -69,7 +69,8 @@ test('first loss wave counted once per run', () => {
   expect(stats.gameOverWave).toEqual({ 2: 3 });
   expect(toMarkdown(stats)).toContain('2웨이브 0.00% (0/3)');
 
-  const unbeaten = simulate({ ...data, waves: { ...data.waves, maxWave: 1 } }, 3, 1);
+  // 적을 아주 약하게 해서 데이터와 상관없이 무패가 되게 한다
+  const unbeaten = simulate({ ...data, waves: { ...data.waves, maxWave: 1, basePower: 1 } }, 3, 1);
   expect(unbeaten.firstLossWave).toEqual({ none: 3 });
   expect(unbeaten.gameOverWave).toEqual({});
   expect(toMarkdown(unbeaten)).toContain('패배 없이 클리어 3판');
