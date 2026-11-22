@@ -9,11 +9,13 @@ import battle from '../../../data/battle.json';
 import rewards from '../../../data/rewards.json';
 import bosses from '../../../data/bosses.json';
 import codex from '../../../data/codex.json';
+import calamity from '../../../data/calamity.json';
+import { applyBuild } from './build.ts';
 import { GameController } from './controller.ts';
 import { GameScene } from './scenes/GameScene.ts';
 import { TitleScene } from './scenes/TitleScene.ts';
 
-const data = loadGameData({ dragons, traits, recipes, slot, waves, battle, rewards, bosses } as RawGameData);
+const data = applyBuild(loadGameData({ dragons, traits, recipes, slot, waves, battle, rewards, bosses, calamity } as RawGameData));
 const param = Number(new URLSearchParams(location.search).get('seed'));
 const seed = Number.isFinite(param) && param > 0 ? param : Date.now() % 1_000_000_007;
 const ctl = new GameController(data, seed);

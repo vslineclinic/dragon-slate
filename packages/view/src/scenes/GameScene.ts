@@ -12,6 +12,7 @@ import { UI } from '../layout.ts';
 import { preloadDragons } from '../fx/sprites.ts';
 import { DexOverlay, type CodexEntry } from '../panels/DexOverlay.ts';
 import { showResult } from '../panels/ResultOverlay.ts';
+import { loadUnlocked, nextUnlocked, saveUnlocked } from '../calamity-store.ts';
 
 export class GameScene extends Phaser.Scene {
   private ctl!: GameController;
@@ -148,6 +149,8 @@ export class GameScene extends Phaser.Scene {
   private result: Phaser.GameObjects.Container | null = null;
 
   private ending(state: RunState): void {
+    const maxLevel = Math.max(0, ...this.ctl.data.calamity.map((c) => c.level));
+    saveUnlocked(nextUnlocked(loadUnlocked(), state.phase, state.calamity, maxLevel));
     this.result?.destroy(true);
     this.result = showResult(
       this,

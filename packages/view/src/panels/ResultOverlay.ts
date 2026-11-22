@@ -5,6 +5,7 @@ import type { GameController } from '../controller.ts';
 import { dragonImage } from '../fx/sprites.ts';
 import { UI } from '../layout.ts';
 import { button, text } from '../ui.ts';
+import { IS_DEMO } from '../build.ts';
 
 /** 판 결과: 도달 웨이브, 이번 판 발견, 가장 강한 드래곤, 새 판·처음으로 */
 export function showResult(scene: Phaser.Scene, ctl: GameController, s: RunState, onNew: () => void, onTitle: () => void): Phaser.GameObjects.Container {
@@ -14,7 +15,8 @@ export function showResult(scene: Phaser.Scene, ctl: GameController, s: RunState
   root.add(scene.add.rectangle(290, 110, 700, 500, 0x1b1f2a).setOrigin(0).setStrokeStyle(2, UI.panelLine));
   const won = s.phase === 'victory';
   root.add(text(scene, 640, 160, won ? '클리어!' : '게임 오버', 44, won ? '#fff3bf' : '#ffa8a8').setOrigin(0.5));
-  root.add(text(scene, 640, 215, won ? d.waves.maxWave + '웨이브를 모두 버텼어요' : s.wave + '웨이브까지 버텼어요', 20, UI.text).setOrigin(0.5));
+  const sub = won && IS_DEMO ? '데모 클리어! 정식판에서는 20웨이브, 심판 보스 4종, 재앙 5단계가 기다려요.' : won ? d.waves.maxWave + '웨이브를 모두 버텼어요' : s.wave + '웨이브까지 버텼어요';
+  root.add(text(scene, 640, 215, sub, 18, UI.text).setOrigin(0.5).setWordWrapWidth(640).setAlign('center'));
   const owned = [...s.nest, ...s.bench].filter((x): x is NonNullable<typeof x> => x !== null);
   const best = owned.sort((a, b) => unitPower(toUnit(d, b)) - unitPower(toUnit(d, a)))[0];
   if (best) {
