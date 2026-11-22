@@ -99,16 +99,24 @@ function addMana(s: RunState, delta: number, reason: string, events: GameEvent[]
   events.push({ t: 'mana', delta, reason });
 }
 
-function doSpin(data: GameData, s: RunState, rng: Rng, events: GameEvent[]): RejectReason | null {
-  if (s.phase !== 'spin' && s.phase !== 'pick') return 'wrongPhase';
+/** 보상 무료 다시 돌리기를 쓰기 전의 비용 */
+function paidSpinCost(data: GameData, s: RunState): number {
   const costs = data.slot.rerollCosts;
   // 드래곤이 하나도 없으면 다시 돌리기는 무료(첫 판 막힘 방지)
-  let cost = dragonCount(s) === 0 ? 0 : (costs[Math.min(s.spinsThisWave, costs.length - 1)] ?? 0);
-  if (cost > 0) cost += calamityMods(data, s.calamity).rerollCostAdd;
-  if (cost > 0 && s.freeSpins > 0) {
-    s.freeSpins--;
-    cost = 0;
-  }
+  const base = dragonCount(s) === 0 ? 0 : (costs[Math.min(s.spinsThisWave, costs.length - 1)] ?? 0);
+  return base > 0 ? base + calamityMods(data, s.calamity).rerollCostAdd : 0;
+}
+
+/** 지금 돌리면 드는 마력. 화면·봇·규칙이 모두 이 함수를 쓴다. */
+export function spinCost(data: GameData, s: RunState): number {
+  const paid = paidSpinCost(data, s);
+  return paid > 0 && s.freeSpins > 0 ? 0 : paid;
+}
+
+function doSpin(data: GameData, s: RunState, rng: Rng, events: GameEvent[]): RejectReason | null {
+  if (s.phase !== 'spin' && s.phase !== 'pick') return 'wrongPhase';
+  const cost = spinCost(data, s);
+  if (cost === 0 && paidSpinCost(data, s) > 0) s.freeSpins--;
   if (s.mana < cost) return 'notEnoughMana';
   s.mana -= cost;
   const grid = spinGrid(data, rng, s.pity >= data.slot.pityThreshold);

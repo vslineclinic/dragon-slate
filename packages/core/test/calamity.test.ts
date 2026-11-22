@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { applyCommand, createRun, stateHash } from '../src/run.ts';
+import { applyCommand, createRun, spinCost, stateHash } from '../src/run.ts';
 import { calamityMods } from '../src/calamity.ts';
 import { loadGameData } from '../src/data.ts';
 import { enemyPower } from '../src/waves.ts';
@@ -44,6 +44,15 @@ describe('calamity levels', () => {
     expect(first.events).toContainEqual(expect.objectContaining({ t: 'spun', cost: 0 }));
     s = first.state;
     expect(applyCommand(data, s, { type: 'spin' }).events).toContainEqual(expect.objectContaining({ t: 'spun', cost: 3 }));
+  });
+
+  test('spinCost matches what spin charges', () => {
+    const base = { ...createRun(data, 5, 2).state, bench: [inst(1, 'fire_drake'), null, null, null], mana: 10 };
+    expect(spinCost(data, base)).toBe(0);
+    const after = applyCommand(data, base, { type: 'spin' }).state;
+    expect(spinCost(data, after)).toBe(3);
+    expect(spinCost(data, { ...after, freeSpins: 1 })).toBe(0);
+    expect(spinCost(data, { ...after, bench: [null, null, null, null] })).toBe(0);
   });
 
   test('win mana reduced at level 2', () => {

@@ -1,7 +1,6 @@
 import {
   evaluateLines, findRecipe, mergePreview, nudge, offersFrom, toUnit,
-  type Command, type DragonInst, type GameData, type Grid, type RunState, type SlotRef,
-} from '../../packages/core/src/index.ts';
+  type Command, type DragonInst, type GameData, type Grid, type RunState, type SlotRef, spinCost } from '../../packages/core/src/index.ts';
 
 const columns = [0, 1, 2] as const;
 const directions = [-1, 1] as const;
@@ -54,8 +53,7 @@ function choosePick(data: GameData, state: RunState, grid: Grid): Command {
   }
   if (bestNudge) return bestNudge;
 
-  const costs = data.slot.rerollCosts;
-  const cost = costs[Math.min(state.spinsThisWave, costs.length - 1)] ?? 0;
+  const cost = spinCost(data, state);
   if (state.mana >= Math.max(8, cost) && state.spinsThisWave === 1 && lines.length === 0) {
     return { type: 'spin' };
   }

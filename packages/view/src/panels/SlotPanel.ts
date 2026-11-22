@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { bestNudge, evaluateLines, lineRewards, LINES, nudge, offersFrom, recommendOffer } from '../../../core/src/index.ts';
+import { bestNudge, evaluateLines, lineRewards, LINES, nudge, offersFrom, recommendOffer, spinCost } from '../../../core/src/index.ts';
 import type { GameEvent, Grid, RunState } from '../../../core/src/index.ts';
 import type { GameController } from '../controller.ts';
 import { AREA, COLOR, ELEMENT_KO, SYMBOL_LABEL, TIER_KO, UI } from '../layout.ts';
@@ -48,7 +48,7 @@ export class SlotPanel {
     const costs = this.ctl.data.slot.rerollCosts;
     const owned = s.nest.some((n) => n) || s.bench.some((b) => b);
     const base = owned ? (costs[Math.min(s.spinsThisWave, costs.length - 1)] ?? 0) : 0;
-    const cost = base > 0 && s.freeSpins > 0 ? 0 : base;
+    const cost = spinCost(this.ctl.data, s);
     const canSpin = (s.phase === 'spin' || s.phase === 'pick') && s.mana >= cost;
     const price = cost === 0 ? (base > 0 ? '보상 무료 ' + s.freeSpins + '회' : '무료') : '마력 ' + cost;
     this.spinBtn.setLabel((s.phase === 'pick' ? '다시 돌리기' : '룬 석판 돌리기') + ' (' + price + ')');
