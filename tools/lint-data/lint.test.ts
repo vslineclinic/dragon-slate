@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import type { RawGameData } from '../../packages/core/src/contracts/types.ts';
+import { ELEMENTS, type Element, type RawGameData } from '../../packages/core/src/contracts/types.ts';
 import { loadGameData } from '../../packages/core/src/data.ts';
 import battle from '../../data/battle.json' with { type: 'json' };
 import codex from '../../data/codex.json' with { type: 'json' };
@@ -19,9 +19,20 @@ const realData = { dragons, traits, recipes, slot, waves, battle } as RawGameDat
 test('real data passes', () => {
   expect(lintData(realData)).toEqual([]);
   const gameData = loadGameData(realData);
-  expect(Object.keys(gameData.dragons)).toHaveLength(22);
-  expect(Object.keys(gameData.traits)).toHaveLength(22);
-  expect(gameData.recipes).toHaveLength(42);
+  expect(Object.keys(gameData.dragons)).toHaveLength(52);
+  expect(Object.keys(gameData.traits)).toHaveLength(52);
+  expect(gameData.recipes).toHaveLength(165);
+});
+
+test('every element pair has one dual result with nine recipes', () => {
+  const duals = realData.dragons.filter(({ tier }) => tier === 'dual');
+  for (const [index, first] of ELEMENTS.entries()) {
+    for (const second of ELEMENTS.slice(index + 1)) {
+      const pair = duals.filter(({ elements }) => elements[0] === first && elements[1] === second);
+      expect(pair).toHaveLength(1);
+      expect(realData.recipes.filter(({ result }) => result === pair[0]!.id)).toHaveLength(9);
+    }
+  }
 });
 
 test('codex covers every dragon', () => {
@@ -74,6 +85,24 @@ test('detects unreachable species', () => {
 test('detects cross-element t2 recipe', () => {
   expect(lintData({ ...realData, recipes: [...recipes, crossElementRecipe] })).toEqual([
     'recipe fire_drake+ice_wyvern -> beowulf_firedrake: element mismatch for t2 result',
+  ]);
+});
+
+test('rejects base dragons as ingredients for a dual result', () => {
+  const recipe = { a: 'poison_drake', b: 'steel_drake', result: 'corrosion_dragon' };
+  expect(lintData({ ...realData, recipes: [...recipes, recipe] })).toEqual([
+    "recipe poison_drake+steel_drake -> corrosion_dragon: expected two tier 2 dragons matching the dual result's elements",
+  ]);
+});
+
+test('rejects unknown dragon elements and slot symbols', () => {
+  const raw = structuredClone(realData);
+  raw.dragons.find(({ id }) => id === 'tiamat')!.elements.push('water' as Element);
+  Object.assign(raw.slot.weights, { water: 1 });
+
+  expect(lintData(raw)).toEqual([
+    'dragon tiamat: unknown element water',
+    'slot weight: unknown symbol water',
   ]);
 });
 
