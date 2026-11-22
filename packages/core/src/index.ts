@@ -6,3 +6,4 @@ export * from './data.ts';
 export * from './slot.ts';
 export * from './fusion.ts';
 export * from './battle.ts';
+export * from './waves.ts';
