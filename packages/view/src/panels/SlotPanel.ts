@@ -69,7 +69,13 @@ export class SlotPanel {
     if (s.phase === 'spin') return '같은 그림 3개가 한 줄(가로·세로·대각)이면 보너스 알과 마력을 더 받아요. 드래곤이 빨리 모일수록 합체가 빨라져요.';
     if (s.phase !== 'pick' || !s.grid) return '';
     const now = lineRewards(d, s.grid);
-    if (now.lines > 0) return '줄 맞춤 ' + now.lines + '줄! 알을 고르면 보너스도 함께 받아요: ' + describe(now);
+    if (now.lines > 0) {
+      const usesWild = evaluateLines(s.grid).some((g) => g.lines.some((li) => (LINES[li] ?? []).some(([c, r]) => {
+        const reel = s.grid!.reels[c];
+        return reel?.[1 + (s.grid!.offsets[c] ?? 0) + r]?.symbol === 'wild';
+      })));
+      return '줄 맞춤 ' + now.lines + '줄 (점으로 연결)! 보너스: ' + describe(now) + (usesWild ? '\n보라 여의주(만능)는 어떤 그림으로도 쳐요.' : '');
+    }
     const reco = bestNudge(s.grid, s.nudgesLeft);
     if (reco) {
       const after = lineRewards(d, nudge(s.grid, reco.col, reco.dir));
@@ -114,11 +120,18 @@ export class SlotPanel {
         const { x, y } = this.cellXY(c, r);
         const egg = drawEgg(this.scene, x, y, CELL, CELL, cell.symbol);
         this.layer.add(egg);
-        if (hitCells.has(c + ',' + r)) {
-          const ring = this.scene.add.rectangle(x - 2, y - 2, CELL + 4, CELL + 4).setOrigin(0).setStrokeStyle(4, 0xfff3bf, 1);
-          this.layer.add(ring);
-          this.scene.time.delayedCall(animate ? dur * 2.3 : 0, () => egg.active && pulse(egg));
+        if (cell.symbol === 'wild' || cell.symbol === 'gold') {
+          const tag = text(this.scene, x + CELL / 2, y + CELL - 9, cell.symbol === 'wild' ? '만능' : '마력', 11, '#ffffff')
+            .setOrigin(0.5)
+            .setBackgroundColor('#000000aa')
+            .setPadding(3, 0, 3, 0);
+          this.layer.add(tag);
+          if (animate) {
+            tag.setAlpha(0);
+            this.scene.time.delayedCall(dur * 2.3, () => tag.active && tag.setAlpha(1));
+          }
         }
+        if (hitCells.has(c + ',' + r)) this.scene.time.delayedCall(animate ? dur * 2.3 : 0, () => egg.active && pulse(egg));
         if (animate) {
           egg.setScale(1, 0.1);
           egg.y = y + CELL / 2;
@@ -134,6 +147,30 @@ export class SlotPanel {
         if (below && off < 1) this.nudgeTab(c, 1, below.symbol, reco?.col === c && reco.dir === 1);
       }
     }
+    // 맞은 줄을 실제 선으로 긋는다(원소색). 여의주가 끼어 있어도 어느 줄인지 보이게.
+    const strokes = this.scene.add.graphics();
+    for (const g of evaluateLines(grid)) {
+      const color = COLOR[g.element];
+      for (const li of g.lines) {
+        const cells = LINES[li] ?? [];
+        const pts = cells.map(([cc, rr]) => {
+          const p = this.cellXY(cc, rr);
+          return { x: p.x + CELL / 2, y: p.y + CELL / 2 };
+        });
+        for (let k = 0; k < pts.length - 1; k++) {
+          const p1 = pts[k]!, p2 = pts[k + 1]!;
+          strokes.lineStyle(8, 0xffffff, 0.95).lineBetween(p1.x, p1.y, p2.x, p2.y);
+          strokes.lineStyle(4, color, 1).lineBetween(p1.x, p1.y, p2.x, p2.y);
+        }
+        for (const p of pts) {
+          strokes.fillStyle(0xffffff, 1).fillCircle(p.x, p.y, 10);
+          strokes.fillStyle(color, 1).fillCircle(p.x, p.y, 7);
+        }
+      }
+    }
+    strokes.setAlpha(animate ? 0 : 0.9);
+    this.layer.add(strokes);
+    if (animate) this.scene.time.delayedCall(dur * 2.3, () => strokes.active && this.scene.tweens.add({ targets: strokes, alpha: 0.9, duration: 200 }));
     if (animate) this.scene.time.delayedCall(dur * 2.3, () => (this.ctl.busy = false));
   }
 
