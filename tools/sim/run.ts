@@ -28,7 +28,7 @@ function ratio(numerator: number, denominator: number): number {
   return denominator === 0 ? 0 : numerator / denominator;
 }
 
-export function simulate(data: GameData, runs: number, seed: number): SimStats {
+export function simulate(data: GameData, runs: number, seed: number, calamity = 0): SimStats {
   if (!Number.isSafeInteger(runs) || runs < 0 || !Number.isSafeInteger(seed)
     || !Number.isSafeInteger(seed + Math.max(0, runs - 1))) {
     throw new RangeError('Expected a nonnegative integer run count and safe integer seeds');
@@ -54,7 +54,7 @@ export function simulate(data: GameData, runs: number, seed: number): SimStats {
 
   for (let i = 0; i < runs; i++) {
     const runSeed = seed + i;
-    let { state } = createRun(data, runSeed);
+    let { state } = createRun(data, runSeed, calamity);
     let firstLoss: number | undefined;
     let previousBattleWave: number | undefined;
     let firstTier1: number | undefined;
@@ -166,22 +166,29 @@ export function loadSimulationData(): GameData {
     battle: readData('battle'),
     rewards: readData('rewards'),
     bosses: readData('bosses'),
+    calamity: readData('calamity'),
   });
 }
 
 function main(args: string[]): void {
   let runs = 10000;
   let seed = 1;
+  let calamity = 0;
+  let maxWave = 0;
   for (let i = 0; i < args.length; i += 2) {
     const option = args[i];
     const value = args[i + 1];
-    if ((option !== '--runs' && option !== '--seed') || !value || !/^-?\d+$/.test(value)) {
-      throw new Error('Usage: node tools/sim/run.ts --runs 10000 --seed 1');
+    if (!['--runs', '--seed', '--calamity', '--max-wave'].includes(option ?? '') || !value || !/^-?\d+$/.test(value)) {
+      throw new Error('Usage: node tools/sim/run.ts --runs 10000 --seed 1 [--calamity 0] [--max-wave 10]');
     }
     if (option === '--runs') runs = Number(value);
-    else seed = Number(value);
+    else if (option === '--seed') seed = Number(value);
+    else if (option === '--calamity') calamity = Number(value);
+    else maxWave = Number(value);
   }
-  const markdown = toMarkdown(simulate(loadSimulationData(), runs, seed));
+  const data = loadSimulationData();
+  if (maxWave > 0) data.waves = { ...data.waves, maxWave };
+  const markdown = toMarkdown(simulate(data, runs, seed, calamity));
   mkdirSync(new URL('../../docs/balance/', import.meta.url), { recursive: true });
   writeFileSync(new URL('../../docs/balance/latest.md', import.meta.url), markdown);
   process.stdout.write(markdown);

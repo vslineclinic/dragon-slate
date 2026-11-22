@@ -6,6 +6,7 @@ import { merge } from './fusion.ts';
 import { createRng, type Rng } from './rng.ts';
 import { evaluateLines, nudge, offersFrom, spinGrid, visible } from './slot.ts';
 import { bossElement, generateEnemies, isBoss } from './waves.ts';
+import { calamityMods } from './calamity.ts';
 
 const NEST_SIZE = 6;
 const BENCH_SIZE = 4;
@@ -24,13 +25,15 @@ function bossPreview(data: GameData, seed: number, wave: number): Element | null
   return isBoss(data.waves, wave + 4) ? bossElement(seed, wave + 4) : null;
 }
 
-export function createRun(data: GameData, seed: number): Result {
+export function createRun(data: GameData, seed: number, calamity = 0): Result {
+  const mods = calamityMods(data, calamity);
   const state: RunState = {
     seed: seed >>> 0,
     rngState: seed >>> 0,
+    calamity,
     wave: 1,
     phase: 'spin',
-    lives: data.waves.startLives,
+    lives: Math.max(1, data.waves.startLives + mods.startLivesAdd),
     mana: data.waves.startMana,
     nest: new Array<DragonInst | null>(NEST_SIZE).fill(null),
     nestOpen: START_NEST_OPEN,
@@ -101,6 +104,7 @@ function doSpin(data: GameData, s: RunState, rng: Rng, events: GameEvent[]): Rej
   const costs = data.slot.rerollCosts;
   // 드래곤이 하나도 없으면 다시 돌리기는 무료(첫 판 막힘 방지)
   let cost = dragonCount(s) === 0 ? 0 : (costs[Math.min(s.spinsThisWave, costs.length - 1)] ?? 0);
+  if (cost > 0) cost += calamityMods(data, s.calamity).rerollCostAdd;
   if (cost > 0 && s.freeSpins > 0) {
     s.freeSpins--;
     cost = 0;
@@ -246,13 +250,14 @@ function doBattle(data: GameData, s: RunState, rng: Rng, events: GameEvent[]): R
   if (s.phase !== 'manage') return 'wrongPhase';
   if (!s.nest.some((n, i) => n !== null && i < s.nestOpen)) return 'nestEmpty';
   const allies = s.nest.map((n, i) => (n && i < s.nestOpen ? toUnit(data, n) : null));
-  const enemies = generateEnemies(data, s.wave, rng, s.seed);
+  const mods = calamityMods(data, s.calamity);
+  const enemies = generateEnemies(data, s.wave, rng, s.seed, mods);
   const rules = isBoss(data.waves, s.wave) ? data.bosses.find((b) => b.wave === s.wave)?.rules : undefined;
   const result = simulateBattle(data.battle, allies, enemies, rules);
   events.push({ t: 'battle', result });
   const won = result.winner === 'ally';
   if (won) {
-    addMana(s, data.waves.winMana, 'win', events);
+    addMana(s, Math.floor((data.waves.winMana * (100 + mods.winManaPct)) / 100), 'win', events);
     if (s.wave < data.waves.maxWave) grantReward(data, s, rng, isBoss(data.waves, s.wave), events);
   }
   else {

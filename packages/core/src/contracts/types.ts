@@ -21,6 +21,8 @@ export interface BossRules {
   pulse?: { everyTicks: number; pct: number };
 }
 export interface BossSpec { wave: number; nameKo: string; descKo: string; hintKo: string; rules: BossRules }
+/** 재앙 단계 수정치. 고른 단계까지 누적 적용 */
+export interface CalamitySpec { level: number; nameKo: string; descKo: string; enemyPowerPct?: number; bossPowerPct?: number; winManaPct?: number; rerollCostAdd?: number; startLivesAdd?: number }
 export type RewardKind = 'mana' | 'egg' | 't2egg' | 'trait' | 'nudge' | 'freeSpin' | 'life';
 /** 웨이브 승리 보상. weight는 일반 웨이브, bossWeight는 심판 보스 웨이브 확률 가중치 */
 export interface RewardSpec { id: string; nameKo: string; kind: RewardKind; amount: number; weight: number; bossWeight: number }
@@ -70,6 +72,7 @@ export interface GameData {
   battle: BattleConfig;
   rewards: RewardSpec[];
   bosses: BossSpec[];
+  calamity: CalamitySpec[];
 }
 
 export interface RawGameData {
@@ -81,6 +84,7 @@ export interface RawGameData {
   battle: BattleConfig;
   rewards?: RewardSpec[];
   bosses?: BossSpec[];
+  calamity?: CalamitySpec[];
 }
 
 export interface DragonInst { uid: number; speciesId: string; traits: string[]; bonusPct: number }
@@ -98,6 +102,8 @@ export type Phase = 'spin' | 'pick' | 'manage' | 'battle' | 'gameOver' | 'victor
 export interface RunState {
   seed: number;
   rngState: number;
+  /** 재앙 단계(0 = 없음) */
+  calamity: number;
   wave: number;
   phase: Phase;
   lives: number;

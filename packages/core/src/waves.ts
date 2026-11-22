@@ -1,6 +1,7 @@
 import type { Unit } from './contracts/events.ts';
 import type { DragonSpec, Element, GameData, WaveConfig } from './contracts/types.ts';
 import { createRng, type Rng } from './rng.ts';
+import { NO_CALAMITY, type CalamityMods } from './calamity.ts';
 
 const ELEMENTS: readonly Element[] = ['fire', 'ice', 'lightning'];
 
@@ -9,10 +10,12 @@ export function isBoss(cfg: WaveConfig, wave: number): boolean {
 }
 
 /** 정수 반복 곱으로 계산(플랫폼마다 같은 값) */
-export function enemyPower(cfg: WaveConfig, wave: number): number {
+export function enemyPower(cfg: WaveConfig, wave: number, mods: CalamityMods = NO_CALAMITY): number {
   let p = cfg.basePower;
   for (let w = 2; w <= wave; w++) p = Math.floor((p * cfg.growthPct) / 100);
   if (isBoss(cfg, wave)) p = Math.floor((p * (cfg.bossPct[String(wave)] as number)) / 100);
+  if (mods.enemyPowerPct) p = Math.floor((p * (100 + mods.enemyPowerPct)) / 100);
+  if (mods.bossPowerPct && isBoss(cfg, wave)) p = Math.floor((p * (100 + mods.bossPowerPct)) / 100);
   return p;
 }
 
@@ -33,7 +36,7 @@ function sortedSpecs(data: GameData, pred: (d: DragonSpec) => boolean): DragonSp
   return Object.values(data.dragons).filter(pred).sort((a, b) => (a.id < b.id ? -1 : 1));
 }
 
-export function generateEnemies(data: GameData, wave: number, rng: Rng, seed: number): Unit[] {
+export function generateEnemies(data: GameData, wave: number, rng: Rng, seed: number, mods: CalamityMods = NO_CALAMITY): Unit[] {
   const count = Math.min(1 + Math.floor(wave / 2), 6);
   const pool = sortedSpecs(data, (d) => d.tier === 'base' || (wave > 5 && d.tier === 't2'));
   const units: Unit[] = [];
@@ -43,7 +46,7 @@ export function generateEnemies(data: GameData, wave: number, rng: Rng, seed: nu
     if (boss) units.push(specUnit(boss));
   }
   while (units.length < count) units.push(specUnit(pool[rng.nextInt(pool.length)] as DragonSpec));
-  const target = enemyPower(data.waves, wave);
+  const target = enemyPower(data.waves, wave, mods);
   const sum = units.reduce((s, u) => s + unitPower(u), 0);
   const k = Math.max(50, Math.floor((target * 100) / sum));
   return units.map((u) => ({ ...u, hp: Math.floor((u.hp * k) / 100), atk: Math.max(1, Math.floor((u.atk * k) / 100)) }));

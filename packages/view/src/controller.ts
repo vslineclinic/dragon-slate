@@ -15,8 +15,8 @@ export class GameController {
     this.state = createRun(data, seed).state;
   }
 
-  restart(seed: number): void {
-    const r = createRun(this.data, seed);
+  restart(seed: number, calamity = this.state.calamity): void {
+    const r = createRun(this.data, seed, calamity);
     this.state = r.state;
     this.busy = false;
     this.emit(r.events);

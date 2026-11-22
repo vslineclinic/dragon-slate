@@ -1,0 +1,7 @@
+[
+  { "level": 1, "nameKo": "재앙 1단계", "descKo": "적 전투력 +15%", "enemyPowerPct": 15 },
+  { "level": 2, "nameKo": "재앙 2단계", "descKo": "승리 마력 −20%, 다시 돌리기 비용 +1", "winManaPct": -20, "rerollCostAdd": 1 },
+  { "level": 3, "nameKo": "재앙 3단계", "descKo": "심판 보스 전투력 +25%", "bossPowerPct": 25 },
+  { "level": 4, "nameKo": "재앙 4단계", "descKo": "적 전투력 +15% 추가", "enemyPowerPct": 15 },
+  { "level": 5, "nameKo": "재앙 5단계", "descKo": "시작 생명 −1", "startLivesAdd": -1 }
+]
