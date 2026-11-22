@@ -4,3 +4,4 @@ export * from './contracts/events.ts';
 export * from './rng.ts';
 export * from './data.ts';
 export * from './slot.ts';
+export * from './fusion.ts';
