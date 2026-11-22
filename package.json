@@ -13,7 +13,10 @@
     "build:demo": "vite build --mode demo --outDir ../../dist-demo",
     "desktop": "vite build && electron .",
     "desktop:pack": "vite build && electron-builder --config apps/desktop/electron-builder.yml",
-    "desktop:pack:demo": "vite build --mode demo --outDir ../../dist-demo && electron-builder --config apps/desktop/electron-builder-demo.yml"
+    "desktop:pack:demo": "vite build --mode demo --outDir ../../dist-demo && electron-builder --config apps/desktop/electron-builder-demo.yml",
+    "postinstall": "node -e \"require('fs').writeFileSync('node_modules/.gdignore','')\"",
+    "parity": "node tools/parity/gen.ts",
+    "godot:test": "C:/claude/tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://godot/tests/run_tests.gd"
   },
   "license": "UNLICENSED",
   "type": "module",
