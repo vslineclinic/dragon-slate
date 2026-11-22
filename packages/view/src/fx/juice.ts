@@ -2,10 +2,10 @@ import Phaser from 'phaser';
 import { UI } from '../layout.ts';
 
 /** 흰색 번쩍임 */
-export function hitFlash(target: Phaser.GameObjects.Rectangle, ms = 80): void {
-  const original = target.fillColor;
+export function hitFlash(target: Phaser.GameObjects.Rectangle, ms = 80, base = 0x1e2230): void {
+  // 겹친 번쩍임이 서로의 색을 '원래 색'으로 저장하지 않도록 고정 바탕색으로 되돌린다
   target.setFillStyle(0xffffff);
-  target.scene.time.delayedCall(ms, () => target.active && target.setFillStyle(original));
+  target.scene.time.delayedCall(ms, () => target.active && target.setFillStyle(base));
 }
 
 /** 위로 튀어 오르며 사라지는 숫자. strong이면 크게 */

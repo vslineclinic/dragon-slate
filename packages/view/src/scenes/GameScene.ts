@@ -58,6 +58,8 @@ export class GameScene extends Phaser.Scene {
     for (const e of events) {
       if (e.t === 'rejected') this.flash(REJECT_KO[e.reason] ?? '할 수 없어요');
       if (e.t === 'evolved' && markDiscovered(e.inst.speciesId)) this.discover(this.ctl.data.dragons[e.inst.speciesId]?.nameKo ?? e.inst.speciesId);
+      // 알·보상으로 얻은 드래곤도 도감에 기록(축하 연출은 합체로 처음 만들 때만)
+      if (e.t === 'gained') markDiscovered(e.inst.speciesId);
     }
     const bonus = events.filter((e) => e.t === 'gained' && e.via === 'bonus');
     const lineMana = events.reduce((n, e) => n + (e.t === 'mana' && ['line', 'goldLine', 'wildLine', 'goldCells', 'benchFull'].includes(e.reason) ? e.delta : 0), 0);

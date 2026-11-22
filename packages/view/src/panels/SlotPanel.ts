@@ -182,14 +182,17 @@ export class SlotPanel {
     this.layer.add(strokes);
     if (animate) this.scene.time.delayedCall(dur * 2.3, () => strokes.active && this.scene.tweens.add({ targets: strokes, alpha: 0.9, duration: 200 }));
     if (animate) {
-      this.scene.time.delayedCall(dur * 2.3, () => (this.ctl.busy = false));
-      // 연출 중 석판을 누르면 바로 결과로
+      // 연출 중에만 석판을 누르면 바로 결과로. 연출이 끝나면 이 영역을 없애 밀기 버튼을 가리지 않게 한다.
       const top = this.cellXY(0, 0);
       const skip = this.scene.add.rectangle(top.x - 10, top.y - 50, 3 * (CELL + GAP) + 20, 3 * (CELL + GAP) + 100, 0x000000, 0.001).setOrigin(0).setInteractive();
-      skip.on('pointerdown', () => {
-        if (!this.last) return;
-        this.render(this.last, []);
+      const done = this.scene.time.delayedCall(dur * 2.3, () => {
         this.ctl.busy = false;
+        if (skip.active) skip.destroy();
+      });
+      skip.on('pointerdown', () => {
+        done.remove(false);
+        this.ctl.busy = false;
+        if (this.last) this.render(this.last, []);
       });
       this.layer.add(skip);
     }
