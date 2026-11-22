@@ -29,6 +29,21 @@ export function drawMark(g: Phaser.GameObjects.Graphics, sym: SymbolId, cx: numb
       ([x, y]) => new Phaser.Math.Vector2(cx + x! * u, cy + y! * u),
     );
     g.fillPoints(pts, true);
+  } else if (sym === 'poison') {
+    // 독: 물방울 + 작은 거품
+    const pts = [[0, -1], [0.45, -0.1], [0.6, 0.35], [0.4, 0.8], [0, 0.95], [-0.4, 0.8], [-0.6, 0.35], [-0.45, -0.1]].map(
+      ([x, y]) => new Phaser.Math.Vector2(cx + x! * u, cy + y! * u),
+    );
+    g.fillPoints(pts, true);
+    g.fillCircle(cx + u * 0.75, cy - u * 0.55, u * 0.16);
+  } else if (sym === 'steel') {
+    // 강철: 방패
+    const pts = [[-0.75, -0.8], [0.75, -0.8], [0.7, 0.15], [0, 0.95], [-0.7, 0.15]].map(([x, y]) => new Phaser.Math.Vector2(cx + x! * u, cy + y! * u));
+    g.fillPoints(pts, true);
+  } else if (sym === 'abyss') {
+    // 심연: 고리 + 눈동자
+    g.strokeCircle(cx, cy, u * 0.78);
+    g.fillEllipse(cx, cy, u * 0.5, u * 0.9);
   } else if (sym === 'gold') {
     g.fillStyle(0xfff3bf, 1);
     g.fillEllipse(cx, cy, s * 0.62, s * 0.8);
