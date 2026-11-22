@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { Element, GameData, RunState } from '../../../core/src/index.ts';
+import type { BossSpec, Element, GameData, RunState } from '../../../core/src/index.ts';
 import { AREA, ELEMENT_KO, UI } from '../layout.ts';
 import { settings, type Speed } from '../settings.ts';
 import { button, text, type Button } from '../ui.ts';
@@ -11,7 +11,8 @@ export class Hud {
   private boss: Phaser.GameObjects.Text;
   private speedBtns: { s: Speed; b: Button }[] = [];
   private data: GameData;
-  private preview: { wave: number; el: Element } | null = null;
+  private preview: { wave: number; el: Element; spec: BossSpec | null } | null = null;
+  onBossInfo: (msg: string) => void = () => undefined;
 
   constructor(scene: Phaser.Scene, data: GameData) {
     this.data = data;
@@ -20,7 +21,11 @@ export class Hud {
     this.wave = text(scene, 16, 10, '', 20);
     this.lives = text(scene, 180, 10, '', 20, '#ff8787');
     this.mana = text(scene, 340, 10, '', 20, '#b197fc');
-    this.boss = text(scene, 500, 12, '', 17, UI.dim);
+    this.boss = text(scene, 470, 12, '', 16, '#ffc078');
+    this.boss.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
+      const p = this.preview?.spec;
+      if (p) this.onBossInfo(p.nameKo + '\n' + p.descKo + '\n대응: ' + p.hintKo);
+    });
     ([1, 2, 4] as Speed[]).forEach((s, i) => {
       const b = button(scene, 1040 + i * 78, 0, 70, 44, s + 'x', () => {
         settings.setSpeed(s);
@@ -31,8 +36,8 @@ export class Hud {
     this.refreshSpeed();
   }
 
-  setBossPreview(wave: number, el: Element | null): void {
-    if (el) this.preview = { wave: wave + 4, el };
+  setBossPreview(wave: number, el: Element | null, spec: BossSpec | null = null): void {
+    if (el) this.preview = { wave: wave + 4, el, spec };
     else if (this.preview && wave > this.preview.wave) this.preview = null;
   }
 
@@ -40,7 +45,8 @@ export class Hud {
     this.wave.setText('웨이브 ' + s.wave + ' / ' + this.data.waves.maxWave);
     this.lives.setText('생명 ' + '♥'.repeat(Math.max(0, s.lives)));
     this.mana.setText('마력 ' + s.mana);
-    this.boss.setText(this.preview ? this.preview.wave + '웨이브 보스: ' + ELEMENT_KO[this.preview.el] + ' 원소' : '');
+    const p = this.preview;
+    this.boss.setText(p ? p.wave + '웨이브 보스: ' + (p.spec ? p.spec.nameKo + ' · ' : '') + ELEMENT_KO[p.el] + ' 원소' + (p.spec ? '  (눌러서 보기)' : '') : '');
   }
 
   private refreshSpeed(): void {

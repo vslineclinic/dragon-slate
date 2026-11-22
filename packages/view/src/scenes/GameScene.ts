@@ -36,6 +36,7 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.battle = new BattlePanel(this, this.ctl.data);
     this.hud = new Hud(this, this.ctl.data);
+    this.hud.onBossInfo = (msg) => this.flash(msg);
     this.slot = new SlotPanel(this, this.ctl);
     this.nest = new NestPanel(this, this.ctl);
     this.banner = text(this, 640, 170, '', 40, '#fff3bf').setOrigin(0.5).setAlign('center').setDepth(60).setStroke('#5f3dc4', 8).setAlpha(0);
@@ -71,7 +72,11 @@ export class GameScene extends Phaser.Scene {
       if (reward && reward.t === 'reward') await this.showReward(reward.reward.nameKo, this.rewardDetail(reward.reward.kind, reward.reward.amount, reward.detail));
       this.ctl.busy = false;
     }
-    for (const e of events) if (e.t === 'waveStart') this.hud.setBossPreview(e.wave, e.bossPreview);
+    for (const e of events) {
+      if (e.t !== 'waveStart') continue;
+      this.hud.setBossPreview(e.wave, e.bossPreview, e.boss);
+      if (e.boss) this.flash('예보: ' + (e.wave + 4) + '웨이브에 「' + e.boss.nameKo + '」\n' + e.boss.hintKo);
+    }
     if (events.some((e) => e.t === 'waveStart' && e.wave === 1 && state.log.length === 0)) this.endBtn.root.setVisible(false);
     this.render(state, events);
     if (state.phase === 'gameOver') this.ending('게임 오버\n웨이브 ' + state.wave + '까지');
