@@ -7,10 +7,11 @@ import { NestPanel } from '../panels/NestPanel.ts';
 import { BattlePanel } from '../panels/BattlePanel.ts';
 import { markDiscovered } from '../codex-store.ts';
 import { pulse } from '../fx/juice.ts';
-import { button, text, type Button } from '../ui.ts';
+import { button, text } from '../ui.ts';
 import { UI } from '../layout.ts';
 import { preloadDragons } from '../fx/sprites.ts';
 import { DexOverlay, type CodexEntry } from '../panels/DexOverlay.ts';
+import { showResult } from '../panels/ResultOverlay.ts';
 
 export class GameScene extends Phaser.Scene {
   private ctl!: GameController;
@@ -20,7 +21,7 @@ export class GameScene extends Phaser.Scene {
   private battle!: BattlePanel;
   private banner!: Phaser.GameObjects.Text;
   private toast!: Phaser.GameObjects.Text;
-  private endBtn!: Button;
+
 
   constructor() {
     super('game');
@@ -48,9 +49,8 @@ export class GameScene extends Phaser.Scene {
     this.nest = new NestPanel(this, this.ctl);
     this.banner = text(this, 640, 170, '', 40, '#fff3bf').setOrigin(0.5).setAlign('center').setDepth(60).setStroke('#5f3dc4', 8).setAlpha(0);
     this.toast = text(this, 640, 250, '', 22, '#ffd8a8').setOrigin(0.5).setAlign('center').setDepth(50).setBackgroundColor('#000000aa').setPadding(10, 6, 10, 6).setAlpha(0);
-    this.endBtn = button(this, 540, 230, 200, 56, '새 판 시작', () => this.ctl.restart((this.ctl.state.seed * 7 + 13) % 1_000_000_007), 0x2f9e44);
-    this.endBtn.root.setDepth(61).setVisible(false);
-    this.ctl.on((events, state) => void this.onChange(events, state));
+    const off = this.ctl.on((events, state) => void this.onChange(events, state));
+    this.events.once('shutdown', off);
     this.ctl.restart(this.ctl.state.seed);
   }
 
@@ -84,10 +84,8 @@ export class GameScene extends Phaser.Scene {
       this.hud.setBossPreview(e.wave, e.bossPreview, e.boss);
       if (e.boss) this.flash('예보: ' + (e.wave + 4) + '웨이브에 「' + e.boss.nameKo + '」\n' + e.boss.hintKo);
     }
-    if (events.some((e) => e.t === 'waveStart' && e.wave === 1 && state.log.length === 0)) this.endBtn.root.setVisible(false);
     this.render(state, events);
-    if (state.phase === 'gameOver') this.ending('게임 오버\n웨이브 ' + state.wave + '까지');
-    if (state.phase === 'victory') this.ending('클리어!\n발견 ' + state.discovered.length + '종');
+    if (state.phase === 'gameOver' || state.phase === 'victory') this.ending(state);
   }
 
   private render(state: RunState, events: GameEvent[]): void {
@@ -145,10 +143,21 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 900, duration: 300 });
   }
 
-  private ending(msg: string): void {
-    this.tweens.killTweensOf(this.banner);
-    this.banner.setText(msg).setAlpha(1).setScale(1);
-    this.endBtn.root.setVisible(true);
+  private result: Phaser.GameObjects.Container | null = null;
+
+  private ending(state: RunState): void {
+    this.result?.destroy(true);
+    this.result = showResult(
+      this,
+      this.ctl,
+      state,
+      () => {
+        this.result?.destroy(true);
+        this.result = null;
+        this.ctl.restart((this.ctl.state.seed * 7 + 13) % 1_000_000_007);
+      },
+      () => this.scene.start('title', { ctl: this.ctl, codex: this.codex }),
+    );
   }
 
   private discover(name: string): void {

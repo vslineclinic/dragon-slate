@@ -11,6 +11,7 @@ import bosses from '../../../data/bosses.json';
 import codex from '../../../data/codex.json';
 import { GameController } from './controller.ts';
 import { GameScene } from './scenes/GameScene.ts';
+import { TitleScene } from './scenes/TitleScene.ts';
 
 const data = loadGameData({ dragons, traits, recipes, slot, waves, battle, rewards, bosses } as RawGameData);
 const param = Number(new URLSearchParams(location.search).get('seed'));
@@ -25,5 +26,8 @@ const game = new Phaser.Game({
   backgroundColor: '#1b1f2a',
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
 });
-game.scene.add('game', GameScene, true, { ctl, codex });
+// ?seed= 가 있으면 시작 화면을 건너뛰고 바로 게임(시험·재현용)
+const direct = Number.isFinite(param) && param > 0;
+game.scene.add('title', TitleScene, !direct, { ctl, codex });
+game.scene.add('game', GameScene, direct, { ctl, codex });
 (window as unknown as { wyrm: unknown }).wyrm = { ctl, seed, game };

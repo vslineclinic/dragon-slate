@@ -36,7 +36,10 @@ export class SlotPanel {
     this.spinBtn = button(scene, a.x + 290, a.y + 318, 330, 56, '', () => this.ctl.dispatch({ type: 'spin' }), 0x5f3dc4);
   }
 
+  private last: RunState | null = null;
+
   render(s: RunState, events: GameEvent[]): void {
+    this.last = s;
     this.layer.removeAll(true);
     const spun = events.some((e) => e.t === 'spun');
     if (s.grid) this.drawGrid(s, s.grid, spun);
@@ -178,7 +181,18 @@ export class SlotPanel {
     strokes.setAlpha(animate ? 0 : 0.9);
     this.layer.add(strokes);
     if (animate) this.scene.time.delayedCall(dur * 2.3, () => strokes.active && this.scene.tweens.add({ targets: strokes, alpha: 0.9, duration: 200 }));
-    if (animate) this.scene.time.delayedCall(dur * 2.3, () => (this.ctl.busy = false));
+    if (animate) {
+      this.scene.time.delayedCall(dur * 2.3, () => (this.ctl.busy = false));
+      // 연출 중 석판을 누르면 바로 결과로
+      const top = this.cellXY(0, 0);
+      const skip = this.scene.add.rectangle(top.x - 10, top.y - 50, 3 * (CELL + GAP) + 20, 3 * (CELL + GAP) + 100, 0x000000, 0.001).setOrigin(0).setInteractive();
+      skip.on('pointerdown', () => {
+        if (!this.last) return;
+        this.render(this.last, []);
+        this.ctl.busy = false;
+      });
+      this.layer.add(skip);
+    }
   }
 
   private nudgeTab(col: number, dir: -1 | 1, sym: Parameters<typeof drawMark>[1], recommended: boolean): void {
