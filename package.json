@@ -1,0 +1,26 @@
+{
+  "name": "wyrmslot",
+  "version": "0.0.1",
+  "description": "",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint:data": "node tools/lint-data/lint.ts",
+    "sim": "node tools/sim/run.ts"
+  },
+  "license": "UNLICENSED",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
+  },
+  "dependencies": {
+    "phaser": "^4.2.1"
+  }
+}
