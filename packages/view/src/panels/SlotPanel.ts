@@ -7,6 +7,7 @@ import { settings } from '../settings.ts';
 import { button, text, type Button } from '../ui.ts';
 import { pulse } from '../fx/juice.ts';
 import { drawEgg, drawMark } from '../fx/icons.ts';
+import { dragonImage } from '../fx/sprites.ts';
 
 const CELL = 70;
 const GAP = 6;
@@ -43,9 +44,10 @@ export class SlotPanel {
     this.drawOffers(s);
     const costs = this.ctl.data.slot.rerollCosts;
     const owned = s.nest.some((n) => n) || s.bench.some((b) => b);
-    const cost = owned ? (costs[Math.min(s.spinsThisWave, costs.length - 1)] ?? 0) : 0;
+    const base = owned ? (costs[Math.min(s.spinsThisWave, costs.length - 1)] ?? 0) : 0;
+    const cost = base > 0 && s.freeSpins > 0 ? 0 : base;
     const canSpin = (s.phase === 'spin' || s.phase === 'pick') && s.mana >= cost;
-    const price = cost === 0 ? '무료' : '마력 ' + cost;
+    const price = cost === 0 ? (base > 0 ? '보상 무료 ' + s.freeSpins + '회' : '무료') : '마력 ' + cost;
     this.spinBtn.setLabel((s.phase === 'pick' ? '다시 돌리기' : '룬 석판 돌리기') + ' (' + price + ')');
     this.spinBtn.setEnabled(canSpin);
     const full = s.bench.every((b) => b);
@@ -170,7 +172,8 @@ export class SlotPanel {
       if (o.kind === 'egg') {
         const spec = this.ctl.data.dragons[o.speciesId];
         const el = spec?.elements[0] ?? 'fire';
-        this.layer.add(drawEgg(this.scene, x0 + 6, y + 6, 56, 56, el));
+        const pic = dragonImage(this.scene, o.speciesId, x0 + 34, y + 34, 60, true);
+        this.layer.add(pic ?? drawEgg(this.scene, x0 + 6, y + 6, 56, 56, el));
         this.layer.add(text(this.scene, x0 + 72, y + 10, (spec?.nameKo ?? o.speciesId) + ' 알', 18));
         this.layer.add(text(this.scene, x0 + 72, y + 38, TIER_KO[spec?.tier ?? 'base'] + ' · ' + SYMBOL_LABEL[el], 13, UI.dim));
       } else {

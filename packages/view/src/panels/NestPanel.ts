@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { evolvablePairs, mergePreview } from '../../../core/src/index.ts';
 import { drawMark } from '../fx/icons.ts';
+import { dragonImage } from '../fx/sprites.ts';
 import type { DragonInst, RunState, SlotRef } from '../../../core/src/index.ts';
 import type { GameController } from '../controller.ts';
 import { AREA, COLOR, TIER_KO, UI } from '../layout.ts';
@@ -106,11 +107,19 @@ export class NestPanel {
       this.scene.tweens.add({ targets: glow, alpha: 0.3, duration: 500, yoyo: true, repeat: -1 });
     }
     const tier = spec?.tier ?? 'base';
-    parts.push(text(this.scene, 8, 12, spec?.nameKo ?? inst.speciesId, 14, UI.text).setWordWrapWidth(W - 40));
-    parts.push(text(this.scene, 8, 50, TIER_KO[tier], 12, tier === 'base' ? UI.dim : '#ffd8a8'));
+    const img = dragonImage(this.scene, inst.speciesId, W / 2 - 6, 38, 62, true);
     const dots = '●'.repeat(inst.traits.length) + '○'.repeat(Math.max(0, this.ctl.data.battle.maxTraits - inst.traits.length));
-    parts.push(text(this.scene, 8, 68, dots + (inst.bonusPct ? '  +' + inst.bonusPct + '%' : ''), 12, UI.dim));
-    if (evolveTo) parts.push(text(this.scene, W - 6, 68, '합체 가능', 11, '#ffe066').setOrigin(1, 0));
+    if (img) {
+      parts.push(img);
+      parts.push(text(this.scene, 6, 8, TIER_KO[tier], 11, tier === 'base' ? UI.dim : '#ffd8a8'));
+      parts.push(text(this.scene, W / 2, 70, spec?.nameKo ?? inst.speciesId, 12, UI.text).setOrigin(0.5, 0));
+      parts.push(text(this.scene, 6, 52, dots + (inst.bonusPct ? '\n+' + inst.bonusPct + '%' : ''), 10, UI.dim));
+    } else {
+      parts.push(text(this.scene, 8, 12, spec?.nameKo ?? inst.speciesId, 14, UI.text).setWordWrapWidth(W - 40));
+      parts.push(text(this.scene, 8, 50, TIER_KO[tier], 12, tier === 'base' ? UI.dim : '#ffd8a8'));
+      parts.push(text(this.scene, 8, 68, dots + (inst.bonusPct ? '  +' + inst.bonusPct + '%' : ''), 12, UI.dim));
+    }
+    if (evolveTo) parts.push(text(this.scene, W - 6, 52, '합체\n가능', 10, '#ffe066').setOrigin(1, 0).setAlign('right'));
     const c = this.scene.add.container(r.x, r.y, parts);
     if (!draggable) return c;
     c.setSize(W, H);

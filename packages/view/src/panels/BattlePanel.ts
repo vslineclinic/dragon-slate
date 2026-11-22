@@ -5,6 +5,7 @@ import { settings } from '../settings.ts';
 import { button, text, type Button } from '../ui.ts';
 import { damageNumber, hitFlash, hitstop, shake } from '../fx/juice.ts';
 import { drawMark } from '../fx/icons.ts';
+import { dragonImage } from '../fx/sprites.ts';
 
 const UW = 116;
 const UH = 70;
@@ -54,7 +55,12 @@ export class BattlePanel {
       const name = text(this.scene, 6, 8, this.data.dragons[u.speciesId]?.nameKo ?? u.speciesId, 13, UI.text).setWordWrapWidth(UW - 40);
       const barBg = this.scene.add.rectangle(6, UH - 14, UW - 12, 8, 0x000000, 0.5).setOrigin(0);
       const bar = this.scene.add.rectangle(6, UH - 14, UW - 12, 8, 0x51cf66).setOrigin(0);
-      const root = this.scene.add.container(x, y, [box, mark, name, barBg, bar]);
+      const img = dragonImage(this.scene, u.speciesId, 34, 32, 60, side === 'ally');
+      if (img) {
+        name.setPosition(64, 8).setFontSize(12).setWordWrapWidth(UW - 68);
+        mark.destroy();
+      }
+      const root = this.scene.add.container(x, y, img ? [box, img, name, barBg, bar] : [box, mark, name, barBg, bar]);
       this.layer.add(root);
       return { box, bar, root, hp: u.hp, max: u.hp, x, y };
     };

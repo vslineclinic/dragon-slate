@@ -8,6 +8,8 @@ import { BattlePanel } from '../panels/BattlePanel.ts';
 import { markDiscovered } from '../codex-store.ts';
 import { pulse } from '../fx/juice.ts';
 import { button, text, type Button } from '../ui.ts';
+import { UI } from '../layout.ts';
+import { preloadDragons } from '../fx/sprites.ts';
 
 export class GameScene extends Phaser.Scene {
   private ctl!: GameController;
@@ -27,13 +29,17 @@ export class GameScene extends Phaser.Scene {
     this.ctl = data.ctl;
   }
 
+  preload(): void {
+    preloadDragons(this, this.ctl.data);
+  }
+
   create(): void {
     this.battle = new BattlePanel(this, this.ctl.data);
     this.hud = new Hud(this, this.ctl.data);
     this.slot = new SlotPanel(this, this.ctl);
     this.nest = new NestPanel(this, this.ctl);
     this.banner = text(this, 640, 170, '', 40, '#fff3bf').setOrigin(0.5).setAlign('center').setDepth(60).setStroke('#5f3dc4', 8).setAlpha(0);
-    this.toast = text(this, 640, 250, '', 22, '#ffd8a8').setOrigin(0.5).setAlign('center').setDepth(50).setBackgroundColor('#000000aa').setPadding(10, 6, 10, 6);
+    this.toast = text(this, 640, 250, '', 22, '#ffd8a8').setOrigin(0.5).setAlign('center').setDepth(50).setBackgroundColor('#000000aa').setPadding(10, 6, 10, 6).setAlpha(0);
     this.endBtn = button(this, 540, 230, 200, 56, '새 판 시작', () => this.ctl.restart((this.ctl.state.seed * 7 + 13) % 1_000_000_007), 0x2f9e44);
     this.endBtn.root.setDepth(61).setVisible(false);
     this.ctl.on((events, state) => void this.onChange(events, state));
@@ -61,6 +67,8 @@ export class GameScene extends Phaser.Scene {
       const lost = events.find((e) => e.t === 'lives');
       this.announce(fight.result.winner === 'ally' ? '승리!' : '패배' + (lost && lost.t === 'lives' ? '\n생명 ' + lost.lives + ' 남음' : ''));
       await new Promise((r) => this.time.delayedCall(700, r));
+      const reward = events.find((e) => e.t === 'reward');
+      if (reward && reward.t === 'reward') await this.showReward(reward.reward.nameKo, this.rewardDetail(reward.reward.kind, reward.reward.amount, reward.detail));
       this.ctl.busy = false;
     }
     for (const e of events) if (e.t === 'waveStart') this.hud.setBossPreview(e.wave, e.bossPreview);
@@ -75,6 +83,47 @@ export class GameScene extends Phaser.Scene {
     this.slot.render(state, events);
     this.nest.render(state);
     this.battle.showIdle(state);
+  }
+
+  private rewardDetail(kind: string, amount: number, detail: string | null): string {
+    const d = this.ctl.data;
+    if (kind === 'mana') return '마력 +' + amount;
+    if (kind === 'egg' || kind === 't2egg') return (d.dragons[detail ?? '']?.nameKo ?? '드래곤') + ' 알을 얻었어요';
+    if (kind === 'trait') return detail ? '특성 「' + (d.traits[detail]?.nameKo ?? detail) + '」을 계승했어요' : '마력 +3';
+    if (kind === 'nudge') return '다음 웨이브 밀기 +' + amount;
+    if (kind === 'freeSpin') return '다시 돌리기 ' + amount + '회 무료';
+    return '생명 +' + amount + ' (가득 차 있으면 마력 +3)';
+  }
+
+  /** 보상 상자: 흔들리다 열리며 내용이 나온다 */
+  private showReward(title: string, detail: string): Promise<void> {
+    return new Promise((resolve) => {
+      const box = this.add.container(640, 190).setDepth(70);
+      const g = this.add.graphics();
+      g.fillStyle(0x5f3dc4, 1).fillRoundedRect(-46, -30, 92, 60, 10);
+      g.fillStyle(0xffd43b, 1).fillRect(-46, -6, 92, 10).fillRect(-6, -30, 12, 60);
+      box.add(g);
+      const label = this.add
+        .text(640, 250, '', { fontFamily: UI.font, fontSize: '24px', color: '#fff3bf', align: 'center', stroke: '#000000', strokeThickness: 5 })
+        .setOrigin(0.5)
+        .setDepth(70);
+      this.tweens.add({
+        targets: box,
+        angle: { from: -8, to: 8 },
+        duration: 90,
+        yoyo: true,
+        repeat: 3,
+        onComplete: () => {
+          this.tweens.add({ targets: box, scale: 1.4, alpha: 0, duration: 220 });
+          label.setText('웨이브 보상: ' + title + '\n' + detail).setScale(0.6);
+          this.tweens.add({ targets: label, scale: 1, duration: 220, ease: 'Back.out' });
+          this.time.delayedCall(1400, () => {
+            box.destroy();
+            this.tweens.add({ targets: label, alpha: 0, duration: 250, onComplete: () => { label.destroy(); resolve(); } });
+          });
+        },
+      });
+    });
   }
 
   private announce(msg: string): void {
