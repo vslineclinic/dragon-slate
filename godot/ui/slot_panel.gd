@@ -42,7 +42,7 @@ func setup(ctl: Controller, store: Store) -> void:
 	_hint = GameTheme.label(self, Rect2(290, 8, 330, 20), "", 14, GameTheme.DIM)
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	_reward = GameTheme.label(self, Rect2(290, 32, 330, 18), "", 13, Color("#ffe066"))
+	_reward = GameTheme.label(self, Rect2(290, 32, 330, 18), "", 12, Color("#ffe066"))
 	_reward.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_reward.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_spin = GameTheme.button(self, Rect2(290, 318, 330, 56), "", _dispatch.bind({"type": "spin"}), Color("#5f3dc4"))
@@ -160,7 +160,7 @@ func _draw_offers(state: Dictionary) -> void:
 	var offers: Array = [] if state["grid"] == null else SlotRules.offers_from(_ctl.data, state["grid"])
 	var reco: Variant = HintRules.recommend_offer(_ctl.data, state) if state["phase"] == "pick" else null
 	for i: int in range(3):
-		var rect: Rect2 = Rect2(290, 92 + i * 74, 330, 68)
+		var rect: Rect2 = Rect2(290, 98 + i * 72, 330, 66)
 		if i >= offers.size():
 			GameTheme.panel(_layer, rect, GameTheme.CARD, GameTheme.PANEL_LINE, 1)
 			continue
