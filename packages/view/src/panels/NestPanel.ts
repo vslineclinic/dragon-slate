@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { mergePreview } from '../../../core/src/index.ts';
+import { evolvablePairs, mergePreview } from '../../../core/src/index.ts';
+import { drawMark } from '../fx/icons.ts';
 import type { DragonInst, RunState, SlotRef } from '../../../core/src/index.ts';
 import type { GameController } from '../controller.ts';
 import { AREA, COLOR, TIER_KO, UI } from '../layout.ts';
@@ -19,6 +20,7 @@ export class NestPanel {
   private preview: Phaser.GameObjects.Text;
   private battleBtn: Button;
   private releaseRect: Rect;
+  private reco = new Map<string, string>();
 
   constructor(scene: Phaser.Scene, ctl: GameController) {
     this.scene = scene;
@@ -65,6 +67,14 @@ export class NestPanel {
   render(s: RunState): void {
     this.layer.removeAll(true);
     const manage = s.phase === 'manage' || s.phase === 'pick' || s.phase === 'spin';
+    const key = (r: SlotRef) => r.zone + r.index;
+    const evolve = new Map<string, string>();
+    for (const p of evolvablePairs(this.ctl.data, s)) {
+      const name = this.ctl.data.dragons[p.result]?.nameKo ?? p.result;
+      evolve.set(key(p.a), name);
+      evolve.set(key(p.b), name);
+    }
+    this.reco = evolve;
     for (const ref of this.allRefs()) {
       const r = this.slotRect(ref);
       const locked = ref.zone === 'nest' && ref.index >= s.nestOpen;
@@ -80,13 +90,27 @@ export class NestPanel {
     const spec = this.ctl.data.dragons[inst.speciesId];
     const r = this.slotRect(ref);
     const els = spec?.elements ?? ['fire'];
-    const bg = this.scene.add.rectangle(0, 0, W, H, COLOR[els[0] ?? 'fire']).setOrigin(0).setStrokeStyle(2, 0xffffff, 0.35);
-    const parts: Phaser.GameObjects.GameObject[] = [bg];
-    els.slice(1).forEach((el, i) => parts.push(this.scene.add.rectangle(W - 14 - i * 14, 0, 12, H, COLOR[el]).setOrigin(0)));
-    parts.push(text(this.scene, 8, 6, spec?.nameKo ?? inst.speciesId, 15, '#111'));
-    parts.push(text(this.scene, 8, 30, TIER_KO[spec?.tier ?? 'base'], 13, '#222'));
+    const g = this.scene.add.graphics();
+    g.fillStyle(0x1e2230, 1).fillRoundedRect(0, 0, W, H, 10);
+    els.forEach((el, i) => g.fillStyle(COLOR[el], 1).fillRect(10 + i * ((W - 20) / els.length), 0, (W - 20) / els.length, 6));
+    g.lineStyle(2, COLOR[els[0] ?? 'fire'], 0.9).strokeRoundedRect(0, 0, W, H, 10);
+    els.forEach((el, i) => {
+      g.fillStyle(COLOR[el], 1).fillCircle(W - 18 - i * 22, 26, 10);
+      drawMark(g, el, W - 18 - i * 22, 26, 12, 0x1b1f2a);
+    });
+    const parts: Phaser.GameObjects.GameObject[] = [g];
+    const evolveTo = this.reco.get(ref.zone + ref.index);
+    if (evolveTo) {
+      const glow = this.scene.add.rectangle(-3, -3, W + 6, H + 6).setOrigin(0).setStrokeStyle(3, 0xffd43b, 1);
+      parts.push(glow);
+      this.scene.tweens.add({ targets: glow, alpha: 0.3, duration: 500, yoyo: true, repeat: -1 });
+    }
+    const tier = spec?.tier ?? 'base';
+    parts.push(text(this.scene, 8, 12, spec?.nameKo ?? inst.speciesId, 14, UI.text).setWordWrapWidth(W - 40));
+    parts.push(text(this.scene, 8, 50, TIER_KO[tier], 12, tier === 'base' ? UI.dim : '#ffd8a8'));
     const dots = '●'.repeat(inst.traits.length) + '○'.repeat(Math.max(0, this.ctl.data.battle.maxTraits - inst.traits.length));
-    parts.push(text(this.scene, 8, 62, dots + (inst.bonusPct ? '  +' + inst.bonusPct + '%' : ''), 13, '#222'));
+    parts.push(text(this.scene, 8, 68, dots + (inst.bonusPct ? '  +' + inst.bonusPct + '%' : ''), 12, UI.dim));
+    if (evolveTo) parts.push(text(this.scene, W - 6, 68, '합체 가능', 11, '#ffe066').setOrigin(1, 0));
     const c = this.scene.add.container(r.x, r.y, parts);
     if (!draggable) return c;
     c.setSize(W, H);

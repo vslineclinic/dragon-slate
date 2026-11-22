@@ -23,4 +23,4 @@ const game = new Phaser.Game({
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
 });
 game.scene.add('game', GameScene, true, { ctl });
-(window as unknown as { wyrm: unknown }).wyrm = { ctl, seed };
+(window as unknown as { wyrm: unknown }).wyrm = { ctl, seed, game };

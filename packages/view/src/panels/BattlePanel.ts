@@ -4,6 +4,7 @@ import { AREA, COLOR, UI } from '../layout.ts';
 import { settings } from '../settings.ts';
 import { button, text, type Button } from '../ui.ts';
 import { damageNumber, hitFlash, hitstop, shake } from '../fx/juice.ts';
+import { drawMark } from '../fx/icons.ts';
 
 const UW = 116;
 const UH = 70;
@@ -45,11 +46,15 @@ export class BattlePanel {
     const make = (side: 'ally' | 'enemy', u: Unit | null, i: number): View | null => {
       if (!u) return null;
       const { x, y } = this.slotXY(side, i);
-      const box = this.scene.add.rectangle(0, 0, UW, UH, COLOR[u.elements[0] ?? 'fire']).setOrigin(0).setStrokeStyle(2, side === 'ally' ? 0xffffff : 0x000000, 0.4);
-      const name = text(this.scene, 6, 6, this.data.dragons[u.speciesId]?.nameKo ?? u.speciesId, 14, '#111');
+      const el = u.elements[0] ?? 'fire';
+      const box = this.scene.add.rectangle(0, 0, UW, UH, 0x1e2230).setOrigin(0).setStrokeStyle(3, COLOR[el], side === 'ally' ? 1 : 0.7);
+      const mark = this.scene.add.graphics();
+      mark.fillStyle(COLOR[el], 1).fillCircle(UW - 18, 20, 12);
+      drawMark(mark, el, UW - 18, 20, 14, 0x1b1f2a);
+      const name = text(this.scene, 6, 8, this.data.dragons[u.speciesId]?.nameKo ?? u.speciesId, 13, UI.text).setWordWrapWidth(UW - 40);
       const barBg = this.scene.add.rectangle(6, UH - 14, UW - 12, 8, 0x000000, 0.5).setOrigin(0);
       const bar = this.scene.add.rectangle(6, UH - 14, UW - 12, 8, 0x51cf66).setOrigin(0);
-      const root = this.scene.add.container(x, y, [box, name, barBg, bar]);
+      const root = this.scene.add.container(x, y, [box, mark, name, barBg, bar]);
       this.layer.add(root);
       return { box, bar, root, hp: u.hp, max: u.hp, x, y };
     };
