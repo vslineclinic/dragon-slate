@@ -1,5 +1,5 @@
 import type { RejectReason } from './commands.ts';
-import type { DragonInst, Element, Grid, SlotRef, SymbolId } from './types.ts';
+import type { DragonInst, Element, Grid, RewardSpec, SlotRef, SymbolId } from './types.ts';
 
 export interface Unit { speciesId: string; elements: Element[]; hp: number; atk: number; cooldownTicks: number; lifestealPct: number }
 
@@ -25,6 +25,8 @@ export type GameEvent =
   | { t: 'absorbed'; inst: DragonInst; at: SlotRef; trait: string | null }
   | { t: 'battle'; result: BattleResult }
   | { t: 'lives'; lives: number }
+  /** detail: 받은 종 id, 특성 id 등 */
+  | { t: 'reward'; reward: RewardSpec; detail: string | null }
   | { t: 'nestUnlocked'; open: number }
   | { t: 'waveStart'; wave: number; bossPreview: Element | null }
   | { t: 'gameOver' }

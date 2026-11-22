@@ -14,5 +14,5 @@ export function loadGameData(raw: RawGameData): GameData {
       if (!dragons[id]) throw new Error('recipe ' + r.a + '+' + r.b + ': unknown dragon id ' + id);
     }
   }
-  return { dragons, traits, recipes: raw.recipes, slot: raw.slot, waves: raw.waves, battle: raw.battle };
+  return { dragons, traits, recipes: raw.recipes, slot: raw.slot, waves: raw.waves, battle: raw.battle, rewards: raw.rewards ?? [] };
 }

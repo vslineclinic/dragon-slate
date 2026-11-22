@@ -134,6 +134,7 @@ export function loadSimulationData(): GameData {
     slot: readData('slot'),
     waves: readData('waves'),
     battle: readData('battle'),
+    rewards: readData('rewards'),
   });
 }
 

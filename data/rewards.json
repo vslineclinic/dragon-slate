@@ -1,0 +1,9 @@
+[
+  { "id": "mana", "nameKo": "마력 주머니", "kind": "mana", "amount": 4, "weight": 30, "bossWeight": 10 },
+  { "id": "egg", "nameKo": "수상한 알", "kind": "egg", "amount": 1, "weight": 25, "bossWeight": 10 },
+  { "id": "t2egg", "nameKo": "빛나는 알", "kind": "t2egg", "amount": 1, "weight": 7, "bossWeight": 35 },
+  { "id": "trait", "nameKo": "혈통의 축복", "kind": "trait", "amount": 1, "weight": 14, "bossWeight": 20 },
+  { "id": "nudge", "nameKo": "밀기 +1", "kind": "nudge", "amount": 1, "weight": 12, "bossWeight": 5 },
+  { "id": "freeSpin", "nameKo": "무료 다시 돌리기", "kind": "freeSpin", "amount": 1, "weight": 10, "bossWeight": 5 },
+  { "id": "life", "nameKo": "생명의 비늘", "kind": "life", "amount": 1, "weight": 2, "bossWeight": 15 }
+]

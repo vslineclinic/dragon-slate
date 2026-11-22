@@ -35,6 +35,8 @@ export function createRun(data: GameData, seed: number): Result {
     nudgesLeft: data.slot.nudgesPerWave,
     pity: 0,
     nextUid: 1,
+    bonusNudges: 0,
+    freeSpins: 0,
     discovered: [],
     log: [],
   };
@@ -93,7 +95,11 @@ function doSpin(data: GameData, s: RunState, rng: Rng, events: GameEvent[]): Rej
   if (s.phase !== 'spin' && s.phase !== 'pick') return 'wrongPhase';
   const costs = data.slot.rerollCosts;
   // 드래곤이 하나도 없으면 다시 돌리기는 무료(첫 판 막힘 방지)
-  const cost = dragonCount(s) === 0 ? 0 : (costs[Math.min(s.spinsThisWave, costs.length - 1)] ?? 0);
+  let cost = dragonCount(s) === 0 ? 0 : (costs[Math.min(s.spinsThisWave, costs.length - 1)] ?? 0);
+  if (cost > 0 && s.freeSpins > 0) {
+    s.freeSpins--;
+    cost = 0;
+  }
   if (s.mana < cost) return 'notEnoughMana';
   s.mana -= cost;
   const grid = spinGrid(data, rng, s.pity >= data.slot.pityThreshold);
@@ -196,6 +202,41 @@ function doRelease(data: GameData, s: RunState, from: SlotRef, events: GameEvent
   return null;
 }
 
+/** 웨이브 승리 보상 하나를 가중치로 뽑아 적용한다 */
+function grantReward(data: GameData, s: RunState, rng: Rng, boss: boolean, events: GameEvent[]): void {
+  const pool = data.rewards.filter((r) => (boss ? r.bossWeight : r.weight) > 0);
+  if (pool.length === 0) return;
+  const reward = rng.pickWeighted(pool, (r) => (boss ? r.bossWeight : r.weight));
+  let detail: string | null = null;
+  const fallback = () => addMana(s, 3, 'reward', events);
+  if (reward.kind === 'mana') addMana(s, reward.amount, 'reward', events);
+  else if (reward.kind === 'egg' || reward.kind === 't2egg') {
+    const tier = reward.kind === 'egg' ? 'base' : 't2';
+    const pool2 = Object.values(data.dragons).filter((d) => d.tier === tier).map((d) => d.id).sort();
+    const species = pool2[rng.nextInt(pool2.length)];
+    if (species) {
+      detail = species;
+      if (!addToBench(s, species, 'bonus', events)) addMana(s, tier === 'base' ? 1 : 2, 'benchFull', events);
+    }
+  } else if (reward.kind === 'trait') {
+    const targets = [...s.nest, ...s.bench].filter((d): d is DragonInst => d !== null && d.traits.length < data.battle.maxTraits);
+    const target = targets[rng.nextInt(Math.max(1, targets.length))];
+    const own = target ? data.dragons[target.speciesId]?.traitId : undefined;
+    const choices = target ? Object.keys(data.traits).sort().filter((t) => t !== own && !target.traits.includes(t)) : [];
+    const trait = choices[rng.nextInt(Math.max(1, choices.length))];
+    if (target && trait) {
+      target.traits.push(trait);
+      detail = trait;
+    } else fallback();
+  } else if (reward.kind === 'nudge') s.bonusNudges += reward.amount;
+  else if (reward.kind === 'freeSpin') s.freeSpins += reward.amount;
+  else if (reward.kind === 'life') {
+    if (s.lives < data.waves.startLives) s.lives = Math.min(data.waves.startLives, s.lives + reward.amount);
+    else fallback();
+  }
+  events.push({ t: 'reward', reward, detail });
+}
+
 function doBattle(data: GameData, s: RunState, rng: Rng, events: GameEvent[]): RejectReason | null {
   if (s.phase !== 'manage') return 'wrongPhase';
   if (!s.nest.some((n, i) => n !== null && i < s.nestOpen)) return 'nestEmpty';
@@ -204,7 +245,10 @@ function doBattle(data: GameData, s: RunState, rng: Rng, events: GameEvent[]): R
   const result = simulateBattle(data.battle, allies, enemies);
   events.push({ t: 'battle', result });
   const won = result.winner === 'ally';
-  if (won) addMana(s, data.waves.winMana, 'win', events);
+  if (won) {
+    addMana(s, data.waves.winMana, 'win', events);
+    if (s.wave < data.waves.maxWave) grantReward(data, s, rng, isBoss(data.waves, s.wave), events);
+  }
   else {
     s.lives -= isBoss(data.waves, s.wave) ? data.waves.bossLossLife : data.waves.lossLife;
     if (s.lives < 0) s.lives = 0;
@@ -230,7 +274,8 @@ function doBattle(data: GameData, s: RunState, rng: Rng, events: GameEvent[]): R
     s.wave++;
   }
   s.spinsThisWave = 0;
-  s.nudgesLeft = data.slot.nudgesPerWave;
+  s.nudgesLeft = data.slot.nudgesPerWave + s.bonusNudges;
+  s.bonusNudges = 0;
   s.phase = 'spin';
   events.push({ t: 'waveStart', wave: s.wave, bossPreview: bossPreview(data, s.seed, s.wave) });
   return null;

@@ -10,6 +10,9 @@ export interface Stats { hp: number; atk: number; cooldownTicks: number }
 export interface DragonSpec { id: string; nameKo: string; tier: Tier; elements: Element[]; role: Role; stats: Stats; traitId: string }
 export interface TraitSpec { id: string; nameKo: string; kind: TraitKind; value: number }
 export interface Recipe { a: string; b: string; result: string }
+export type RewardKind = 'mana' | 'egg' | 't2egg' | 'trait' | 'nudge' | 'freeSpin' | 'life';
+/** 웨이브 승리 보상. weight는 일반 웨이브, bossWeight는 심판 보스 웨이브 확률 가중치 */
+export interface RewardSpec { id: string; nameKo: string; kind: RewardKind; amount: number; weight: number; bossWeight: number }
 
 export interface SlotConfig {
   weights: Record<SymbolId, number>;
@@ -54,6 +57,7 @@ export interface GameData {
   slot: SlotConfig;
   waves: WaveConfig;
   battle: BattleConfig;
+  rewards: RewardSpec[];
 }
 
 export interface RawGameData {
@@ -63,6 +67,7 @@ export interface RawGameData {
   slot: SlotConfig;
   waves: WaveConfig;
   battle: BattleConfig;
+  rewards?: RewardSpec[];
 }
 
 export interface DragonInst { uid: number; speciesId: string; traits: string[]; bonusPct: number }
@@ -92,6 +97,10 @@ export interface RunState {
   nudgesLeft: number;
   pity: number;
   nextUid: number;
+  /** 보상으로 받은, 다음 웨이브에 더해질 밀기 */
+  bonusNudges: number;
+  /** 보상으로 받은 무료 다시 돌리기 */
+  freeSpins: number;
   discovered: string[];
   log: Command[];
 }

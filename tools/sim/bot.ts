@@ -83,7 +83,15 @@ function choosePick(data: GameData, state: RunState, grid: Grid): Command {
       bestIndex = index;
     }
   }
-  if (bestIndex === undefined) throw new Error('No legal offer to pick with a full bench');
+  if (bestIndex === undefined) {
+    // 보상 알로 대기칸이 찬 경우: 고르기 단계에서도 정리할 수 있으니 가장 약한 대기칸 용을 둥지 최강 용에 흡수시킨다
+    const benchSlots = occupied(state, 'bench').map((slot) => ({ ...slot, strength: strength(data, slot.inst) })).sort((a, b) => a.strength - b.strength);
+    const nestSlots = occupied(state, 'nest').map((slot) => ({ ...slot, strength: strength(data, slot.inst) })).sort((a, b) => b.strength - a.strength);
+    const weakest = benchSlots[0];
+    if (weakest && nestSlots[0]) return { type: 'merge', main: nestSlots[0].ref, material: weakest.ref };
+    if (weakest && benchSlots.length > 1) return { type: 'release', from: weakest.ref };
+    throw new Error('No legal offer to pick with a full bench');
+  }
   return { type: 'pick', index: bestIndex };
 }
 
