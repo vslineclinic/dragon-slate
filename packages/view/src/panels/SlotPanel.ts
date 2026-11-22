@@ -52,8 +52,8 @@ export class SlotPanel {
     this.spinBtn.setEnabled(canSpin);
     const full = s.bench.every((b) => b);
     this.hint.setText(
-      s.phase === 'spin' ? '석판을 돌리면 노란 줄의 알 3개 중 하나를 받아요.'
-        : s.phase === 'pick' ? (full ? '대기칸이 꽉 찼어요. 왼쪽에서 끌어서 합치거나 놓아주세요.' : '노란 줄의 알 중 하나를 골라요.')
+      s.phase === 'spin' ? '석판을 돌리면 보라 띠 줄의 알 3개 중 하나를 받아요.'
+        : s.phase === 'pick' ? (full ? '대기칸이 꽉 찼어요. 왼쪽에서 끌어서 합치거나 놓아주세요.' : '보라 띠 줄(받을 알) 3개 중 하나를 오른쪽 카드에서 골라요.')
           : s.phase === 'manage' ? '둥지를 정리하고 전투를 시작해요.' : '',
     );
     this.reward.setText(this.rewardText(s));
@@ -63,8 +63,8 @@ export class SlotPanel {
   private rewardText(s: RunState): string {
     const d = this.ctl.data;
     const describe = (r: ReturnType<typeof lineRewards>) => {
-      const eggs = r.eggs.map((e) => ELEMENT_KO[e.element] + (e.tier === 't2' ? ' 2티어 알' : ' 알')).join(', ');
-      return [eggs, r.mana ? '마력 +' + r.mana : ''].filter(Boolean).join(' · ');
+      const eggs = r.eggs.map((e) => ELEMENT_KO[e.element] + (e.tier === 't2' ? ' 2티어 알 1개' : ' 알 1개')).join(', ');
+      return [eggs, r.mana ? '마력 ' + r.mana + ' 획득' : ''].filter(Boolean).join(' + ');
     };
     if (s.phase === 'spin') return '같은 그림 3개가 한 줄(가로·세로·대각)이면 보너스 알과 마력을 더 받아요. 드래곤이 빨리 모일수록 합체가 빨라져요.';
     if (s.phase !== 'pick' || !s.grid) return '';
@@ -74,7 +74,10 @@ export class SlotPanel {
         const reel = s.grid!.reels[c];
         return reel?.[1 + (s.grid!.offsets[c] ?? 0) + r]?.symbol === 'wild';
       })));
-      return '줄 맞춤 ' + now.lines + '줄 (점으로 연결)! 보너스: ' + describe(now) + (usesWild ? '\n보라 여의주(만능)는 어떤 그림으로도 쳐요.' : '');
+      const groups = evaluateLines(s.grid)
+        .map((g) => (g.element === 'gold' ? '황금' : g.element === 'wild' ? '여의주' : ELEMENT_KO[g.element]) + ' ' + g.lines.length + '줄')
+        .join(', ');
+      return groups + ' 맞춤 → 알을 고르면 보너스로 ' + describe(now) + (usesWild ? '\n보라 여의주(만능)는 어떤 그림으로도 쳐요.' : '');
     }
     const reco = bestNudge(s.grid, s.nudgesLeft);
     if (reco) {
@@ -108,8 +111,12 @@ export class SlotPanel {
     const dur = 260 / settings.speed;
 
     // 가운데 줄(받을 수 있는 알) 표시
+    // 매칭 표시와 헷갈리지 않게 테두리 대신 옅은 보라 띠 + 이름표로 표시한다
     const mid = this.cellXY(0, 1);
-    this.layer.add(this.scene.add.rectangle(mid.x - 5, mid.y - 4, 3 * CELL + 2 * GAP + 10, CELL + 8).setOrigin(0).setStrokeStyle(3, 0xfab005, 0.9));
+    this.layer.add(this.scene.add.rectangle(mid.x - 6, mid.y - 3, 3 * CELL + 2 * GAP + 12, CELL + 6, 0x7048e8, 0.28).setOrigin(0));
+    this.layer.add(
+      text(this.scene, mid.x + 3 * CELL + 2 * GAP + 4, mid.y + CELL / 2, '받을\n알 ▶', 12, '#d0bfff').setOrigin(0, 0.5).setLineSpacing(-2),
+    );
 
     for (let c = 0; c < 3; c++) {
       const reel = grid.reels[c] ?? [];
