@@ -1,0 +1,24 @@
+{
+  "weights": {
+    "fire": 26,
+    "ice": 26,
+    "lightning": 26,
+    "gold": 13,
+    "wild": 9
+  },
+  "pityThreshold": 4,
+  "nudgesPerWave": 1,
+  "rerollCosts": [
+    0,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "lineMana": 2,
+  "goldMana": 1,
+  "goldLineMana": 5,
+  "wildLineMana": 3,
+  "goldOfferMana": 3
+}

@@ -1,0 +1,14 @@
+{
+  "ticksPerSecond": 20,
+  "maxTicks": 1200,
+  "strongPct": 135,
+  "weakPct": 75,
+  "absorbBonusPct": {
+    "base": 12,
+    "t2": 25,
+    "t1": 40,
+    "dual": 40,
+    "secret": 60
+  },
+  "maxTraits": 2
+}

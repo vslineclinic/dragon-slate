@@ -1,0 +1,29 @@
+{
+  "maxWave": 10,
+  "basePower": 100,
+  "growthPct": 118,
+  "bossPct": {
+    "5": 165,
+    "10": 180,
+    "15": 195,
+    "20": 230
+  },
+  "startLives": 5,
+  "lossLife": 1,
+  "bossLossLife": 2,
+  "nestUnlockAfter": [
+    5,
+    10,
+    15
+  ],
+  "winMana": 5,
+  "lossMana": 3,
+  "startMana": 3,
+  "releaseMana": {
+    "base": 1,
+    "t2": 2,
+    "t1": 4,
+    "dual": 4,
+    "secret": 6
+  }
+}
