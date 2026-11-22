@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import type { RawGameData } from '../../packages/core/src/contracts/types.ts';
 import { loadGameData } from '../../packages/core/src/data.ts';
 import battle from '../../data/battle.json' with { type: 'json' };
+import codex from '../../data/codex.json' with { type: 'json' };
 import dragons from '../../data/dragons.json' with { type: 'json' };
 import recipes from '../../data/recipes.json' with { type: 'json' };
 import slot from '../../data/slot.json' with { type: 'json' };
@@ -21,6 +22,34 @@ test('real data passes', () => {
   expect(Object.keys(gameData.dragons)).toHaveLength(22);
   expect(Object.keys(gameData.traits)).toHaveLength(22);
   expect(gameData.recipes).toHaveLength(42);
+});
+
+test('codex covers every dragon', () => {
+  expect(codex.map(({ id }) => id)).toEqual(dragons.map(({ id }) => id));
+  expect(lintData({ ...realData, codex })).toEqual([]);
+});
+
+test('detects codex unknown id', () => {
+  const unknown = { ...codex[0]!, id: 'missing_dragon' };
+  expect(lintData({ ...realData, codex: [...codex, unknown] })).toEqual([
+    'codex: unknown dragon id missing_dragon',
+  ]);
+});
+
+test('detects codex missing and duplicate ids', () => {
+  const incompleteCodex = [...codex.slice(1), codex[1]!];
+  expect(lintData({ ...realData, codex: incompleteCodex })).toEqual([
+    'codex: duplicate dragon id fire_wyvern',
+    'codex: missing dragon id fire_drake',
+  ]);
+});
+
+test('detects empty codex text', () => {
+  const blank = { ...codex[0]!, hintKo: '  ', loreKo: '' };
+  expect(lintData({ ...realData, codex: [blank, ...codex.slice(1)] })).toEqual([
+    'codex fire_drake: hintKo must not be empty',
+    'codex fire_drake: loreKo must not be empty',
+  ]);
 });
 
 test('detects duplicate pair', () => {
