@@ -17,7 +17,7 @@ func setup(data: Dictionary, state: Dictionary, on_new: Callable, on_title: Call
 		if OS.has_feature("demo"):
 			summary = "데모 클리어! 정식판에서는 20웨이브, 심판 보스 4종, 재앙 5단계가 기다려요."
 	var subheading: Label = GameTheme.label(panel, Rect2(32, 79, 636, 64), summary, 18, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-	subheading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	GameTheme.wrap(subheading)
 	subheading.size.x = 636
 
 	var best: Dictionary = _strongest(data, state)
@@ -34,7 +34,7 @@ func setup(data: Dictionary, state: Dictionary, on_new: Callable, on_title: Call
 	GameTheme.place(panel, scroll, Rect2(310, 202, 350, 192))
 	var discoveries: Label = Label.new()
 	discoveries.text = "없음" if found.is_empty() else ", ".join(found)
-	discoveries.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	GameTheme.wrap(discoveries)
 	discoveries.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	discoveries.add_theme_color_override("font_color", GameTheme.DIM)
 	discoveries.add_theme_font_size_override("font_size", 16)

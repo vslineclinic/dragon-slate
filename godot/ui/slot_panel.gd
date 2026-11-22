@@ -40,10 +40,10 @@ func setup(ctl: Controller, store: Store) -> void:
 	_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_layer)
 	_hint = GameTheme.label(self, Rect2(290, 8, 330, 20), "", 14, GameTheme.DIM)
-	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	GameTheme.wrap(_hint)
 	_hint.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_reward = GameTheme.label(self, Rect2(290, 32, 330, 18), "", 12, Color("#ffe066"))
-	_reward.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	GameTheme.wrap(_reward)
 	_reward.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_spin = GameTheme.button(self, Rect2(290, 318, 330, 56), "", _dispatch.bind({"type": "spin"}), Color("#5f3dc4"))
 
@@ -81,8 +81,9 @@ func render(state: Dictionary, events: Array) -> void:
 			_hint.text = "대기칸이 꽉 찼어요. 합치거나 놓아주세요." if state["bench"].all(_occupied) else "보라 띠의 알 3개 중 하나를 카드에서 골라요."
 		"manage": _hint.text = "둥지를 정리하고 전투를 시작해요."
 		_: _hint.text = ""
+	_hint.text = GameTheme.keep_words(_hint.text)
 	_reward.position.y = _hint.position.y + _hint.get_minimum_size().y + 4.0
-	_reward.text = _reward_text(state, recommendation)
+	_reward.text = GameTheme.keep_words(_reward_text(state, recommendation))
 
 
 func _draw_grid(state: Dictionary, grid: Dictionary, recommendation: Variant, animate: bool) -> void:

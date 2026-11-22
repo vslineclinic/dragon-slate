@@ -142,7 +142,7 @@ func _unit_view(side: String, index: int, unit: Dictionary) -> UnitView:
 		GameTheme.place(view.card, Marks.new(element), Rect2(86, 8, 24, 24))
 	var title: Label = GameTheme.label(view.card, name_rect, spec.get("nameKo", id), 12 if image else 13)
 	title.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	GameTheme.wrap(title)
 	GameTheme.panel(view.card, Rect2(6, 56, 104, 8), Color(0, 0, 0, 0.5))
 	view.bar = GameTheme.panel(view.card, Rect2(6, 56, 104, 8), Color("#51cf66"))
 	view.hp = unit["hp"]

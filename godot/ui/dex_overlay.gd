@@ -42,7 +42,7 @@ func setup(data: Dictionary, store: Store) -> void:
 	_entries.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(_entries)
 	_detail = GameTheme.label(panel, Rect2(24, 567, 1152, 90), "", 16)
-	_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	GameTheme.wrap(_detail)
 	_show_page(false)
 	close_button.grab_focus()
 
@@ -66,7 +66,7 @@ func _show_page(dual: bool) -> void:
 	for child: Node in _entries.get_children():
 		_entries.remove_child(child)
 		child.queue_free()
-	_detail.text = "드래곤을 누르면 설명이나 힌트를 볼 수 있어요."
+	_detail.text = GameTheme.keep_words("드래곤을 누르면 설명이나 힌트를 볼 수 있어요.")
 	var dragons: Array = _data["dragons"].values()
 	if dual:
 		var rest: Array = dragons.filter(func(dragon: Dictionary) -> bool: return dragon["tier"] == "dual")
@@ -142,7 +142,7 @@ func _card(dragon: Dictionary, rect: Rect2) -> void:
 	var name_x: float = side + 16.0
 	GameTheme.label(card, Rect2(name_x, 6, rect.size.x - name_x - 6, 20), tier, 12, GameTheme.DIM)
 	var name_label: Label = GameTheme.label(card, Rect2(name_x, 27, rect.size.x - name_x - 6, rect.size.y - 31), caption, 14, GameTheme.TEXT if known else GameTheme.DIM)
-	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	GameTheme.wrap(name_label)
 	name_label.size.x = rect.size.x - name_x - 6
 
 
@@ -150,7 +150,7 @@ func _show_detail(dragon: Dictionary) -> void:
 	var entry: Dictionary = _codex.get(dragon["id"], {})
 	var tier: String = GameTheme.TIER_KO[dragon["tier"]]
 	if _known(dragon):
-		_detail.text = "%s (%s)\n%s" % [dragon["nameKo"], tier, entry.get("loreKo", "")]
+		_detail.text = GameTheme.keep_words("%s (%s)\n%s" % [dragon["nameKo"], tier, entry.get("loreKo", "")])
 	else:
 		var category: String = "숨은 드래곤" if dragon["tier"] == "secret" else tier
-		_detail.text = "??? (%s)\n힌트: %s" % [category, entry.get("hintKo", "아직 알려지지 않았어요.")]
+		_detail.text = GameTheme.keep_words("??? (%s)\n힌트: %s" % [category, entry.get("hintKo", "아직 알려지지 않았어요.")])

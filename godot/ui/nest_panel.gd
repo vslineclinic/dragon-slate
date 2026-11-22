@@ -90,7 +90,7 @@ func _draw_card(rect: Rect2, inst: Dictionary, ref: Dictionary, draggable: bool,
 		GameTheme.label(card, Rect2(6, 47, 75, 29), dots + bonus, 10, GameTheme.DIM)
 	else:
 		var title: Label = GameTheme.label(card, Rect2(8, 10, 80 if elements.size() == 1 else 60, 36), spec["nameKo"], 14)
-		title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		GameTheme.wrap(title)
 		title.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		GameTheme.label(card, Rect2(8, 46, 75, 20), GameTheme.TIER_KO[tier], 12, tier_color)
 		var bonus: String = "  +%d%%" % inst["bonusPct"] if inst["bonusPct"] else ""

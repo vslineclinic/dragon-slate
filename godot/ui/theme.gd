@@ -26,14 +26,29 @@ const DIM: Color = Color("#8a93ab")
 const CARD: Color = Color("#2b3045")
 const INK: Color = Color("#1b1f2a")
 const RECOMMEND: Color = Color("#ffd43b")
+const FONT_PATH: String = "res://godot/fonts/NotoSansKR.ttf"
+const FONT_WEIGHT: int = 500
 
 
 static func create() -> Theme:
-	var font: SystemFont = SystemFont.new()
-	font.font_names = PackedStringArray(["Malgun Gothic", "Noto Sans KR", "Apple SD Gothic Neo"])
 	var skin: Theme = Theme.new()
-	skin.default_font = font
+	skin.default_font = korean_font()
 	return skin
+
+
+## 배포판에 넣는 Noto Sans KR(OFL, godot/fonts/OFL-NotoSansKR.txt). 없으면 시스템 글꼴로.
+static func korean_font() -> Font:
+	if ResourceLoader.exists(FONT_PATH):
+		var bundled: Font = load(FONT_PATH) as Font
+		if bundled != null:
+			# 가변 글꼴이라 굵기를 정해 줘야 가늘게 나오지 않는다.
+			var weighted: FontVariation = FontVariation.new()
+			weighted.base_font = bundled
+			weighted.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("weight"): FONT_WEIGHT}
+			return weighted
+	var system: SystemFont = SystemFont.new()
+	system.font_names = PackedStringArray(["Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo"])
+	return system
 
 
 static func place(parent: Control, child: Control, rect: Rect2) -> void:
@@ -68,6 +83,27 @@ static func label(parent: Control, rect: Rect2, copy: String, pixels: int, color
 	node.add_theme_font_size_override("font_size", pixels)
 	node.add_theme_color_override("font_color", color)
 	place(parent, node, rect)
+	return node
+
+
+## 한글은 기본 줄바꿈이 음절 사이에서도 끊어서, 단어 안 글자 사이에 U+2060(단어 연결)을 넣어
+## 띄어쓰기에서만 줄을 바꾼다(CSS keep-all). 한 단어가 너무 길면 WORD_SMART가 알아서 끊는다.
+static func keep_words(copy: String) -> String:
+	var out: String = ""
+	var prev_word: bool = false
+	for i in copy.length():
+		var ch: String = copy[i]
+		var word: bool = ch != " " and ch != "\n" and ch != "\t"
+		if word and prev_word:
+			out += "⁠"
+		out += ch
+		prev_word = word
+	return out
+
+
+static func wrap(node: Label) -> Label:
+	node.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	node.text = keep_words(node.text)
 	return node
 
 
