@@ -50,8 +50,7 @@ export class GameScene extends Phaser.Scene {
     if (bonus.length || lineMana) {
       const names = bonus.map((e) => (e.t === 'gained' ? (this.ctl.data.dragons[e.inst.speciesId]?.nameKo ?? '') + ' 알' : ''));
       const converted = events.some((e) => e.t === 'mana' && e.reason === 'benchFull');
-      this.flash('보너스! ' + [...names, lineMana ? '마력 +' + lineMana : ''].filter(Boolean).join(' · ') + (converted ? '
-(대기칸이 꽉 차서 보너스 알은 마력으로 바뀌었어요)' : ''));
+      this.flash('보너스! ' + [...names, lineMana ? '마력 +' + lineMana : ''].filter(Boolean).join(' · ') + (converted ? '\n(대기칸이 꽉 차서 보너스 알은 마력으로 바뀌었어요)' : ''));
     }
     const fight = events.find((e) => e.t === 'battle');
     if (fight && fight.t === 'battle') {
