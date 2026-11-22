@@ -175,19 +175,22 @@ function main(args: string[]): void {
   let seed = 1;
   let calamity = 0;
   let maxWave = 0;
+  let finalBossPct = 0;
   for (let i = 0; i < args.length; i += 2) {
     const option = args[i];
     const value = args[i + 1];
-    if (!['--runs', '--seed', '--calamity', '--max-wave'].includes(option ?? '') || !value || !/^-?\d+$/.test(value)) {
-      throw new Error('Usage: node tools/sim/run.ts --runs 10000 --seed 1 [--calamity 0] [--max-wave 10]');
+    if (!['--runs', '--seed', '--calamity', '--max-wave', '--final-boss-pct'].includes(option ?? '') || !value || !/^-?\d+$/.test(value)) {
+      throw new Error('Usage: node tools/sim/run.ts --runs 10000 --seed 1 [--calamity 0] [--max-wave 10] [--final-boss-pct 340]');
     }
     if (option === '--runs') runs = Number(value);
     else if (option === '--seed') seed = Number(value);
     else if (option === '--calamity') calamity = Number(value);
-    else maxWave = Number(value);
+    else if (option === "--max-wave") maxWave = Number(value);
+    else finalBossPct = Number(value);
   }
   const data = loadSimulationData();
   if (maxWave > 0) data.waves = { ...data.waves, maxWave };
+  if (finalBossPct > 0) data.waves = { ...data.waves, bossPct: { ...data.waves.bossPct, [String(data.waves.maxWave)]: finalBossPct } };
   const markdown = toMarkdown(simulate(data, runs, seed, calamity));
   mkdirSync(new URL('../../docs/balance/', import.meta.url), { recursive: true });
   writeFileSync(new URL('../../docs/balance/latest.md', import.meta.url), markdown);
