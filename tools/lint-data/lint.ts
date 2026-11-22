@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { RawGameData, Recipe } from '../../packages/core/src/contracts/types.ts';
+import { ELEMENTS, type RawGameData, type Recipe } from '../../packages/core/src/contracts/types.ts';
 
 type LintDataInput = RawGameData & {
   codex?: { id: string; hintKo: string; loreKo: string }[];
@@ -10,6 +10,8 @@ export function lintData(raw: LintDataInput): string[] {
   const dragons = new Map<string, RawGameData['dragons'][number]>();
   const traits = new Set<string>();
   const reachable = new Set<string>();
+  const elements = new Set<string>(ELEMENTS);
+  const symbols = new Set<string>([...ELEMENTS, 'gold', 'wild']);
 
   for (const trait of raw.traits) {
     if (traits.has(trait.id)) issues.push(`duplicate trait id: ${trait.id}`);
@@ -22,6 +24,9 @@ export function lintData(raw: LintDataInput): string[] {
     if (dragon.tier === 'base') reachable.add(dragon.id);
     if (!traits.has(dragon.traitId)) {
       issues.push(`dragon ${dragon.id}: unknown traitId ${dragon.traitId}`);
+    }
+    for (const element of dragon.elements) {
+      if (!elements.has(element)) issues.push(`dragon ${dragon.id}: unknown element ${element}`);
     }
     for (const [stat, value] of Object.entries(dragon.stats)) {
       if (value <= 0) issues.push(`dragon ${dragon.id}: ${stat} must be positive`);
@@ -53,6 +58,16 @@ export function lintData(raw: LintDataInput): string[] {
         (dragon) => dragon.elements.length === 1 && dragon.elements[0] === element,
       );
       if (!matches) issues.push(`${label}: element mismatch for ${target.tier} result`);
+    }
+    if (target.tier === 'dual') {
+      const [firstElement] = first.elements;
+      const [secondElement] = second.elements;
+      const matches = first.tier === 't2' && second.tier === 't2'
+        && first.elements.length === 1 && second.elements.length === 1
+        && firstElement && secondElement && firstElement !== secondElement
+        && target.elements.length === 2
+        && target.elements.includes(firstElement) && target.elements.includes(secondElement);
+      if (!matches) issues.push(`${label}: expected two tier 2 dragons matching the dual result's elements`);
     }
   }
 
@@ -87,6 +102,7 @@ export function lintData(raw: LintDataInput): string[] {
   }
 
   for (const [symbol, weight] of Object.entries(raw.slot.weights)) {
+    if (!symbols.has(symbol)) issues.push(`slot weight: unknown symbol ${symbol}`);
     if (weight <= 0) issues.push(`slot weight ${symbol} must be positive`);
   }
   if (raw.slot.rerollCosts.length === 0) issues.push('slot rerollCosts must not be empty');
