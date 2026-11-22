@@ -8,6 +8,7 @@ import waves from '../../../data/waves.json';
 import battle from '../../../data/battle.json';
 import rewards from '../../../data/rewards.json';
 import bosses from '../../../data/bosses.json';
+import codex from '../../../data/codex.json';
 import { GameController } from './controller.ts';
 import { GameScene } from './scenes/GameScene.ts';
 
@@ -24,5 +25,5 @@ const game = new Phaser.Game({
   backgroundColor: '#1b1f2a',
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
 });
-game.scene.add('game', GameScene, true, { ctl });
+game.scene.add('game', GameScene, true, { ctl, codex });
 (window as unknown as { wyrm: unknown }).wyrm = { ctl, seed, game };

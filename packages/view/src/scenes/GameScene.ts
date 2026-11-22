@@ -10,6 +10,7 @@ import { pulse } from '../fx/juice.ts';
 import { button, text, type Button } from '../ui.ts';
 import { UI } from '../layout.ts';
 import { preloadDragons } from '../fx/sprites.ts';
+import { DexOverlay, type CodexEntry } from '../panels/DexOverlay.ts';
 
 export class GameScene extends Phaser.Scene {
   private ctl!: GameController;
@@ -25,8 +26,12 @@ export class GameScene extends Phaser.Scene {
     super('game');
   }
 
-  init(data: { ctl: GameController }): void {
+  private dex!: DexOverlay;
+  private codex: CodexEntry[] = [];
+
+  init(data: { ctl: GameController; codex?: CodexEntry[] }): void {
     this.ctl = data.ctl;
+    this.codex = data.codex ?? [];
   }
 
   preload(): void {
@@ -37,6 +42,8 @@ export class GameScene extends Phaser.Scene {
     this.battle = new BattlePanel(this, this.ctl.data);
     this.hud = new Hud(this, this.ctl.data);
     this.hud.onBossInfo = (msg) => this.flash(msg);
+    this.dex = new DexOverlay(this, this.ctl, this.codex);
+    button(this, 952, 0, 80, 44, '도감', () => (this.dex.isOpen() ? this.dex.close() : !this.ctl.busy && this.dex.open()), 0x2b3045);
     this.slot = new SlotPanel(this, this.ctl);
     this.nest = new NestPanel(this, this.ctl);
     this.banner = text(this, 640, 170, '', 40, '#fff3bf').setOrigin(0.5).setAlign('center').setDepth(60).setStroke('#5f3dc4', 8).setAlpha(0);
