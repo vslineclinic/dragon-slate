@@ -2,8 +2,7 @@ import type { Unit } from './contracts/events.ts';
 import type { DragonSpec, Element, GameData, WaveConfig } from './contracts/types.ts';
 import { createRng, type Rng } from './rng.ts';
 import { NO_CALAMITY, type CalamityMods } from './calamity.ts';
-
-const ELEMENTS: readonly Element[] = ['fire', 'ice', 'lightning'];
+import { activeElements } from './data.ts';
 
 export function isBoss(cfg: WaveConfig, wave: number): boolean {
   return wave <= cfg.maxWave && cfg.bossPct[String(wave)] !== undefined;
@@ -19,9 +18,10 @@ export function enemyPower(cfg: WaveConfig, wave: number, mods: CalamityMods = N
   return p;
 }
 
-export function bossElement(seed: number, wave: number): Element {
+/** elements = 지금 데이터에서 쓰이는 원소(activeElements) */
+export function bossElement(seed: number, wave: number, elements: readonly Element[]): Element {
   const rng = createRng((seed ^ Math.imul(wave, 7919)) >>> 0);
-  return ELEMENTS[rng.nextInt(ELEMENTS.length)] as Element;
+  return elements[rng.nextInt(elements.length)] as Element;
 }
 
 export function unitPower(u: Unit): number {
@@ -41,7 +41,7 @@ export function generateEnemies(data: GameData, wave: number, rng: Rng, seed: nu
   const pool = sortedSpecs(data, (d) => d.tier === 'base' || (wave > 5 && d.tier === 't2'));
   const units: Unit[] = [];
   if (isBoss(data.waves, wave)) {
-    const el = bossElement(seed, wave);
+    const el = bossElement(seed, wave, activeElements(data));
     const boss = sortedSpecs(data, (d) => d.tier === 't1' && d.elements[0] === el)[0];
     if (boss) units.push(specUnit(boss));
   }

@@ -10,5 +10,31 @@
     "dual": 40,
     "secret": 60
   },
-  "maxTraits": 2
+  "maxTraits": 2,
+  "beats": {
+    "fire": [
+      "ice",
+      "steel"
+    ],
+    "ice": [
+      "lightning",
+      "poison"
+    ],
+    "lightning": [
+      "fire",
+      "abyss"
+    ],
+    "poison": [
+      "lightning",
+      "abyss"
+    ],
+    "steel": [
+      "poison",
+      "ice"
+    ],
+    "abyss": [
+      "fire",
+      "steel"
+    ]
+  }
 }

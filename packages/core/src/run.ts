@@ -7,11 +7,11 @@ import { createRng, type Rng } from './rng.ts';
 import { evaluateLines, nudge, offersFrom, spinGrid, visible } from './slot.ts';
 import { bossElement, generateEnemies, isBoss } from './waves.ts';
 import { calamityMods } from './calamity.ts';
+import { activeElements } from './data.ts';
 
 const NEST_SIZE = 6;
 const BENCH_SIZE = 4;
 const START_NEST_OPEN = 3;
-const ELEMENTS: readonly string[] = ['fire', 'ice', 'lightning'];
 
 type Result = { state: RunState; events: GameEvent[] };
 
@@ -22,7 +22,7 @@ function bossSpecPreview(data: GameData, wave: number): BossSpec | null {
 
 function bossPreview(data: GameData, seed: number, wave: number): Element | null {
   if ((wave - 1) % 5 !== 0) return null;
-  return isBoss(data.waves, wave + 4) ? bossElement(seed, wave + 4) : null;
+  return isBoss(data.waves, wave + 4) ? bossElement(seed, wave + 4, activeElements(data)) : null;
 }
 
 export function createRun(data: GameData, seed: number, calamity = 0): Result {
@@ -153,7 +153,7 @@ function doPick(data: GameData, s: RunState, index: number, rng: Rng, events: Ga
   for (const g of evaluateLines(s.grid)) {
     if (g.element === 'gold') addMana(s, data.slot.goldLineMana, 'goldLine', events);
     else if (g.element === 'wild') addMana(s, data.slot.wildLineMana, 'wildLine', events);
-    else if (ELEMENTS.includes(g.element)) {
+    else {
       const pool = speciesOfTier(data, g.element, g.lines.length >= 2 ? 't2' : 'base');
       const species = pool[rng.nextInt(pool.length)];
       if (species !== undefined && !addToBench(s, species, 'bonus', events)) converted++;

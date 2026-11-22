@@ -1,5 +1,6 @@
 import type { Cell, Element, GameData, Grid, Offer, SymbolId } from './contracts/types.ts';
 import type { Rng } from './rng.ts';
+import { activeElements } from './data.ts';
 
 /** 8줄: [col,row] (row는 보이는 0~2) */
 export const LINES: readonly (readonly [number, number][])[] = [
@@ -13,8 +14,6 @@ export const LINES: readonly (readonly [number, number][])[] = [
   [[0, 2], [1, 1], [2, 0]],
 ];
 
-const ELEMENTS: readonly Element[] = ['fire', 'ice', 'lightning'];
-const SYMBOLS: readonly SymbolId[] = ['fire', 'ice', 'lightning', 'gold', 'wild'];
 
 function basesOf(data: GameData, el: Element | null): string[] {
   const out: string[] = [];
@@ -31,17 +30,19 @@ function rollCell(data: GameData, rng: Rng, symbol: SymbolId): Cell {
 }
 
 export function spinGrid(data: GameData, rng: Rng, forceLine: boolean): Grid {
+  const elements = activeElements(data);
+  const symbols: SymbolId[] = [...elements, 'gold', 'wild'];
   const reels: Cell[][] = [];
   for (let c = 0; c < 3; c++) {
     const reel: Cell[] = [];
     for (let i = 0; i < 5; i++) {
-      const sym = rng.pickWeighted(SYMBOLS, (s) => data.slot.weights[s]);
+      const sym = rng.pickWeighted(symbols, (s) => data.slot.weights[s] ?? 0);
       reel.push(rollCell(data, rng, sym));
     }
     reels.push(reel);
   }
   if (forceLine) {
-    const el = ELEMENTS[rng.nextInt(ELEMENTS.length)] as Element;
+    const el = elements[rng.nextInt(elements.length)] as Element;
     for (let c = 0; c < 3; c++) (reels[c] as Cell[])[2] = rollCell(data, rng, el);
   }
   return { reels, offsets: [0, 0, 0] };

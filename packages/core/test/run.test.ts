@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { applyCommand, createRun, stateHash } from '../src/run.ts';
-import { loadGameData } from '../src/data.ts';
+import { activeElements, loadGameData } from '../src/data.ts';
 import { bossElement } from '../src/waves.ts';
 import type { Command } from '../src/contracts/commands.ts';
 import type { GameEvent } from '../src/contracts/events.ts';
@@ -40,7 +40,7 @@ describe('run state machine', () => {
   test('createRun previews first boss', () => {
     const { state, events } = createRun(data, 9);
     expect(state).toMatchObject({ wave: 1, phase: 'spin', lives: 5, mana: 3, nestOpen: 3 });
-    expect(events).toContainEqual({ t: 'waveStart', wave: 1, bossPreview: bossElement(9, 5), boss: null });
+    expect(events).toContainEqual({ t: 'waveStart', wave: 1, bossPreview: bossElement(9, 5, activeElements(data)), boss: null });
   });
 
   test('pick before spin rejected wrongPhase', () => {
@@ -137,7 +137,7 @@ describe('run state machine', () => {
     expect(r.state.nestOpen).toBe(4);
     expect(r.state.wave).toBe(6);
     expect(r.state.phase).toBe('spin');
-    expect(r.events).toContainEqual({ t: 'waveStart', wave: 6, bossPreview: bossElement(s.seed, 10), boss: null });
+    expect(r.events).toContainEqual({ t: 'waveStart', wave: 6, bossPreview: bossElement(s.seed, 10, activeElements(data)), boss: null });
   });
 
   test('lives zero ends run', () => {

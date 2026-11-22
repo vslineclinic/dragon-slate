@@ -16,6 +16,8 @@ function data(): GameData {
   return d;
 }
 
+const EL3 = ['fire', 'ice', 'lightning'] as const;
+
 describe('waves', () => {
   test('power wave1=100 wave2=118 wave3=139', () => {
     const cfg = data().waves;
@@ -38,9 +40,9 @@ describe('waves', () => {
   });
 
   test('bossElement stable per seed', () => {
-    expect(bossElement(123, 5)).toBe(bossElement(123, 5));
+    expect(bossElement(123, 5, EL3)).toBe(bossElement(123, 5, EL3));
     const seen = new Set<string>();
-    for (let s = 1; s <= 50; s++) seen.add(bossElement(s, 10));
+    for (let s = 1; s <= 50; s++) seen.add(bossElement(s, 10, EL3));
     expect(seen.size).toBe(3);
   });
 
@@ -65,6 +67,6 @@ describe('waves', () => {
     const units = generateEnemies(d, 10, createRng(1), 42);
     const spec = d.dragons[units[0]!.speciesId]!;
     expect(spec.tier).toBe('t1');
-    expect(spec.elements[0]).toBe(bossElement(42, 10));
+    expect(spec.elements[0]).toBe(bossElement(42, 10, EL3));
   });
 });

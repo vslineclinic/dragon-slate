@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { elementMult, simulateBattle, toUnit } from '../src/battle.ts';
 import type { Unit } from '../src/contracts/events.ts';
-import type { Element } from '../src/contracts/types.ts';
+import type { BattleConfig, Element } from '../src/contracts/types.ts';
 import { testData } from './helpers.ts';
 
 const cfg = testData().battle;
@@ -71,5 +72,31 @@ describe('battle', () => {
     const r = simulateBattle(cfg, [u('fire', 100, 50, 5)], [u('fire', 60, 1, 1000)]);
     expect(r.events.filter((e) => e.kind === 'death')).toEqual([{ tick: 10, kind: 'death', side: 'enemy', idx: 0 }]);
     expect(r.winner).toBe('ally');
+  });
+});
+
+describe('six element matchups', () => {
+  const real = JSON.parse(readFileSync(new URL('../../../data/battle.json', import.meta.url), 'utf8')) as BattleConfig;
+  const all: Element[] = ['fire', 'ice', 'lightning', 'poison', 'steel', 'abyss'];
+
+  test('beats table is balanced', () => {
+    for (const a of all) {
+      const wins = all.filter((b) => elementMult(real, a, b) === real.strongPct).length;
+      const losses = all.filter((b) => elementMult(real, a, b) === real.weakPct).length;
+      expect([a, wins, losses]).toEqual([a, 2, 2]);
+      for (const b of all) if (elementMult(real, a, b) === real.strongPct) expect(elementMult(real, b, a)).toBe(real.weakPct);
+    }
+  });
+
+  test('original triangle preserved', () => {
+    expect(elementMult(real, 'fire', 'ice')).toBe(135);
+    expect(elementMult(real, 'ice', 'lightning')).toBe(135);
+    expect(elementMult(real, 'lightning', 'fire')).toBe(135);
+  });
+
+  test('neutral pairs', () => {
+    expect(elementMult(real, 'fire', 'poison')).toBe(100);
+    expect(elementMult(real, 'ice', 'abyss')).toBe(100);
+    expect(elementMult(real, 'lightning', 'steel')).toBe(100);
   });
 });

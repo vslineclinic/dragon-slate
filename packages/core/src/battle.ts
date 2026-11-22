@@ -1,11 +1,9 @@
 import type { BattleEvent, BattleResult, Unit } from './contracts/events.ts';
 import type { BattleConfig, BossRules, DragonInst, Element, GameData } from './contracts/types.ts';
 
-const BEATS: Record<Element, Element> = { fire: 'ice', ice: 'lightning', lightning: 'fire' };
-
 export function elementMult(cfg: BattleConfig, atk: Element, def: Element): number {
-  if (BEATS[atk] === def) return cfg.strongPct;
-  if (BEATS[def] === atk) return cfg.weakPct;
+  if (cfg.beats[atk]?.includes(def)) return cfg.strongPct;
+  if (cfg.beats[def]?.includes(atk)) return cfg.weakPct;
   return 100;
 }
 

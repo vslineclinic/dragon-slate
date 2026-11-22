@@ -12,12 +12,15 @@ export const COLOR: Record<SymbolId, number> = {
   fire: 0xe8590c,
   ice: 0x4dabf7,
   lightning: 0xfab005,
+  poison: 0x82c91e,
+  steel: 0xadb5bd,
+  abyss: 0x5f3dc4,
   gold: 0xd4af37,
-  wild: 0x9775fa,
+  wild: 0xf783ac,
 };
 
-export const SYMBOL_LABEL: Record<SymbolId, string> = { fire: '불', ice: '얼음', lightning: '번개', gold: '금', wild: '여의주' };
-export const ELEMENT_KO: Record<string, string> = { fire: '불', ice: '얼음', lightning: '번개' };
+export const SYMBOL_LABEL: Record<SymbolId, string> = { fire: '불', ice: '얼음', lightning: '번개', poison: '독', steel: '강철', abyss: '심연', gold: '금', wild: '여의주' };
+export const ELEMENT_KO: Record<string, string> = { fire: '불', ice: '얼음', lightning: '번개', poison: '독', steel: '강철', abyss: '심연' };
 export const TIER_KO: Record<Tier, string> = { base: '기본', t2: '2티어', t1: '1티어', dual: '이중', secret: '???' };
 
 export const UI = {

@@ -1,6 +1,8 @@
 import type { Command } from './commands.ts';
 
-export type Element = 'fire' | 'ice' | 'lightning';
+export type Element = 'fire' | 'ice' | 'lightning' | 'poison' | 'steel' | 'abyss';
+/** 원소 순서(화면·도감 정렬용). 실제로 쓰이는 원소는 activeElements(data)로 구한다 */
+export const ELEMENTS: readonly Element[] = ['fire', 'ice', 'lightning', 'poison', 'steel', 'abyss'];
 export type SymbolId = Element | 'gold' | 'wild';
 export type Tier = 'base' | 't2' | 't1' | 'dual' | 'secret';
 export type Role = 'front' | 'back' | 'support';
@@ -28,7 +30,7 @@ export type RewardKind = 'mana' | 'egg' | 't2egg' | 'trait' | 'nudge' | 'freeSpi
 export interface RewardSpec { id: string; nameKo: string; kind: RewardKind; amount: number; weight: number; bossWeight: number }
 
 export interface SlotConfig {
-  weights: Record<SymbolId, number>;
+  weights: Partial<Record<SymbolId, number>>;
   pityThreshold: number;
   nudgesPerWave: number;
   rerollCosts: number[];
@@ -59,6 +61,8 @@ export interface BattleConfig {
   maxTicks: number;
   strongPct: number;
   weakPct: number;
+  /** 원소별로 이기는 원소 목록 */
+  beats: Partial<Record<Element, Element[]>>;
   absorbBonusPct: Record<Tier, number>;
   maxTraits: number;
 }
