@@ -20,3 +20,14 @@
 | `packages/core/src` 규칙, `packages/view`, `data/*.json` 최종 수치, 계약(`packages/core/src/contracts/`) | `tools/sim`, `tools/lint-data`, 테스트 보강, 데이터 초안, `apps/desktop`, `apps/mobile`, 저장·빌드 스크립트 |
 
 코덱스 결과는 테스트 + diff 검토 뒤에만 main에 병합. 작업 카드: `docs/tasks/`. 개발 일지: `docs/devlog/`.
+
+## 업무 분담 개정 (2026-11-23, 설계 문서 8장)
+- Claude = 지휘자: 계약·작업 카드·검토(테스트 재실행, diff 읽기, 실행 확인)·병합·밸런스 결정·문서. 직접 구현은 작은 연결 작업과 눈으로 봐야 하는 화면 다듬기만.
+- Codex = 주 구현자: 카드 단위 구현(규칙 이식, 도구, 데이터, 그림, 문구, 포장, 화면 초안)과 독립 검수.
+- 코덱스 호출: `C:\claude\ai-team\Invoke-Worker.ps1 -Worker codex -Mode build -WorkDir C:\claude\dragon-game-codex` (맡기기 전 작업본 커밋, 묶음 사이 커밋).
+
+## Godot 전환 (2026-11-23, 설계 문서 8.2)
+- Godot 4.7.2 + GDScript, 실행 파일 `C:\claude\tools\godot\Godot_v4.7.2-stable_win64_console.exe`.
+- `project.godot`는 저장소 맨 위. 규칙 이식은 `godot/core/`, 테스트는 `godot/tests/` (실행: `godot --headless --path . --script res://godot/tests/run_tests.gd`).
+- TypeScript판과 비트 단위로 같은 결과여야 함. 기준 자료는 `npm run parity` → `godot/tests/fixtures/`.
+- 웹판(packages/*)은 Godot판이 따라잡을 때까지 기준·시험판으로 유지.
