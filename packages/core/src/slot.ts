@@ -15,12 +15,26 @@ export const LINES: readonly (readonly [number, number][])[] = [
 ];
 
 
+const basesCache = new WeakMap<GameData['dragons'], Map<string, string[]>>();
+
+/** 원소별 기본종 id(정렬). 데이터마다 한 번만 계산한다. */
 function basesOf(data: GameData, el: Element | null): string[] {
-  const out: string[] = [];
-  for (const d of Object.values(data.dragons)) {
-    if (d.tier === 'base' && (el === null || d.elements[0] === el)) out.push(d.id);
+  let byEl = basesCache.get(data.dragons);
+  if (!byEl) {
+    byEl = new Map();
+    basesCache.set(data.dragons, byEl);
   }
-  return out.sort();
+  const key = el ?? '*';
+  let out = byEl.get(key);
+  if (!out) {
+    out = [];
+    for (const d of Object.values(data.dragons)) {
+      if (d.tier === 'base' && (el === null || d.elements[0] === el)) out.push(d.id);
+    }
+    out.sort();
+    byEl.set(key, out);
+  }
+  return out;
 }
 
 function rollCell(data: GameData, rng: Rng, symbol: SymbolId): Cell {

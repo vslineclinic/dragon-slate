@@ -1,9 +1,15 @@
 import { ELEMENTS, type Element, type GameData, type RawGameData } from './contracts/types.ts';
 
 /** 기본종이 있는 원소만(ELEMENTS 순서) */
+const activeCache = new WeakMap<GameData['dragons'], Element[]>();
+
 export function activeElements(data: GameData): Element[] {
+  const hit = activeCache.get(data.dragons);
+  if (hit) return hit;
   const used = new Set(Object.values(data.dragons).filter((d) => d.tier === 'base').map((d) => d.elements[0]));
-  return ELEMENTS.filter((e) => used.has(e));
+  const out = ELEMENTS.filter((e) => used.has(e));
+  activeCache.set(data.dragons, out);
+  return out;
 }
 
 /** 배열을 id 맵으로 바꾸고, 참조가 없는 id가 있으면 throw */

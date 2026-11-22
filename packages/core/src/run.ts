@@ -300,9 +300,23 @@ function doBattle(data: GameData, s: RunState, rng: Rng, events: GameEvent[]): R
   return null;
 }
 
+const cloneInst = (d: DragonInst | null): DragonInst | null => (d ? { uid: d.uid, speciesId: d.speciesId, traits: d.traits.slice(), bonusPct: d.bonusPct } : null);
+
+/** structuredClone과 같은 결과의 빠른 깊은 복사(상태 모양이 고정이라 직접 복사) */
+function cloneState(s: RunState): RunState {
+  return {
+    ...s,
+    nest: s.nest.map(cloneInst),
+    bench: s.bench.map(cloneInst),
+    grid: s.grid ? { reels: s.grid.reels.map((r) => r.map((c) => ({ symbol: c.symbol, speciesId: c.speciesId }))), offsets: s.grid.offsets.slice() } : null,
+    discovered: s.discovered.slice(),
+    log: s.log.slice(),
+  };
+}
+
 /** 입력 state는 바꾸지 않는다. 거절이면 같은 state 객체와 rejected 이벤트를 돌려준다. */
 export function applyCommand(data: GameData, state: RunState, cmd: Command): Result {
-  const s = structuredClone(state);
+  const s = cloneState(state);
   const rng = createRng(s.seed, s.rngState);
   const events: GameEvent[] = [];
   let reason: RejectReason | null;

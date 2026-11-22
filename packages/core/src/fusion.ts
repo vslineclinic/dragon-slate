@@ -1,11 +1,21 @@
 import type { DragonInst, GameData } from './contracts/types.ts';
 
-/** 순서 무관 */
+const recipeCache = new WeakMap<GameData['recipes'], Map<string, string>>();
+
+/** 순서 무관. 레시피 표는 데이터마다 한 번만 맵으로 만든다(첫 일치 우선). */
 export function findRecipe(data: GameData, a: string, b: string): string | undefined {
-  for (const r of data.recipes) {
-    if ((r.a === a && r.b === b) || (r.a === b && r.b === a)) return r.result;
+  let map = recipeCache.get(data.recipes);
+  if (!map) {
+    map = new Map();
+    for (const r of data.recipes) {
+      const k1 = r.a + '|' + r.b;
+      const k2 = r.b + '|' + r.a;
+      if (!map.has(k1)) map.set(k1, r.result);
+      if (!map.has(k2)) map.set(k2, r.result);
+    }
+    recipeCache.set(data.recipes, map);
   }
-  return undefined;
+  return map.get(a + '|' + b);
 }
 
 function absorbedTrait(data: GameData, main: DragonInst, material: DragonInst): string | null {
