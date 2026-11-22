@@ -40,7 +40,7 @@ describe('run state machine', () => {
   test('createRun previews first boss', () => {
     const { state, events } = createRun(data, 9);
     expect(state).toMatchObject({ wave: 1, phase: 'spin', lives: 5, mana: 3, nestOpen: 3 });
-    expect(events).toContainEqual({ t: 'waveStart', wave: 1, bossPreview: bossElement(9, 5) });
+    expect(events).toContainEqual({ t: 'waveStart', wave: 1, bossPreview: bossElement(9, 5), boss: null });
   });
 
   test('pick before spin rejected wrongPhase', () => {
@@ -137,7 +137,7 @@ describe('run state machine', () => {
     expect(r.state.nestOpen).toBe(4);
     expect(r.state.wave).toBe(6);
     expect(r.state.phase).toBe('spin');
-    expect(r.events).toContainEqual({ t: 'waveStart', wave: 6, bossPreview: bossElement(s.seed, 10) });
+    expect(r.events).toContainEqual({ t: 'waveStart', wave: 6, bossPreview: bossElement(s.seed, 10), boss: null });
   });
 
   test('lives zero ends run', () => {
@@ -148,8 +148,8 @@ describe('run state machine', () => {
   });
 
   test('victory after winning maxWave', () => {
-    const big = (uid: number) => inst(uid, 'tiamat', 300);
-    const s: RunState = { ...fresh(), wave: 10, phase: 'manage', nestOpen: 5, nest: [big(1), big(2), big(3), null, null, null] };
+    const big = (uid: number) => inst(uid, 'tiamat', 5000);
+    const s: RunState = { ...fresh(), wave: data.waves.maxWave, phase: 'manage', nestOpen: 5, nest: [big(1), big(2), big(3), null, null, null] };
     const r = run(s, { type: 'startBattle' });
     expect(r.state.phase).toBe('victory');
     expect(r.events).toContainEqual({ t: 'victory' });
@@ -227,8 +227,8 @@ describe('run state machine', () => {
   });
 
   test('losing the final boss with lives left retries the final wave', () => {
-    const s: RunState = { ...fresh(), wave: 10, phase: 'manage', nest: [inst(1, 'fire_wyvern'), null, null, null, null, null] };
+    const s: RunState = { ...fresh(), wave: data.waves.maxWave, phase: 'manage', nest: [inst(1, 'fire_wyvern'), null, null, null, null, null] };
     const r = run(s, { type: 'startBattle' });
-    expect(r.state).toMatchObject({ wave: 10, phase: 'spin', lives: 3 });
+    expect(r.state).toMatchObject({ wave: data.waves.maxWave, phase: 'spin', lives: 3 });
   });
 });

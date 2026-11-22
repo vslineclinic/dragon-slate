@@ -1,5 +1,5 @@
 import type { RejectReason } from './commands.ts';
-import type { DragonInst, Element, Grid, RewardSpec, SlotRef, SymbolId } from './types.ts';
+import type { BossSpec, DragonInst, Element, Grid, RewardSpec, SlotRef, SymbolId } from './types.ts';
 
 export interface Unit { speciesId: string; elements: Element[]; hp: number; atk: number; cooldownTicks: number; lifestealPct: number }
 
@@ -30,7 +30,8 @@ export type GameEvent =
   /** detail: 받은 종 id, 특성 id 등 */
   | { t: 'reward'; reward: RewardSpec; detail: string | null }
   | { t: 'nestUnlocked'; open: number }
-  | { t: 'waveStart'; wave: number; bossPreview: Element | null }
+  /** boss: 1·6·11·16웨이브에 예보하는 다음 보스, 그 외 null */
+  | { t: 'waveStart'; wave: number; bossPreview: Element | null; boss: BossSpec | null }
   | { t: 'gameOver' }
   | { t: 'victory' }
   | { t: 'rejected'; reason: RejectReason };

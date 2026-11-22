@@ -13,7 +13,7 @@ import rewards from '../../../data/rewards.json' with { type: 'json' };
 
 const make = (rw: RewardSpec[]): GameData => loadGameData({ dragons, traits, recipes, slot, waves, battle, rewards: rw } as RawGameData);
 const only = (kind: RewardSpec['kind'], amount = 1): RewardSpec[] => [{ id: kind, nameKo: kind, kind, amount, weight: 1, bossWeight: 1 }];
-const big = (uid: number): DragonInst => ({ uid, speciesId: 'tiamat', traits: [], bonusPct: 300 });
+const big = (uid: number, bonusPct = 300): DragonInst => ({ uid, speciesId: 'tiamat', traits: [], bonusPct });
 const winState = (d: GameData, wave = 2): RunState => ({ ...createRun(d, 3).state, wave, phase: 'manage', nest: [big(1), big(2), null, null, null, null] });
 const rewardOf = (ev: GameEvent[]) => ev.find((e) => e.t === 'reward');
 
@@ -83,7 +83,7 @@ describe('wave rewards', () => {
 
   test('no reward on final victory', () => {
     const d = make(only('mana'));
-    const r = applyCommand(d, winState(d, d.waves.maxWave), { type: 'startBattle' });
+    const r = applyCommand(d, { ...winState(d, d.waves.maxWave), nest: [big(1, 5000), big(2, 5000), null, null, null, null] }, { type: 'startBattle' });
     expect(r.state.phase).toBe('victory');
     expect(rewardOf(r.events)).toBeUndefined();
   });

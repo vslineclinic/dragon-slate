@@ -1,6 +1,6 @@
 import type { Command, RejectReason } from './contracts/commands.ts';
 import type { GameEvent } from './contracts/events.ts';
-import type { DragonInst, Element, GameData, RunState, SlotRef } from './contracts/types.ts';
+import type { BossSpec, DragonInst, Element, GameData, RunState, SlotRef } from './contracts/types.ts';
 import { simulateBattle, toUnit } from './battle.ts';
 import { merge } from './fusion.ts';
 import { createRng, type Rng } from './rng.ts';
@@ -13,6 +13,11 @@ const START_NEST_OPEN = 3;
 const ELEMENTS: readonly string[] = ['fire', 'ice', 'lightning'];
 
 type Result = { state: RunState; events: GameEvent[] };
+
+function bossSpecPreview(data: GameData, wave: number): BossSpec | null {
+  if ((wave - 1) % 5 !== 0) return null;
+  return data.bosses.find((b) => b.wave === wave + 4) ?? null;
+}
 
 function bossPreview(data: GameData, seed: number, wave: number): Element | null {
   if ((wave - 1) % 5 !== 0) return null;
@@ -40,7 +45,7 @@ export function createRun(data: GameData, seed: number): Result {
     discovered: [],
     log: [],
   };
-  return { state, events: [{ t: 'waveStart', wave: 1, bossPreview: bossPreview(data, state.seed, 1) }] };
+  return { state, events: [{ t: 'waveStart', wave: 1, bossPreview: bossPreview(data, state.seed, 1), boss: bossSpecPreview(data, 1) }] };
 }
 
 export function stateHash(state: RunState): string {
@@ -242,7 +247,8 @@ function doBattle(data: GameData, s: RunState, rng: Rng, events: GameEvent[]): R
   if (!s.nest.some((n, i) => n !== null && i < s.nestOpen)) return 'nestEmpty';
   const allies = s.nest.map((n, i) => (n && i < s.nestOpen ? toUnit(data, n) : null));
   const enemies = generateEnemies(data, s.wave, rng, s.seed);
-  const result = simulateBattle(data.battle, allies, enemies);
+  const rules = isBoss(data.waves, s.wave) ? data.bosses.find((b) => b.wave === s.wave)?.rules : undefined;
+  const result = simulateBattle(data.battle, allies, enemies, rules);
   events.push({ t: 'battle', result });
   const won = result.winner === 'ally';
   if (won) {
@@ -277,7 +283,7 @@ function doBattle(data: GameData, s: RunState, rng: Rng, events: GameEvent[]): R
   s.nudgesLeft = data.slot.nudgesPerWave + s.bonusNudges;
   s.bonusNudges = 0;
   s.phase = 'spin';
-  events.push({ t: 'waveStart', wave: s.wave, bossPreview: bossPreview(data, s.seed, s.wave) });
+  events.push({ t: 'waveStart', wave: s.wave, bossPreview: bossPreview(data, s.seed, s.wave), boss: bossSpecPreview(data, s.wave) });
   return null;
 }
 

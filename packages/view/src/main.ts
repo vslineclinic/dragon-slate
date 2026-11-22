@@ -7,10 +7,11 @@ import slot from '../../../data/slot.json';
 import waves from '../../../data/waves.json';
 import battle from '../../../data/battle.json';
 import rewards from '../../../data/rewards.json';
+import bosses from '../../../data/bosses.json';
 import { GameController } from './controller.ts';
 import { GameScene } from './scenes/GameScene.ts';
 
-const data = loadGameData({ dragons, traits, recipes, slot, waves, battle, rewards } as RawGameData);
+const data = loadGameData({ dragons, traits, recipes, slot, waves, battle, rewards, bosses } as RawGameData);
 const param = Number(new URLSearchParams(location.search).get('seed'));
 const seed = Number.isFinite(param) && param > 0 ? param : Date.now() % 1_000_000_007;
 const ctl = new GameController(data, seed);

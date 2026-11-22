@@ -1,5 +1,5 @@
 {
-  "maxWave": 10,
+  "maxWave": 20,
   "basePower": 45,
   "growthPct": 134,
   "bossPct": {

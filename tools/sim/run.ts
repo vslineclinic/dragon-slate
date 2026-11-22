@@ -135,6 +135,7 @@ export function loadSimulationData(): GameData {
     waves: readData('waves'),
     battle: readData('battle'),
     rewards: readData('rewards'),
+    bosses: readData('bosses'),
   });
 }
 

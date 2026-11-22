@@ -20,6 +20,7 @@ export interface BossRules {
   enrage?: { atTick: number; atkPct: number };
   pulse?: { everyTicks: number; pct: number };
 }
+export interface BossSpec { wave: number; nameKo: string; descKo: string; hintKo: string; rules: BossRules }
 export type RewardKind = 'mana' | 'egg' | 't2egg' | 'trait' | 'nudge' | 'freeSpin' | 'life';
 /** 웨이브 승리 보상. weight는 일반 웨이브, bossWeight는 심판 보스 웨이브 확률 가중치 */
 export interface RewardSpec { id: string; nameKo: string; kind: RewardKind; amount: number; weight: number; bossWeight: number }
@@ -68,6 +69,7 @@ export interface GameData {
   waves: WaveConfig;
   battle: BattleConfig;
   rewards: RewardSpec[];
+  bosses: BossSpec[];
 }
 
 export interface RawGameData {
@@ -78,6 +80,7 @@ export interface RawGameData {
   waves: WaveConfig;
   battle: BattleConfig;
   rewards?: RewardSpec[];
+  bosses?: BossSpec[];
 }
 
 export interface DragonInst { uid: number; speciesId: string; traits: string[]; bonusPct: number }
