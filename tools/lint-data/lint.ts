@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs';
 import type { RawGameData, Recipe } from '../../packages/core/src/contracts/types.ts';
 
-export function lintData(raw: RawGameData): string[] {
+type LintDataInput = RawGameData & {
+  codex?: { id: string; hintKo: string; loreKo: string }[];
+};
+
+export function lintData(raw: LintDataInput): string[] {
   const issues: string[] = [];
   const dragons = new Map<string, RawGameData['dragons'][number]>();
   const traits = new Set<string>();
@@ -64,6 +68,24 @@ export function lintData(raw: RawGameData): string[] {
     if (!reachable.has(id)) issues.push(`unreachable species: ${id}`);
   }
 
+  if (raw.codex !== undefined) {
+    const codexIds = new Set<string>();
+    for (const { id, hintKo, loreKo } of raw.codex) {
+      if (!dragons.has(id)) issues.push(`codex: unknown dragon id ${id}`);
+      if (codexIds.has(id)) issues.push(`codex: duplicate dragon id ${id}`);
+      codexIds.add(id);
+      if (typeof hintKo !== 'string' || !hintKo.trim()) {
+        issues.push(`codex ${id}: hintKo must not be empty`);
+      }
+      if (typeof loreKo !== 'string' || !loreKo.trim()) {
+        issues.push(`codex ${id}: loreKo must not be empty`);
+      }
+    }
+    for (const id of dragons.keys()) {
+      if (!codexIds.has(id)) issues.push(`codex: missing dragon id ${id}`);
+    }
+  }
+
   for (const [symbol, weight] of Object.entries(raw.slot.weights)) {
     if (weight <= 0) issues.push(`slot weight ${symbol} must be positive`);
   }
@@ -72,19 +94,29 @@ export function lintData(raw: RawGameData): string[] {
   return issues;
 }
 
-function readData<K extends keyof RawGameData>(key: K): RawGameData[K] {
+function readData<K extends keyof LintDataInput>(key: K): LintDataInput[K] {
   const path = new URL(`../../data/${key}.json`, import.meta.url);
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
+function readOptionalCodex(): LintDataInput['codex'] {
+  try {
+    return readData('codex');
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return undefined;
+    throw error;
+  }
+}
+
 if (import.meta.main) {
-  const raw: RawGameData = {
+  const raw: LintDataInput = {
     dragons: readData('dragons'),
     traits: readData('traits'),
     recipes: readData('recipes'),
     slot: readData('slot'),
     waves: readData('waves'),
     battle: readData('battle'),
+    codex: readOptionalCodex(),
   };
   const issues = lintData(raw);
   if (issues.length > 0) {
