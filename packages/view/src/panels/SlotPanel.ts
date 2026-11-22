@@ -5,6 +5,7 @@ import type { GameController } from '../controller.ts';
 import { AREA, COLOR, SYMBOL_LABEL, TIER_KO, UI } from '../layout.ts';
 import { settings } from '../settings.ts';
 import { button, text, type Button } from '../ui.ts';
+import { pulse } from '../fx/juice.ts';
 
 const CELL = 70;
 const GAP = 6;
@@ -78,7 +79,10 @@ export class SlotPanel {
         const box = this.scene.add.rectangle(x, y, CELL, CELL, COLOR[cell.symbol]).setOrigin(0);
         box.setAlpha(peek ? 0.28 : 1);
         if (!peek && row === 1) box.setStrokeStyle(3, 0xffffff, 0.55);
-        if (!peek && hitCells.has(c + ',' + row)) box.setStrokeStyle(5, 0xfff3bf, 1);
+        if (!peek && hitCells.has(c + ',' + row)) {
+          box.setStrokeStyle(5, 0xfff3bf, 1);
+          this.scene.time.delayedCall(animate ? dur * 2.3 : 0, () => box.active && pulse(box));
+        }
         const label = text(this.scene, x + CELL / 2, y + CELL / 2, SYMBOL_LABEL[cell.symbol], 17, '#111').setOrigin(0.5).setAlpha(peek ? 0.5 : 1);
         this.layer.add([box, label]);
         if (peek && s.phase === 'pick' && s.nudgesLeft > 0) {
