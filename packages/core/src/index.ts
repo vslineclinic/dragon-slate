@@ -8,3 +8,4 @@ export * from './fusion.ts';
 export * from './battle.ts';
 export * from './waves.ts';
 export * from './run.ts';
+export * from './hints.ts';
