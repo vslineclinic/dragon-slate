@@ -56,7 +56,7 @@ export class SlotPanel {
     const full = s.bench.every((b) => b);
     this.hint.setText(
       s.phase === 'spin' ? '석판을 돌리면 알 3개가 나와요.'
-        : s.phase === 'pick' ? (full ? '대기칸이 꽉 찼어요. 끌어서 합치거나 놓아주세요.' : '보라 띠의 알 3개 중 하나를 카드에서 골라요.')
+        : s.phase === 'pick' ? (full ? '대기칸이 꽉 찼어요. 합치거나 놓아주세요.' : '보라 띠의 알 3개 중 하나를 카드에서 골라요.')
           : s.phase === 'manage' ? '둥지를 정리하고 전투를 시작해요.' : '',
     );
     // 안내가 두 줄이 되어도 겹치지 않게 보상 문구를 바로 아래에 붙인다
@@ -226,7 +226,7 @@ export class SlotPanel {
     const offers = s.grid ? offersFrom(this.ctl.data, s.grid) : [];
     const reco = s.phase === 'pick' ? recommendOffer(this.ctl.data, s) : null;
     for (let i = 0; i < 3; i++) {
-      const y = a.y + 86 + i * 76;
+      const y = a.y + 92 + i * 74;
       const o = offers[i];
       const isReco = reco?.index === i;
       const bg = this.scene.add.rectangle(x0, y, 330, 68, 0x2b3045).setOrigin(0).setStrokeStyle(isReco ? 3 : 1, isReco ? RECO : UI.panelLine);
