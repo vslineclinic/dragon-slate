@@ -7,6 +7,10 @@ const Hud = preload("res://godot/ui/hud.gd")
 const SlotPanel = preload("res://godot/ui/slot_panel.gd")
 const NestPanel = preload("res://godot/ui/nest_panel.gd")
 const BattlePanel = preload("res://godot/ui/battle_panel.gd")
+const Build = preload("res://godot/ui/build.gd")
+const DexOverlay = preload("res://godot/ui/dex_overlay.gd")
+const ResultOverlay = preload("res://godot/ui/result_overlay.gd")
+const Tutorial = preload("res://godot/ui/tutorial.gd")
 const REJECT_KO: Dictionary = {
 	"wrongPhase": "지금은 할 수 없어요",
 	"notEnoughMana": "마력이 모자라요",
@@ -21,9 +25,11 @@ const REJECT_KO: Dictionary = {
 const BONUS_REASONS: Array[String] = ["line", "goldLine", "wildLine", "goldCells", "benchFull"]
 
 signal run_finished(state: Dictionary)
+signal title_requested
 
 var controller: Controller
 var store: Store
+var calamity: int = -1
 var _hud: Hud
 var _slot: SlotPanel
 var _nest: NestPanel
@@ -35,11 +41,14 @@ var _banner_animation: Tween
 var _sequence: Tween
 var _reward_overlay: Control
 var _pending: Dictionary = {}
+var _tutorial: Tutorial
+var _result: ResultOverlay
+var _dex_button: Button
 
 
 func _ready() -> void:
 	if controller == null:
-		controller = Controller.new(GameData.load_all(), int(Time.get_unix_time_from_system()))
+		controller = Controller.new(Build.load_data(), int(Time.get_unix_time_from_system()))
 	if store == null:
 		store = Store.new()
 	theme = GameTheme.create()
@@ -57,12 +66,16 @@ func _ready() -> void:
 	_slot.setup(controller, store)
 	_battle.finished.connect(_battle_finished)
 	_hud.boss_info.connect(flash)
+	_dex_button = GameTheme.button(_hud, Rect2(952, 0, 80, 44), "도감", _open_dex)
 	_banner = _notice(self, Rect2(240, 108, 800, 124), "", 40, Color("#fff3bf"), Color("#5f3dc4"), 8, 60)
 	_banner.modulate.a = 0.0
 	_toast = _notice(self, Rect2(240, 210, 800, 80), "", 22, Color("#ffd8a8"), Color("#000000aa"), 7, 50)
 	_toast.modulate.a = 0.0
+	_tutorial = Tutorial.new()
+	add_child(_tutorial)
+	_tutorial.setup(store)
 	controller.changed.connect(_on_change)
-	controller.restart(controller.state["seed"])
+	controller.restart(controller.state["seed"], calamity)
 
 
 func _on_change(events: Array, state: Dictionary) -> void:
@@ -100,6 +113,7 @@ func _on_change(events: Array, state: Dictionary) -> void:
 		_render(events, state)
 		return
 	controller.busy = true
+	_tutorial.hide()
 	_pending = {"events": events, "state": state, "won": fight["winner"] == "ally"}
 	var lead: Variant = fight["enemies"].front() if not fight["enemies"].is_empty() else null
 	var boss: bool = lead != null and controller.data["dragons"][lead["speciesId"]]["tier"] == "t1"
@@ -118,10 +132,15 @@ func _render(events: Array, state: Dictionary) -> void:
 	_nest.render(state)
 	_battle.show_idle(state)
 	if state["phase"] in ["gameOver", "victory"]:
+		_show_result(state)
 		run_finished.emit(state)
+	else:
+		_tutorial.update(state)
 
 
 func _battle_finished() -> void:
+	if _pending.is_empty():
+		return
 	var result: String = "승리!" if _pending["won"] else "패배"
 	var reward: Dictionary = {}
 	for event: Dictionary in _pending["events"]:
@@ -140,6 +159,54 @@ func _complete_battle() -> void:
 	_pending = {}
 	controller.busy = false
 	_render(previous["events"], previous["state"])
+
+
+func _open_dex() -> void:
+	if controller.busy:
+		return
+	_set_modal(true)
+	var dex: DexOverlay = DexOverlay.new()
+	dex.closed.connect(_close_dex)
+	add_child(dex)
+	dex.setup(controller.data, store)
+
+
+func _close_dex() -> void:
+	_set_modal(false)
+	_dex_button.grab_focus()
+
+
+func _show_result(state: Dictionary) -> void:
+	if is_instance_valid(_result):
+		return
+	_tutorial.finish()
+	store.record_run(state, Build.max_calamity(controller.data))
+	_set_modal(true)
+	_result = ResultOverlay.new()
+	add_child(_result)
+	_result.setup(controller.data, state, _start_new_run, _return_to_title)
+
+
+func _set_modal(active: bool) -> void:
+	controller.busy = active
+	for panel: Control in [_hud, _slot, _nest, _tutorial]:
+		panel.focus_behavior_recursive = Control.FOCUS_BEHAVIOR_DISABLED if active else Control.FOCUS_BEHAVIOR_INHERITED
+
+
+func _start_new_run() -> void:
+	_result.hide()
+	_result.queue_free()
+	_result = null
+	_set_modal(false)
+	var seed_value: int = (int(controller.state["seed"]) * 7 + 13) % 1000000007
+	controller.restart(seed_value)
+
+
+func _return_to_title() -> void:
+	if get_tree().current_scene == self:
+		get_tree().change_scene_to_file("res://godot/scenes/main.tscn")
+	else:
+		title_requested.emit()
 
 
 func _show_reward(event: Dictionary) -> void:

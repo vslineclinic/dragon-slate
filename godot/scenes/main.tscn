@@ -1,15 +1,10 @@
-[gd_scene format=3]
+[gd_scene load_steps=2 format=3]
 
-[node name="Main" type="Control"]
+[ext_resource type="Script" path="res://godot/ui/title.gd" id="1_title"]
+
+[node name="Title" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-
-[node name="Label" type="Label" parent="."]
-layout_mode = 0
-offset_left = 40.0
-offset_top = 40.0
-offset_right = 800.0
-offset_bottom = 80.0
-text = "Wyrmslot (Godot) — 화면 이식 준비 중"
+script = ExtResource("1_title")
