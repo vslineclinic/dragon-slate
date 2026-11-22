@@ -1,12 +1,12 @@
 {
   "maxWave": 20,
   "basePower": 45,
-  "growthPct": 134,
+  "growthPct": 118,
   "bossPct": {
-    "5": 165,
-    "10": 180,
-    "15": 195,
-    "20": 230
+    "5": 380,
+    "10": 340,
+    "15": 210,
+    "20": 165
   },
   "startLives": 5,
   "lossLife": 1,
