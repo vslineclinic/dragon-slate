@@ -1,0 +1,33 @@
+class_name GameController
+extends RefCounted
+
+const RunRules = preload("res://godot/core/run.gd")
+
+signal changed(events: Array, state: Dictionary)
+
+var data: Dictionary
+var state: Dictionary
+var busy: bool = false
+
+
+func _init(game_data: Dictionary, seed: int) -> void:
+	data = game_data
+	state = RunRules.create_run(data, seed)["state"]
+
+
+func dispatch(cmd: Dictionary) -> Array:
+	if busy:
+		return []
+	var result: Dictionary = RunRules.apply_command(data, state, cmd)
+	state = result["state"]
+	var events: Array = result["events"]
+	changed.emit(events, state)
+	return events
+
+
+func restart(seed: int, calamity: int = -1) -> void:
+	var level: int = state["calamity"] if calamity == -1 else calamity
+	var result: Dictionary = RunRules.create_run(data, seed, level)
+	state = result["state"]
+	busy = false
+	changed.emit(result["events"], state)
