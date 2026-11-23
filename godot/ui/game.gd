@@ -67,6 +67,7 @@ func _ready() -> void:
 
 ## 화면 폭에 맞춰 HUD · 전장 · 아래 띠 · 배치판을 만든다(창 크기가 바뀌면 다시 만듦).
 func _build_panels() -> void:
+	var preview: Dictionary = _hud._preview.duplicate() if _hud != null and is_instance_valid(_hud) else {}
 	for panel: Variant in [_battle, _hud, _slot, _board, _banner, _toast]:
 		if panel != null and is_instance_valid(panel):
 			remove_child(panel)
@@ -87,6 +88,7 @@ func _build_panels() -> void:
 	move_child(_board, 3)
 	_battle.setup(controller.data, store, width)
 	_hud.setup(store, width)
+	_hud._preview = preview
 	_slot.setup(controller, store)
 	_board.setup(controller, _areas)
 	_battle.finished.connect(_battle_finished)
@@ -101,9 +103,15 @@ func _build_panels() -> void:
 
 func _on_resize() -> void:
 	var width: float = GameTheme.areas(get_viewport_rect().size.x)["width"]
-	if is_equal_approx(width, _built_width) or controller.busy or not _pending.is_empty():
+	if is_equal_approx(width, _built_width):
+		return
+	if controller.busy or not _pending.is_empty():
+		# 굴림·전투 재생 중이면 끝난 뒤 다시 맞춘다.
+		get_tree().create_timer(0.5).timeout.connect(_on_resize)
 		return
 	_build_panels()
+	_tutorial.setup(store, _areas)
+	_tutorial._step = -1
 	_render([], controller.state)
 
 

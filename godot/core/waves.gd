@@ -12,6 +12,9 @@ static func enemy_power(cfg: Dictionary, wave: int, mods: Dictionary = Calamity.
 	for w: int in range(2, wave + 1):
 		power = Rng.fdiv(power * growth_pct, 100)
 
+	var early: Dictionary = cfg.get("earlyPct", {})
+	if early.has(str(wave)):
+		power = Rng.fdiv(power * int(early[str(wave)]), 100)
 	var boss: bool = is_boss(cfg, wave)
 	if boss:
 		power = Rng.fdiv(power * int(cfg["bossPct"][str(wave)]), 100)

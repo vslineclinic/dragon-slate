@@ -14,6 +14,10 @@ func _init() -> void:
 	var calamity: int = int(_arg(args, "--calamity", "0"))
 	var demo: bool = args.has("--demo")
 	var data: Dictionary = Build.apply(GameData.load_all(), demo)
+	if args.has("--solo"):
+		_solo_first_wave(data, runs, first_seed)
+		quit()
+		return
 	var max_wave: int = data["waves"]["maxWave"]
 
 	var clears: int = 0
@@ -46,7 +50,7 @@ func _init() -> void:
 					battles += 1
 					ticks_total += int(battle["ticks"])
 					max_units = maxi(max_units, battle["units"].size())
-					if int(battle["ticks"]) >= int(data["battle"]["maxTicks"]):
+					if battle["winner"] == "enemy" and int(battle["ticks"]) >= int(data["battle"]["maxTicks"]):
 						timeouts += 1
 					var won: bool = battle["winner"] == "ally"
 					if not seen_waves.has(wave):
@@ -83,6 +87,29 @@ func _init() -> void:
 		losses.append("%d:%d" % [wave, game_over_wave[wave]])
 	print("gameOverWave: " + " ".join(losses))
 	quit()
+
+
+## 기본 드래곤 1마리(호위 포함)를 전열 가운데에 두고 1웨이브만 싸운다. 설계 목표: 승률 90% 이상.
+static func _solo_first_wave(data: Dictionary, runs: int, first_seed: int) -> void:
+	var bases: Array = []
+	for spec: Dictionary in data["dragons"].values():
+		if spec["tier"] == "base":
+			bases.append(spec["id"])
+	bases.sort()
+	var wins: int = 0
+	var worst: Dictionary = {}
+	for i: int in range(runs):
+		var run_seed: int = first_seed + i
+		var rng: Rng = Rng.new(run_seed)
+		var species: String = bases[i % bases.size()]
+		var nest: Array = [null, null, null, null, null, null]
+		nest[1] = Battle.to_unit(data, {"uid": 1, "speciesId": species, "traits": [], "bonusPct": 0})
+		var enemies: Array = Waves.generate_enemies(data, 1, rng, run_seed)
+		var won: bool = Battle.simulate_battle(data["battle"], nest, enemies)["winner"] == "ally"
+		wins += 1 if won else 0
+		if not won:
+			worst[species] = worst.get(species, 0) + 1
+	print("soloWave1 runs=%d win=%d%% losses=%s" % [runs, Rng.fdiv(wins * 100, maxi(1, runs)), str(worst)])
 
 
 static func _arg(args: PackedStringArray, name: String, fallback: String) -> String:

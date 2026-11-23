@@ -109,3 +109,10 @@ func test_boss_first_leader_is_t1_of_boss_element() -> void:
 	var spec: Dictionary = data["dragons"][units[0]["id"]]
 	assert_eq(spec["tier"], "t1")
 	assert_eq(spec["elements"][0], Waves.boss_element(42, 10, EL3))
+
+
+func test_early_wave_pct_softens_only_listed_waves() -> void:
+	var cfg: Dictionary = _data()["waves"].duplicate(true)
+	cfg["earlyPct"] = {"1": 50}
+	assert_eq(Waves.enemy_power(cfg, 1), 50)
+	assert_eq(Waves.enemy_power(cfg, 2), 118)

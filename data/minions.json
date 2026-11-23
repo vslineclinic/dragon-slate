@@ -3,8 +3,8 @@
     "id": "ember_kobold",
     "nameKo": "불씨 코볼트",
     "element": "fire",
-    "hp": 40,
-    "atk": 4,
+    "hp": 28,
+    "atk": 3,
     "cooldownTicks": 14,
     "speed": 5
   },
@@ -12,8 +12,8 @@
     "id": "frost_kobold",
     "nameKo": "서리 코볼트",
     "element": "ice",
-    "hp": 40,
-    "atk": 4,
+    "hp": 28,
+    "atk": 3,
     "cooldownTicks": 14,
     "speed": 5
   },
@@ -21,8 +21,8 @@
     "id": "spark_kobold",
     "nameKo": "번개 코볼트",
     "element": "lightning",
-    "hp": 40,
-    "atk": 4,
+    "hp": 28,
+    "atk": 3,
     "cooldownTicks": 14,
     "speed": 5
   },
@@ -30,8 +30,8 @@
     "id": "bog_kobold",
     "nameKo": "늪 코볼트",
     "element": "poison",
-    "hp": 40,
-    "atk": 4,
+    "hp": 28,
+    "atk": 3,
     "cooldownTicks": 14,
     "speed": 5
   },
@@ -39,8 +39,8 @@
     "id": "iron_kobold",
     "nameKo": "강철 코볼트",
     "element": "steel",
-    "hp": 40,
-    "atk": 4,
+    "hp": 28,
+    "atk": 3,
     "cooldownTicks": 14,
     "speed": 5
   },
@@ -48,8 +48,8 @@
     "id": "shade_kobold",
     "nameKo": "그림자 코볼트",
     "element": "abyss",
-    "hp": 40,
-    "atk": 4,
+    "hp": 28,
+    "atk": 3,
     "cooldownTicks": 14,
     "speed": 5
   }

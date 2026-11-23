@@ -36,5 +36,9 @@
     "minionSpacingX": 30,
     "secondLeaderWave": 8,
     "thirdLeaderWave": 14
+  },
+  "earlyPct": {
+    "1": 85,
+    "2": 90
   }
 }
