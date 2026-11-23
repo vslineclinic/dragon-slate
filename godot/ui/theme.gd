@@ -4,35 +4,43 @@ const HEIGHT: float = 720.0
 const MIN_WIDTH: float = 1280.0
 const MAX_WIDTH: float = 1600.0
 const HUD_H: float = 44.0
-const STRIP_Y: float = 480.0
-const FIELD_MARGIN: float = 40.0
-const LANE_Y: Array = [196.0, 296.0, 396.0]
+const LEFT_RATIO: float = 0.34
+const LEFT_MIN: float = 440.0
+const LEFT_MAX: float = 544.0
+const FIELD_MARGIN: float = 30.0
+const LANE_Y: Array = [194.0, 382.0, 570.0]
 const CARD_SIZE: Vector2 = Vector2(120, 88)
 
 
-## 화면 폭(1280~1600)에 맞춘 배치. 위 HUD, 가운데 전장, 아래 띠(대기칸 · 석판 · 알 카드).
+static func left_width(width: float) -> float:
+	return clampf(roundf(clampf(width, MIN_WIDTH, MAX_WIDTH) * LEFT_RATIO), LEFT_MIN, LEFT_MAX)
+
+
+## 화면 폭(1280~1600)에 맞춘 배치. 위 HUD, 왼쪽 조작 패널(약 34%), 오른쪽 전장.
 static func areas(width: float) -> Dictionary:
 	var w: float = clampf(width, MIN_WIDTH, MAX_WIDTH)
-	var right_x: float = 530.0
-	var right_w: float = w - right_x - 16.0
+	var left: float = left_width(w)
+	var inner: float = left - 32.0
+	var bench_y: float = HUD_H + 430.0
+	var bench_w: float = CARD_SIZE.x * 2 + 8
 	return {
 		"width": w,
 		"hud": Rect2(0, 0, w, HUD_H),
-		"field": Rect2(0, HUD_H, w, STRIP_Y - HUD_H),
-		"strip": Rect2(0, STRIP_Y, w, HEIGHT - STRIP_Y),
-		"bench": Rect2(16, STRIP_Y + 26, CARD_SIZE.x * 2 + 8, CARD_SIZE.y * 2 + 8),
-		"slab": Rect2(290, STRIP_Y, 236, HEIGHT - STRIP_Y),
-		"right": Rect2(right_x, STRIP_Y, right_w, HEIGHT - STRIP_Y),
-		"spin": Rect2(right_x, HEIGHT - 74, right_w, 62),
-		"release": Rect2(16, HUD_H + 12, 190, 72),
+		"left": Rect2(0, HUD_H, left, HEIGHT - HUD_H),
+		"field": Rect2(left, HUD_H, w - left, HEIGHT - HUD_H),
+		"spin": Rect2(16, HUD_H + 346, inner, 54),
+		"offers": Rect2(238, HUD_H + 98, left - 238 - 16, 206),
+		"bench": Rect2(16, bench_y, bench_w, CARD_SIZE.y * 2 + 8),
+		"release": Rect2(16 + bench_w + 8, bench_y, inner - bench_w - 8, CARD_SIZE.y * 2 + 8),
 	}
 
 
 ## core 전장 좌표(x 0~1000, 줄 0~2) → 화면 좌표(유닛 중심).
 static func field_point(width: float, x: float, lane: float) -> Vector2:
 	var w: float = clampf(width, MIN_WIDTH, MAX_WIDTH)
+	var left: float = left_width(w)
 	var lane_y: float = lerpf(LANE_Y[0], LANE_Y[2], clampf(lane, 0.0, 2.0) / 2.0)
-	return Vector2(FIELD_MARGIN + x * (w - 2.0 * FIELD_MARGIN) / 1000.0, lane_y)
+	return Vector2(left + FIELD_MARGIN + x * (w - left - 2.0 * FIELD_MARGIN) / 1000.0, lane_y)
 
 
 ## 둥지 칸(0~5)의 발판 사각형. 전열 0~2, 후열 3~5, 줄 = 번호 % 3.

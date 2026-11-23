@@ -8,10 +8,12 @@ const SlotPanel = preload("res://godot/ui/slot_panel.gd")
 const Board = preload("res://godot/ui/board.gd")
 const Field = preload("res://godot/ui/field.gd")
 const AppWindow = preload("res://godot/ui/window.gd")
+const SkillOverlay = preload("res://godot/ui/skill_overlay.gd")
 const Build = preload("res://godot/ui/build.gd")
 const DexOverlay = preload("res://godot/ui/dex_overlay.gd")
 const ResultOverlay = preload("res://godot/ui/result_overlay.gd")
 const Tutorial = preload("res://godot/ui/tutorial.gd")
+const Marks = preload("res://godot/ui/marks.gd")
 const REJECT_KO: Dictionary = {
 	"wrongPhase": "지금은 할 수 없어요",
 	"notEnoughMana": "마력이 모자라요",
@@ -22,6 +24,9 @@ const REJECT_KO: Dictionary = {
 	"nestEmpty": "둥지에 드래곤을 1마리 이상 놓아 주세요",
 	"sameSlot": "같은 칸이에요",
 	"needDragon": "드래곤이 최소 1마리는 있어야 해요",
+	"noSkillPoint": "스킬 점수가 없어요. 다른 드래곤을 흡수하면 받아요",
+	"skillMaxed": "이미 끝까지 찍은 스킬이에요",
+	"skillLocked": "앞 스킬을 먼저 찍어야 해요",
 }
 const BONUS_REASONS: Array[String] = ["line", "goldLine", "wildLine", "goldCells", "benchFull"]
 
@@ -81,7 +86,7 @@ func _build_panels() -> void:
 	_board = Board.new()
 	GameTheme.place(self, _battle, _areas["field"])
 	GameTheme.place(self, _hud, _areas["hud"])
-	GameTheme.place(self, _slot, _areas["strip"])
+	GameTheme.place(self, _slot, _areas["left"])
 	GameTheme.place(self, _board, Rect2(0, 0, width, GameTheme.HEIGHT))
 	for panel: Control in [_battle, _hud, _slot, _board]:
 		move_child(panel, 0)
@@ -91,10 +96,12 @@ func _build_panels() -> void:
 	_hud._preview = preview
 	_slot.setup(controller, store)
 	_board.setup(controller, _areas)
+	_board.inspect.connect(_open_skills)
 	_battle.finished.connect(_battle_finished)
 	_hud.boss_info.connect(flash)
 	_dex_button = GameTheme.button(_hud, Rect2(width - 328, 0, 80, 44), "도감", _open_dex)
-	var center_x: float = (width - 800.0) / 2.0
+	var field: Rect2 = _areas["field"]
+	var center_x: float = field.position.x + (field.size.x - 800.0) / 2.0
 	_banner = _notice(self, Rect2(center_x, 108, 800, 124), "", 40, Color("#fff3bf"), Color("#5f3dc4"), 8, 60)
 	_banner.modulate.a = 0.0
 	_toast = _notice(self, Rect2(center_x, 210, 800, 80), "", 22, Color("#ffd8a8"), Color("#000000aa"), 7, 50)
@@ -142,6 +149,10 @@ func _on_change(events: Array, state: Dictionary) -> void:
 					converted = converted or event["reason"] == "benchFull"
 			"battle":
 				fight = event["result"]
+			"reward":
+				flash("보상: %s\n%s" % [event["reward"]["nameKo"], _reward_detail(event["reward"], event["detail"])])
+			"absorbed":
+				flash("스킬 점수를 받았어요! 드래곤을 눌러 스킬을 찍어요.")
 	if mana != 0:
 		bonus.append("마력 +%d" % mana)
 	if not bonus.is_empty():
@@ -177,6 +188,9 @@ func _render(events: Array, state: Dictionary) -> void:
 	_board.set_fighting(false)
 	_board.render(state)
 	_battle.show_idle(state)
+	_clear_reward()
+	if state["phase"] == "reward":
+		_show_reward_choices(state)
 	if state["phase"] in ["gameOver", "victory"]:
 		_show_result(state)
 		run_finished.emit(state)
@@ -188,16 +202,13 @@ func _battle_finished() -> void:
 	if _pending.is_empty():
 		return
 	var result: String = "승리!" if _pending["won"] else "패배"
-	var reward: Dictionary = {}
 	for event: Dictionary in _pending["events"]:
 		if event["t"] == "lives":
 			result += "\n생명 %d 남음" % event["lives"]
-		elif event["t"] == "reward":
-			reward = event
 	_announce(result, 0.9)
 	_sequence = create_tween()
 	_sequence.tween_interval(0.7)
-	_sequence.tween_callback(_complete_battle if reward.is_empty() else _show_reward.bind(reward))
+	_sequence.tween_callback(_complete_battle)
 
 
 func _complete_battle() -> void:
@@ -255,31 +266,60 @@ func _return_to_title() -> void:
 		title_requested.emit()
 
 
-func _show_reward(event: Dictionary) -> void:
+## 승리 보상 3개 중 하나를 고른다.
+func _show_reward_choices(state: Dictionary) -> void:
+	var field: Rect2 = _areas["field"]
 	_reward_overlay = Control.new()
-	_reward_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_reward_overlay.z_index = 70
-	add_child(_reward_overlay)
-	var chest: Panel = GameTheme.panel(_reward_overlay, Rect2(594, 160, 92, 60), Color("#5f3dc4"), GameTheme.PANEL_LINE, 0, 10)
-	chest.pivot_offset = chest.size / 2.0
-	chest.rotation_degrees = -8
-	GameTheme.panel(chest, Rect2(0, 24, 92, 10), GameTheme.RECOMMEND)
-	GameTheme.panel(chest, Rect2(40, 0, 12, 60), GameTheme.RECOMMEND)
-	var reward: Dictionary = event["reward"]
-	var caption: String = "웨이브 보상: %s\n%s" % [reward["nameKo"], _reward_detail(reward, event["detail"])]
-	var reveal: Label = _notice(_reward_overlay, Rect2(240, 212, 800, 76), caption, 24, Color("#fff3bf"), Color.BLACK, 5, 0)
-	reveal.modulate.a = 0.0
-	reveal.scale = Vector2(0.6, 0.6)
-	_sequence = create_tween()
-	for i: int in range(8):
-		_sequence.tween_property(chest, "rotation_degrees", 8.0 if i % 2 == 0 else -8.0, 0.09)
-	_sequence.tween_property(chest, "scale", Vector2(1.4, 1.4), 0.22)
-	_sequence.parallel().tween_property(chest, "modulate:a", 0.0, 0.22)
-	_sequence.parallel().tween_property(reveal, "modulate:a", 1.0, 0.22)
-	_sequence.parallel().tween_property(reveal, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_sequence.tween_property(reveal, "modulate:a", 0.0, 0.25).set_delay(1.4)
-	_sequence.tween_callback(_clear_reward)
-	_sequence.tween_callback(_complete_battle)
+	GameTheme.place(self, _reward_overlay, field)
+	var dim: ColorRect = ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.55)
+	GameTheme.place(_reward_overlay, dim, Rect2(Vector2.ZERO, field.size))
+	var title: Label = _notice(_reward_overlay, Rect2(0, 120, field.size.x, 50), "승리 보상을 하나 고르세요", 32, Color("#fff3bf"), Color("#5f3dc4"), 8, 0)
+	title.pivot_offset = Vector2.ZERO
+	var choices: Array = state["rewardChoices"]
+	var card_w: float = 230.0
+	var gap: float = 20.0
+	var total: float = choices.size() * card_w + (choices.size() - 1) * gap
+	for i: int in range(choices.size()):
+		var choice: Dictionary = choices[i]
+		var reward: Dictionary = choice["reward"]
+		var rect: Rect2 = Rect2((field.size.x - total) / 2.0 + i * (card_w + gap), 200, card_w, 250)
+		var card: Button = GameTheme.button(_reward_overlay, rect, "", controller.dispatch.bind({"type": "chooseReward", "index": i}), Color("#2b3045"), GameTheme.RECOMMEND, 2)
+		var art: TextureRect = null
+		if choice["detail"] != null and reward["kind"] in ["egg", "t2egg"]:
+			art = GameTheme.dragon(card, Rect2((card_w - 110) / 2.0, 14, 110, 110), choice["detail"])
+		if art == null:
+			GameTheme.place(card, Marks.new("gold" if reward["kind"] == "mana" else "wild", true), Rect2((card_w - 90) / 2.0, 24, 90, 90))
+		GameTheme.label(card, Rect2(8, 134, card_w - 16, 28), reward["nameKo"], 20, Color("#fff3bf"), HORIZONTAL_ALIGNMENT_CENTER)
+		var detail: Label = GameTheme.label(card, Rect2(12, 166, card_w - 24, 70), _reward_preview(reward, choice["detail"]), 14, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+		detail.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		GameTheme.wrap(detail)
+		card.pivot_offset = rect.size / 2.0
+		card.scale = Vector2(0.8, 0.8)
+		card.modulate.a = 0.0
+		var pop: Tween = card.create_tween().set_parallel()
+		pop.tween_property(card, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(i * 0.08)
+		pop.tween_property(card, "modulate:a", 1.0, 0.2).set_delay(i * 0.08)
+
+
+func _reward_preview(reward: Dictionary, detail: Variant) -> String:
+	var amount: int = reward["amount"]
+	match reward["kind"]:
+		"mana": return "마력 +%d" % amount
+		"egg", "t2egg": return _dragon_name(detail) + " 알을 받아요" if detail != null else "드래곤 알을 받아요"
+		"trait": return "드래곤 하나가 새 계승 특성을 얻어요"
+		"nudge": return "다음 웨이브에 밀기 +%d" % amount
+		"freeSpin": return "다시 돌리기 %d회 무료" % amount
+		_: return "생명 +%d (가득 차 있으면 마력 +3)" % amount
+
+
+func _open_skills(ref: Dictionary) -> void:
+	if controller.busy or controller.state["phase"] not in ["manage", "pick", "spin"]:
+		return
+	var overlay: SkillOverlay = SkillOverlay.new()
+	add_child(overlay)
+	overlay.setup(controller, ref, Vector2(_areas["width"], GameTheme.HEIGHT))
 
 
 func _clear_reward() -> void:

@@ -1,5 +1,5 @@
 extends Control
-## 전장 위 둥지 발판 6칸 + 아래 띠 대기칸 4칸 + 놓아주기 칸 + 전투 시작 버튼.
+## 전장 위 둥지 발판 6칸 + 왼쪽 패널의 대기칸 4칸 · 놓아주기 칸 · 전투 시작 버튼.
 ## 화면 전체를 덮지만 빈 곳은 입력을 통과시킨다(카드만 입력을 받음).
 
 const GameTheme = preload("res://godot/ui/theme.gd")
@@ -21,6 +21,9 @@ var _from: Dictionary
 var _drag_origin: Vector2
 var _drag_offset: Vector2
 var _fighting: bool = false
+var _press_point: Vector2
+
+signal inspect(ref: Dictionary)
 var _last_state: Dictionary = {}
 
 
@@ -32,7 +35,8 @@ func setup(ctl: Controller, areas: Dictionary) -> void:
 	GameTheme.label(self, Rect2(bench.position.x, bench.position.y - 24, 200, 22), "대기칸", 15, GameTheme.DIM)
 	var release: Rect2 = areas["release"]
 	var zone: Panel = GameTheme.panel(self, release, Color("#3b2a2acc"), Color("#ff878780"), 2, 8)
-	GameTheme.label(zone, Rect2(Vector2.ZERO, release.size), "여기에 놓으면\n놓아주고 마력을 받아요", 14, Color("#ffc9c9"), HORIZONTAL_ALIGNMENT_CENTER)
+	var zone_text: Label = GameTheme.label(zone, Rect2(Vector2(6, 0), release.size - Vector2(12, 0)), "여기에 놓으면 놓아주고 마력을 받아요", 13, Color("#ffc9c9"), HORIZONTAL_ALIGNMENT_CENTER)
+	GameTheme.wrap(zone_text)
 	zone.name = "Release"
 	_battle = GameTheme.button(self, areas["spin"], "전투 시작", _start_battle, Color("#c92a2a"))
 	_battle.add_theme_font_size_override("font_size", 22)
@@ -120,13 +124,21 @@ func _draw_card(rect: Rect2, inst: Dictionary, ref: Dictionary, draggable: bool,
 	if image != null:
 		GameTheme.label(card, Rect2(6, 6, 50, 18), GameTheme.TIER_KO[tier], 11, tier_color)
 		GameTheme.label(card, Rect2(0, 68, 120, 18), spec["nameKo"], 12, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-		var bonus: String = "\n+%d%%" % inst["bonusPct"] if inst["bonusPct"] else ""
+		var skill_total: int = 0
+		for level: Variant in inst.get("skills", {}).values():
+			skill_total += int(level)
+		var bonus: String = "\n스킬 %d" % skill_total if skill_total > 0 else ""
 		GameTheme.label(card, Rect2(6, 47, 75, 29), dots + bonus, 10, GameTheme.DIM)
 	else:
 		var title: Label = GameTheme.label(card, Rect2(8, 10, 80 if elements.size() == 1 else 60, 36), spec["nameKo"], 14)
 		GameTheme.wrap(title)
 		title.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		GameTheme.label(card, Rect2(8, 46, 75, 20), GameTheme.TIER_KO[tier], 12, tier_color)
+	var points: int = int(inst.get("skillPoints", 0))
+	if points > 0:
+		var badge: Panel = GameTheme.panel(card, Rect2(34, -12, 86, 20), Color("#5c4a00"), GameTheme.RECOMMEND, 2, 8)
+		GameTheme.label(badge, Rect2(0, 0, 86, 20), "스킬 +%d · 눌러요" % points, 11, Color("#ffe066"), HORIZONTAL_ALIGNMENT_CENTER)
+		badge.create_tween().set_loops().tween_property(badge, "modulate:a", 0.5, 0.5).from(1.0)
 	if draggable:
 		card.mouse_filter = Control.MOUSE_FILTER_STOP
 		card.mouse_default_cursor_shape = Control.CURSOR_DRAG
@@ -139,6 +151,7 @@ func _grab(event: InputEvent, card: Control, ref: Dictionary) -> void:
 	_drag = card
 	_from = ref
 	_drag_offset = event.position
+	_press_point = card.position + event.position
 	_drag_origin = card.position
 	card.z_index = 40
 	card.modulate.a = 0.85
@@ -155,10 +168,14 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		var point: Vector2 = get_global_transform_with_canvas().affine_inverse() * event.position
-		var command: Dictionary = _drop_command(point)
+		var tapped: bool = point.distance_to(_press_point) < 12.0
+		var command: Dictionary = {} if tapped else _drop_command(point)
+		var from: Dictionary = _from
 		_cancel_drag()
 		get_viewport().set_input_as_handled()
-		if not command.is_empty():
+		if tapped:
+			inspect.emit(from)
+		elif not command.is_empty():
 			_ctl.dispatch(command)
 
 
@@ -197,7 +214,7 @@ func _show_preview(point: Vector2) -> void:
 			if preview["kind"] == "evolve":
 				message = "진화 → " + _ctl.data["dragons"][preview["result"]]["nameKo"]
 			else:
-				message = "흡수: 능력치 +%d%%" % _ctl.data["battle"]["absorbBonusPct"].get(tier, 0)
+				message = "흡수: 스킬 점수 +%d" % _ctl.data["battle"]["absorbPoints"].get(tier, 1)
 				var trait_id: Variant = preview["trait"]
 				if trait_id != null:
 					message += ", 특성 「%s」" % _ctl.data["traits"][trait_id]["nameKo"]

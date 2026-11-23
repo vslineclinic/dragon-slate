@@ -9,7 +9,7 @@ const HAZARD_KO: Dictionary = {
 	"pulse": "월식의 파동! 아군 모두 피해를 입어요",
 }
 const TICK_SECONDS: float = 0.05
-const SIZE_BY_KIND: Dictionary = {"dragon": 96.0, "escort": 54.0, "minion": 56.0}
+const SIZE_BY_KIND: Dictionary = {"dragon": 112.0, "escort": 62.0, "minion": 64.0}
 
 signal finished
 
@@ -25,6 +25,7 @@ class UnitView:
 	var max_hp: int
 	var center: Vector2
 	var offset: Vector2 = Vector2.ZERO
+	var stage: int = 0
 	var move: Tween
 	var flash: Tween
 	var dead: bool = false
@@ -100,7 +101,11 @@ func play(result: Dictionary, boss: bool, wave: int) -> void:
 	_set_background(wave)
 	_clear_units()
 	for unit: Dictionary in result["units"]:
-		_views[unit["id"]] = _unit_view(unit)
+		var view: UnitView = _unit_view(unit)
+		view.stage = int(unit.get("stage", 0))
+		if view.stage > 0:
+			view.root.hide()
+		_views[unit["id"]] = view
 	_caption.text = "심판 보스 전투!" if boss else "전투 중"
 	_result = result
 	_events = result["events"]
@@ -128,7 +133,7 @@ func _clear_units() -> void:
 
 
 func _point(x: float, lane: float) -> Vector2:
-	return GameTheme.field_point(_width, x, lane) - Vector2(0, position.y)
+	return GameTheme.field_point(_width, x, lane) - position
 
 
 func _unit_view(unit: Dictionary) -> UnitView:
@@ -141,7 +146,7 @@ func _unit_view(unit: Dictionary) -> UnitView:
 	view.max_hp = maxi(view.hp, 1)
 	if view.kind != "dragon":
 		var id: int = int(unit["id"])
-		view.offset = Vector2((id % 2) * 16.0 - 8.0, (id * 7 % 3 - 1) * 22.0)
+		view.offset = Vector2((id % 2) * 16.0 - 8.0, (id * 7 % 3 - 1) * 34.0)
 	view.center = _point(unit["x"], unit["lane"]) + view.offset
 	var edge: float = SIZE_BY_KIND.get(view.kind, 56.0)
 	view.root = Control.new()
@@ -212,6 +217,18 @@ func _end() -> void:
 
 func _apply(event: Dictionary, animate: bool) -> void:
 	match event["kind"]:
+		"stage":
+			for view: UnitView in _views.values():
+				if view.stage != int(event["stage"]) or view.dead:
+					continue
+				view.root.show()
+				if animate:
+					view.root.modulate.a = 0.0
+					view.root.create_tween().tween_property(view.root, "modulate:a", 1.0, 0.3 / _store.speed)
+			if animate:
+				_caption.text = "%d번째 무리 등장! (%d / %d)" % [int(event["stage"]) + 1, int(event["stage"]) + 1, int(event["total"])]
+				_flash.color.a = 0.18
+				_flash.create_tween().tween_property(_flash, "color:a", 0.0, 0.35)
 		"pos":
 			var seconds: float = _pos_every * TICK_SECONDS / _store.speed
 			for id: Variant in event["xs"]:

@@ -26,7 +26,7 @@ func _init() -> void:
 		ctl.dispatch({"type": "spin"})
 		for i in (12 if mode == "spinmid" else 90):
 			await process_frame
-		if mode in ["manage", "battle", "battle-late"]:
+		if mode in ["manage", "battle", "battle-late", "reward", "skills"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -42,9 +42,23 @@ func _init() -> void:
 					ctl.dispatch({"type": "move", "from": {"zone": "bench", "index": b}, "to": {"zone": "nest", "index": b % 3}})
 			for i in 20:
 				await process_frame
-		if mode in ["battle", "battle-late"]:
+		if mode in ["battle", "battle-late", "reward"]:
 			ctl.dispatch({"type": "startBattle"})
 			for i in (50 if mode == "battle" else 160):
+				await process_frame
+		if mode == "reward":
+			scene.get("_battle").call("_skip_playback")
+			for i in 120:
+				await process_frame
+		if mode == "skills":
+			for slot in range(3):
+				if ctl.state["nest"][slot] != null:
+					ctl.state["nest"][slot]["skillPoints"] = 3
+					ctl.state["nest"][slot]["skills"] = {"fang": 2}
+					scene.call("_render", [], ctl.state)
+					scene.call("_open_skills", {"zone": "nest", "index": slot})
+					break
+			for i in 20:
 				await process_frame
 	var img := root.get_viewport().get_texture().get_image()
 	img.save_png(out)

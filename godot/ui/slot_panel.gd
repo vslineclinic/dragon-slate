@@ -1,6 +1,6 @@
 extends Control
-## 아래 띠: 가운데 석판(굴림 애니메이션 · 밀기 ▲▼), 오른쪽 안내 · 알 카드 3장 · 돌리기 버튼.
-## 대기칸은 board.gd가 왼쪽에 그린다.
+## 왼쪽 패널: 안내 문구, 석판(굴림 애니메이션 · 밀기 ▲▼), 알 카드 3장(세로), 돌리기 버튼.
+## 대기칸과 놓아주기 칸은 board.gd가 그 아래에 그린다.
 
 const GameTheme = preload("res://godot/ui/theme.gd")
 const Marks = preload("res://godot/ui/marks.gd")
@@ -9,12 +9,12 @@ const Store = preload("res://godot/ui/store.gd")
 const RunRules = preload("res://godot/core/run.gd")
 const SlotRules = preload("res://godot/core/slot.gd")
 const HintRules = preload("res://godot/core/hints.gd")
-const CELL: int = 54
-const STRIDE_X: int = 62
-const STRIDE_Y: int = 58
-const SLAB_X: int = 296
-const SLAB_Y: int = 36
-const RIGHT_X: float = 530.0
+const CELL: int = 64
+const STRIDE_X: int = 70
+const STRIDE_Y: int = 70
+const SLAB_X: int = 16
+const SLAB_Y: int = 98
+const OFFER_X: float = 238.0
 const SPIN_EXTRA: int = 10
 
 class LineOverlay extends Control:
@@ -45,22 +45,22 @@ var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 func setup(ctl: Controller, store: Store) -> void:
 	_ctl = ctl
 	_store = store
-	_right_w = size.x - RIGHT_X - 16.0
+	_right_w = size.x - 32.0
 	GameTheme.panel(self, Rect2(Vector2.ZERO, size), GameTheme.PANEL, GameTheme.PANEL_LINE, 1)
-	GameTheme.panel(self, Rect2(SLAB_X - 10, 2, STRIDE_X * 3 + 14, size.y - 4), Color("#1a1e2b"), GameTheme.PANEL_LINE, 1, 10)
+	GameTheme.panel(self, Rect2(SLAB_X - 8, SLAB_Y - 32, STRIDE_X * 3 + 10, STRIDE_Y * 3 + 62), Color("#1a1e2b"), GameTheme.PANEL_LINE, 1, 10)
 	_layer = Control.new()
 	_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_layer)
 	_offers_layer = Control.new()
 	_offers_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_offers_layer)
-	_hint = GameTheme.label(self, Rect2(RIGHT_X, 6, _right_w, 20), "", 14, GameTheme.DIM)
+	_hint = GameTheme.label(self, Rect2(16, 4, _right_w, 20), "", 14, GameTheme.DIM)
 	GameTheme.wrap(_hint)
 	_hint.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	_reward = GameTheme.label(self, Rect2(RIGHT_X, 28, _right_w, 18), "", 12, Color("#ffe066"))
+	_reward = GameTheme.label(self, Rect2(16, 26, _right_w, 18), "", 12, Color("#ffe066"))
 	GameTheme.wrap(_reward)
 	_reward.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	_spin = GameTheme.button(self, Rect2(RIGHT_X, size.y - 74, _right_w, 62), "", _dispatch.bind({"type": "spin"}), Color("#5f3dc4"))
+	_spin = GameTheme.button(self, Rect2(16, 346, _right_w, 54), "", _dispatch.bind({"type": "spin"}), Color("#5f3dc4"))
 	_spin.add_theme_font_size_override("font_size", 20)
 
 
@@ -106,8 +106,7 @@ func render(state: Dictionary, events: Array) -> void:
 
 
 func _draw_grid(state: Dictionary, grid: Dictionary, recommendation: Variant, animate: bool) -> void:
-	GameTheme.panel(_layer, Rect2(SLAB_X - 4, SLAB_Y + STRIDE_Y - 3, STRIDE_X * 3 - 2, CELL + 6), Color(0.439, 0.282, 0.91, 0.32), Color(0.69, 0.59, 1.0, 0.6), 1, 6)
-	GameTheme.label(_layer, Rect2(SLAB_X + STRIDE_X * 3 - 4, SLAB_Y + STRIDE_Y, 40, CELL), "받을\n알 ▶", 11, Color("#d0bfff"))
+	GameTheme.panel(_layer, Rect2(SLAB_X - 4, SLAB_Y + STRIDE_Y - 3, STRIDE_X * 3 + 2, CELL + 6), Color(0.439, 0.282, 0.91, 0.32), Color(0.69, 0.59, 1.0, 0.6), 1, 6)
 	var reels: Array = []
 	for col: int in range(3):
 		var reel: Array = grid["reels"][col]
@@ -145,7 +144,7 @@ func _draw_grid(state: Dictionary, grid: Dictionary, recommendation: Variant, an
 	skip.focus_mode = Control.FOCUS_NONE
 	skip.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	skip.pressed.connect(_finish_opening.bind(skip))
-	GameTheme.place(_layer, skip, Rect2(SLAB_X - 10, 0, STRIDE_X * 3 + 14, size.y))
+	GameTheme.place(_layer, skip, Rect2(SLAB_X - 8, SLAB_Y - 32, STRIDE_X * 3 + 10, STRIDE_Y * 3 + 62))
 	var pace: float = 1.0 / sqrt(float(maxi(1, _store.speed)))
 	_opening = create_tween().set_parallel()
 	for col: int in range(3):
@@ -211,11 +210,11 @@ func _unlock(skip: Button) -> void:
 
 func _nudge_button(col: int, direction: int, symbol: String, recommendation: Variant) -> void:
 	var x: float = _cell(col, 0).x
-	var y: float = 4.0 if direction == -1 else SLAB_Y + STRIDE_Y * 3 - 2.0
+	var y: float = SLAB_Y - 30.0 if direction == -1 else SLAB_Y + STRIDE_Y * 3 - 4.0
 	var recommended: bool = recommendation != null and recommendation["col"] == col and recommendation["dir"] == direction
 	var tap: Button = GameTheme.button(_layer, Rect2(x, y, CELL, 28), "", _dispatch.bind({"type": "nudge", "col": col, "dir": direction}), Color("#5c4a00") if recommended else GameTheme.CARD, GameTheme.RECOMMEND if recommended else Color("#4c5470"), 2)
-	GameTheme.label(tap, Rect2(8, 0, 18, 28), "▼" if direction == -1 else "▲", 16)
-	GameTheme.place(tap, Marks.new(symbol), Rect2(28, 4, 20, 20))
+	GameTheme.label(tap, Rect2(12, 0, 18, 28), "▼" if direction == -1 else "▲", 16)
+	GameTheme.place(tap, Marks.new(symbol), Rect2(34, 4, 20, 20))
 	if recommended:
 		tap.create_tween().set_loops().tween_property(tap, "modulate:a", 0.55, 0.45).from(1.0)
 
@@ -223,33 +222,32 @@ func _nudge_button(col: int, direction: int, symbol: String, recommendation: Var
 func _draw_offers(state: Dictionary) -> void:
 	var offers: Array = [] if state["grid"] == null else SlotRules.offers_from(_ctl.data, state["grid"])
 	var reco: Variant = HintRules.recommend_offer(_ctl.data, state) if state["phase"] == "pick" else null
-	var card_w: float = (_right_w - 16.0) / 3.0
+	var card_w: float = size.x - OFFER_X - 16.0
 	for i: int in range(3):
-		var rect: Rect2 = Rect2(RIGHT_X + i * (card_w + 8.0), 62, card_w, 92)
+		var rect: Rect2 = Rect2(OFFER_X, SLAB_Y + i * 70, card_w, 66)
 		if i >= offers.size():
 			GameTheme.panel(_offers_layer, rect, GameTheme.CARD, GameTheme.PANEL_LINE, 1, 8)
 			continue
 		var is_reco: bool = reco != null and reco["index"] == i
 		var card: Button = GameTheme.button(_offers_layer, rect, "", _dispatch.bind({"type": "pick", "index": i}), GameTheme.CARD, GameTheme.RECOMMEND if is_reco else GameTheme.PANEL_LINE, 3 if is_reco else 1)
 		var offer: Dictionary = offers[i]
-		var text_w: float = card_w - 84.0
+		var text_w: float = card_w - 66.0
 		if offer["kind"] == "egg":
 			var id: String = offer["speciesId"]
 			var spec: Dictionary = _ctl.data["dragons"][id]
 			var element: String = spec["elements"][0]
-			if GameTheme.dragon(card, Rect2(4, 10, 72, 72), id) == null:
-				GameTheme.place(card, Marks.new(element, true), Rect2(8, 14, 64, 64))
-			var title: Label = GameTheme.label(card, Rect2(80, 8, text_w, 40), spec["nameKo"] + " 알", 16)
-			title.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-			GameTheme.wrap(title)
-			GameTheme.label(card, Rect2(80, 50, text_w, 18), "%s · %s" % [GameTheme.TIER_KO[spec["tier"]], GameTheme.SYMBOL_LABEL[element]], 12, GameTheme.DIM)
+			if GameTheme.dragon(card, Rect2(4, 5, 56, 56), id) == null:
+				GameTheme.place(card, Marks.new(element, true), Rect2(8, 9, 48, 48))
+			var title: Label = GameTheme.label(card, Rect2(62, 5, text_w, 22), spec["nameKo"] + " 알", 14)
+			title.clip_text = true
+			GameTheme.label(card, Rect2(62, 26, text_w, 16), "%s · %s" % [GameTheme.TIER_KO[spec["tier"]], GameTheme.SYMBOL_LABEL[element]], 11, GameTheme.DIM)
 		else:
-			GameTheme.place(card, Marks.new("gold", true), Rect2(8, 14, 64, 64))
-			GameTheme.label(card, Rect2(80, 26, text_w, 32), "마력 +%d" % offer["amount"], 19)
+			GameTheme.place(card, Marks.new("gold", true), Rect2(8, 9, 48, 48))
+			GameTheme.label(card, Rect2(62, 16, text_w, 32), "마력 +%d" % offer["amount"], 17)
 		if is_reco:
 			var spec: Dictionary = _ctl.data["dragons"].get(reco.get("result"), {})
 			var why: String = "추천 · 합치면 " + spec.get("nameKo", "진화") if reco["reason"] == "recipe" else "추천 · 같은 원소"
-			var tag: Label = GameTheme.label(card, Rect2(80, 70, text_w, 16), why, 11, Color("#ffe066"))
+			var tag: Label = GameTheme.label(card, Rect2(62, 44, text_w, 16), why, 11, Color("#ffe066"))
 			tag.clip_text = true
 
 
