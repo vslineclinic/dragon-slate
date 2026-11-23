@@ -370,3 +370,44 @@ func test_strong_add_only_boosts_ally_advantage_hits() -> void:
 	assert_eq(first.call(plain, 0)["dmg"], 135)
 	assert_eq(first.call(boosted, 0)["dmg"], 155)
 	assert_eq(first.call(boosted, 1)["dmg"], first.call(plain, 1)["dmg"])
+
+
+static func _ult_cfg() -> Dictionary:
+	var cfg: Dictionary = Fixture.mini_data()["battle"]
+	cfg["ultimate"] = {"chargeHits": {"none": 3}, "powerPct": {"none": 200}, "targets": {"none": 2}}
+	return cfg
+
+
+func test_third_hit_becomes_an_ultimate_on_two_nearest_enemies() -> void:
+	var enemies: Array = [
+		_enemy("dragon", "fire", 100000, 1, 1000, 0, 900), _enemy("dragon", "fire", 100000, 1, 1000, 1, 900),
+		_enemy("dragon", "fire", 100000, 1, 1000, 2, 990),
+	]
+	var result: Dictionary = Battle.simulate_battle(_ult_cfg(), _slots([_solo("fire", 100000, 10)]), enemies)
+	var mine: Array = result["events"].filter(func(e: Dictionary) -> bool: return e["kind"] in ["attack", "ult"] and e["src"] == 0)
+	assert_eq([mine[0]["kind"], mine[0]["dmg"], mine[0]["charge"]], ["attack", 10, 1])
+	assert_eq([mine[1]["dmg"], mine[1]["charge"]], [10, 2])
+	assert_eq(mine[2]["kind"], "ult")
+	assert_eq([mine[3]["kind"], mine[3]["dst"], mine[3]["dmg"], mine[3]["ult"], mine[3]["charge"]], ["attack", 1, 20, true, 0])
+	assert_eq([mine[4]["dst"], mine[4]["dmg"]], [2, 20])
+	assert_eq([mine[5]["kind"], mine[5]["dmg"], mine[5]["charge"]], ["attack", 10, 1])
+	assert_eq(result["units"][0]["ultNeed"], 3)
+
+
+func test_enemies_and_escorts_never_use_ultimates() -> void:
+	var cfg: Dictionary = _ult_cfg()
+	cfg["ultimate"]["chargeHits"]["base"] = 1
+	var result: Dictionary = Battle.simulate_battle(cfg, _slots([_ally("fire", 100000, 10)]), [_enemy("dragon", "fire", 100000, 5, 5, 0, 320)])
+	for event: Dictionary in _of_kind(result, "ult"):
+		assert_eq(_unit_by_id(result, event["src"])["kind"], "dragon")
+		assert_eq(_unit_by_id(result, event["src"])["side"], "ally")
+	assert_true(_of_kind(result, "ult").size() > 0)
+
+
+func test_real_ultimate_table_covers_every_tier() -> void:
+	var real: Dictionary = TestCase.load_json("res://data/battle.json")
+	for tier: String in ["base", "t2", "t1", "apex", "dual", "secret"]:
+		for key: String in ["chargeHits", "powerPct", "targets"]:
+			assert_true(int(real["ultimate"][key][tier]) > 0, key + " " + tier)
+	for element: String in ELEMENTS:
+		assert_true(real["ultimate"]["names"].has(element))

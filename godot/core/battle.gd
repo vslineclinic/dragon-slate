@@ -160,6 +160,7 @@ static func simulate_battle(
 			"id": unit["id"], "side": unit["side"], "kind": unit["kind"], "ref": unit["ref"],
 			"elements": unit["elements"].duplicate(), "slot": unit["slot"], "owner": unit["owner"],
 			"lane": unit["lane"], "x": unit["x"], "hp": unit["hp"], "stage": unit["stage"],
+			"ultNeed": unit["ultNeed"],
 		})
 	var last_stage: int = 0
 	for unit: Dictionary in units:
@@ -176,6 +177,7 @@ static func simulate_battle(
 	var heal_cut_from: int = int(rules.get("healCutFromTick", 0))
 	var pos_every: int = int(field["posEveryTicks"])
 	var strong_add: int = int(rules.get("strongAddPct", 0))
+	var ultimate: Dictionary = cfg.get("ultimate", {})
 
 	var events: Array = []
 	var tick: int = 0
@@ -245,24 +247,43 @@ static func simulate_battle(
 					unit["timer"] = unit["cd"]
 					continue
 				unit["timer"] = 0
-				var mult: int = element_mult(cfg, _primary(unit), _primary(target))
-				if side == "ally" and mult > 100:
-					mult += strong_add
-				var dmg: int = maxi(1, Rng.fdiv(int(unit["atk"]) * mult, 100))
-				if side == "enemy" and enraged:
-					dmg = Rng.fdiv(dmg * int(enrage["atkPct"]), 100)
-				target["hp"] -= dmg
-				var raw_heal: int = Rng.fdiv(dmg * int(unit["lifesteal"]), 100)
-				if side == "ally" and heal_cut_pct != 0 and tick >= heal_cut_from:
-					raw_heal = Rng.fdiv(raw_heal * (100 - heal_cut_pct), 100)
-				var heal: int = maxi(0, mini(raw_heal, int(unit["maxHp"]) - int(unit["hp"])))
-				unit["hp"] += heal
-				events.append({
-					"tick": tick, "kind": "attack", "src": unit["id"], "dst": target["id"],
-					"dmg": dmg, "mult": mult, "heal": heal,
-				})
-				if target["hp"] <= 0:
-					_kill(units, target, tick, "hit", events)
+				## 궁극기: 아군 드래곤은 공격할 때마다 게이지가 차고, 다 차면 가까운 적 여럿을 세게 친다.
+				var victims: Array = [target]
+				var power_pct: int = 100
+				var is_ult: bool = false
+				var need: int = int(unit["ultNeed"])
+				if need > 0:
+					unit["charge"] += 1
+					if unit["charge"] >= need:
+						unit["charge"] = 0
+						is_ult = true
+						power_pct = int(ultimate["powerPct"].get(unit["tier"], 100))
+						victims = _nearest_many(field, units, unit, int(ultimate["targets"].get(unit["tier"], 1)))
+						events.append({"tick": tick, "kind": "ult", "src": unit["id"]})
+				for victim: Dictionary in victims:
+					var mult: int = element_mult(cfg, _primary(unit), _primary(victim))
+					if side == "ally" and mult > 100:
+						mult += strong_add
+					var dmg: int = maxi(1, Rng.fdiv(int(unit["atk"]) * mult * power_pct, 10000))
+					if side == "enemy" and enraged:
+						dmg = Rng.fdiv(dmg * int(enrage["atkPct"]), 100)
+					victim["hp"] -= dmg
+					var raw_heal: int = Rng.fdiv(dmg * int(unit["lifesteal"]), 100)
+					if side == "ally" and heal_cut_pct != 0 and tick >= heal_cut_from:
+						raw_heal = Rng.fdiv(raw_heal * (100 - heal_cut_pct), 100)
+					var heal: int = maxi(0, mini(raw_heal, int(unit["maxHp"]) - int(unit["hp"])))
+					unit["hp"] += heal
+					var hit: Dictionary = {
+						"tick": tick, "kind": "attack", "src": unit["id"], "dst": victim["id"],
+						"dmg": dmg, "mult": mult, "heal": heal,
+					}
+					if need > 0:
+						hit["charge"] = unit["charge"]
+					if is_ult:
+						hit["ult"] = true
+					events.append(hit)
+					if victim["hp"] <= 0:
+						_kill(units, victim, tick, "hit", events)
 
 		if pos_every > 0 and tick % pos_every == 0 and not dirty.is_empty():
 			_record_pos(units, dirty, tick, events)
@@ -296,6 +317,8 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 			slot % LANES, int(field["frontX"]) if slot < 3 else int(field["backX"]))
 		dragon["slot"] = slot
 		dragon["lifesteal"] = int(unit["lifestealPct"])
+		dragon["tier"] = unit.get("tier", "")
+		dragon["ultNeed"] = int(cfg.get("ultimate", {}).get("chargeHits", {}).get(dragon["tier"], 0))
 		units.append(dragon)
 		var count: int = int(escort["count"].get(unit.get("tier", "base"), 0)) + int(unit.get("escortBonus", 0))
 		var escort_scale: int = 100 + int(unit.get("escortPct", 0))
@@ -327,7 +350,7 @@ static func _make(
 		"id": id, "side": side, "kind": kind, "ref": ref, "elements": elements.duplicate(),
 		"hp": hp, "maxHp": hp, "atk": atk, "cd": cd, "timer": 0, "speed": speed,
 		"lane": lane, "x": x, "laneTimer": 0, "slot": -1, "owner": -1, "lifesteal": 0,
-		"stage": 0, "active": true,
+		"stage": 0, "active": true, "tier": "", "ultNeed": 0, "charge": 0,
 	}
 
 
@@ -351,6 +374,23 @@ static func _nearest(field: Dictionary, units: Array, me: Dictionary) -> Variant
 			best = other
 			best_d = d
 	return best
+
+
+## 가까운 순으로 살아 있는 적 count마리.
+static func _nearest_many(field: Dictionary, units: Array, me: Dictionary, count: int) -> Array:
+	var found: Array = []
+	for other: Dictionary in units:
+		if other["side"] != me["side"] and other["hp"] > 0 and other["active"]:
+			found.append(other)
+	found.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var da: int = _distance(field, me, a)
+		var db: int = _distance(field, me, b)
+		if da != db:
+			return da < db
+		if a["lane"] != b["lane"]:
+			return int(a["lane"]) < int(b["lane"])
+		return int(a["id"]) < int(b["id"]))
+	return found.slice(0, maxi(1, count))
 
 
 static func _can_hit(field: Dictionary, unit: Dictionary, target: Dictionary) -> bool:

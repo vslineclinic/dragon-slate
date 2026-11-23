@@ -18,6 +18,9 @@ class UnitView:
 	var body: Control
 	var bar: Panel
 	var bar_back: Panel
+	var gauge: Panel
+	var gauge_full: float = 0.0
+	var ult_need: int = 0
 	var kind: String
 	var side: String
 	var element: String
@@ -178,6 +181,11 @@ func _unit_view(unit: Dictionary) -> UnitView:
 	var bar_w: float = edge * 0.8
 	view.bar_back = GameTheme.panel(view.root, Rect2((edge - bar_w) / 2.0, -8, bar_w, 6), Color(0, 0, 0, 0.6))
 	view.bar = GameTheme.panel(view.root, Rect2((edge - bar_w) / 2.0, -8, bar_w, 6), Color("#51cf66") if ally else Color("#ff6b6b"))
+	view.ult_need = int(unit.get("ultNeed", 0))
+	if view.ult_need > 0:
+		view.gauge_full = bar_w
+		GameTheme.panel(view.root, Rect2((edge - bar_w) / 2.0, -1, bar_w, 4), Color(0, 0, 0, 0.6))
+		view.gauge = GameTheme.panel(view.root, Rect2((edge - bar_w) / 2.0, -1, 0, 4), Color("#ffd43b"))
 	var always: bool = view.kind == "dragon"
 	view.bar.visible = always
 	view.bar_back.visible = always
@@ -273,6 +281,20 @@ func _apply(event: Dictionary, animate: bool) -> void:
 			if animate:
 				_caption.text = HAZARD_KO.get(event["name"], "")
 				_hit(victim, int(event["dmg"]), Color("#b197fc"), false)
+		"ult":
+			var caster: UnitView = _views.get(int(event["src"]))
+			if caster == null or not animate:
+				return
+			var tint: Color = GameTheme.COLOR[caster.element]
+			_caption.text = "궁극기! " + str(_data["battle"].get("ultimate", {}).get("names", {}).get(caster.element, ""))
+			_flash.color = Color(tint, 0.28)
+			var glow: Tween = _flash.create_tween()
+			glow.tween_property(_flash, "color:a", 0.0, 0.4)
+			glow.tween_callback(func() -> void: _flash.color = Color(1, 0.8, 0.1, 0))
+			var pulse: Tween = caster.root.create_tween()
+			pulse.tween_property(caster.root, "scale", Vector2(1.3, 1.3), 0.1 / _store.speed)
+			pulse.tween_property(caster.root, "scale", Vector2.ONE, 0.2 / _store.speed)
+			_pause = 0.12
 		"attack":
 			var attacker: UnitView = _views.get(int(event["src"]))
 			var defender: UnitView = _views.get(int(event["dst"]))
@@ -280,9 +302,13 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				return
 			_change_hp(defender, -int(event["dmg"]))
 			_change_hp(attacker, int(event["heal"]))
+			if attacker.gauge != null and event.has("charge"):
+				attacker.gauge.size.x = attacker.gauge_full * int(event["charge"]) / attacker.ult_need
 			if animate:
 				var strong: bool = int(event["mult"]) > 100
-				if attacker.kind == "dragon":
+				if event.get("ult", false):
+					_breath(attacker, defender, true, int(event["dmg"]), 34.0)
+				elif attacker.kind == "dragon":
 					_breath(attacker, defender, strong, int(event["dmg"]))
 				else:
 					_lunge(attacker, defender)
@@ -298,13 +324,14 @@ func _change_hp(view: UnitView, amount: int) -> void:
 		view.bar_back.visible = true
 
 
-func _breath(attacker: UnitView, defender: UnitView, strong: bool, damage: int) -> void:
-	var orb: Panel = GameTheme.panel(_fx_layer, Rect2(attacker.center - Vector2(9, 9), Vector2(18, 18)),
-		GameTheme.COLOR[attacker.element], Color(1, 1, 1, 0.9), 2, 9)
+func _breath(attacker: UnitView, defender: UnitView, strong: bool, damage: int, orb_size: float = 18.0) -> void:
+	var half: Vector2 = Vector2(orb_size, orb_size) / 2.0
+	var orb: Panel = GameTheme.panel(_fx_layer, Rect2(attacker.center - half, half * 2.0),
+		GameTheme.COLOR[attacker.element], Color(1, 1, 1, 0.9), 2, int(orb_size / 2.0))
 	orb.z_index = 50
 	var seconds: float = 0.18 / _store.speed
 	var flight: Tween = orb.create_tween()
-	flight.tween_property(orb, "position", defender.center - Vector2(9, 9), seconds)
+	flight.tween_property(orb, "position", defender.center - half, seconds)
 	flight.tween_callback(orb.queue_free)
 	flight.tween_callback(_hit.bind(defender, damage, Color("#ffe066") if strong else Color.WHITE, strong))
 

@@ -80,5 +80,39 @@
       "dual": 10,
       "secret": 15
     }
+  },
+  "ultimate": {
+    "chargeHits": {
+      "base": 6,
+      "t2": 6,
+      "t1": 5,
+      "apex": 5,
+      "dual": 5,
+      "secret": 5
+    },
+    "powerPct": {
+      "base": 150,
+      "t2": 170,
+      "t1": 190,
+      "apex": 220,
+      "dual": 190,
+      "secret": 220
+    },
+    "targets": {
+      "base": 2,
+      "t2": 2,
+      "t1": 3,
+      "apex": 5,
+      "dual": 3,
+      "secret": 5
+    },
+    "names": {
+      "fire": "화염 폭풍",
+      "ice": "눈보라",
+      "lightning": "천둥 벼락",
+      "poison": "독안개",
+      "steel": "칼날 폭풍",
+      "abyss": "심연의 일식"
+    }
   }
 }
