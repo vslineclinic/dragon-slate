@@ -3,13 +3,6 @@
   "maxTicks": 3600,
   "strongPct": 135,
   "weakPct": 75,
-  "absorbBonusPct": {
-    "base": 12,
-    "t2": 25,
-    "t1": 40,
-    "dual": 40,
-    "secret": 60
-  },
   "maxTraits": 2,
   "beats": {
     "fire": [
@@ -53,7 +46,8 @@
       "t2": 3,
       "t1": 4,
       "dual": 4,
-      "secret": 4
+      "secret": 4,
+      "apex": 5
     },
     "hpPct": 25,
     "atkPct": 35,
@@ -62,12 +56,29 @@
     "offsetX": 50,
     "spacingX": 12
   },
-  "absorbPoints": {
-    "base": 1,
-    "t2": 2,
-    "t1": 3,
-    "dual": 3,
-    "secret": 4
-  },
-  "hpScalePct": 220
+  "hpScalePct": 220,
+  "level": {
+    "max": 20,
+    "statPct": 6,
+    "xpBase": 2,
+    "xpStep": 1,
+    "winXp": 2,
+    "lossXp": 1,
+    "absorbXp": {
+      "base": 3,
+      "t2": 6,
+      "t1": 10,
+      "apex": 16,
+      "dual": 10,
+      "secret": 16
+    },
+    "absorbLevelXp": 2,
+    "evolveLevel": {
+      "t2": 5,
+      "t1": 10,
+      "apex": 15,
+      "dual": 10,
+      "secret": 15
+    }
+  }
 }

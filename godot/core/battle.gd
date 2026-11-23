@@ -71,7 +71,8 @@ static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary =
 	escort_pct += int(team_bonus.get("escortPct", 0))
 
 	var stats: Dictionary = spec["stats"]
-	var bonus_pct: int = int(inst["bonusPct"])
+	var level_pct: int = int(data["battle"].get("level", {}).get("statPct", 0)) * (maxi(1, int(inst.get("level", 1))) - 1)
+	var bonus_pct: int = int(inst.get("bonusPct", 0)) + level_pct
 	return {
 		"speciesId": spec["id"],
 		"tier": spec["tier"],
@@ -136,9 +137,11 @@ static func team_bonus(data: Dictionary, insts: Array) -> Dictionary:
 
 
 ## 둥지 6칸을 전투 유닛으로(시너지 적용, 빈칸·잠긴 칸은 null).
-static func team(data: Dictionary, nest: Array, open: int) -> Array:
+static func team(data: Dictionary, nest: Array, open: int, extra: Dictionary = {}) -> Array:
 	var insts: Array = fielded(nest, open)
 	var bonus: Dictionary = team_bonus(data, insts)
+	for kind: String in extra:
+		bonus[kind] = int(bonus.get(kind, 0)) + int(extra[kind])
 	var out: Array = []
 	for inst: Variant in insts:
 		out.append(null if inst == null else to_unit(data, inst, bonus))
@@ -172,6 +175,7 @@ static func simulate_battle(
 	var heal_cut_pct: int = int(rules.get("healCutPct", 0))
 	var heal_cut_from: int = int(rules.get("healCutFromTick", 0))
 	var pos_every: int = int(field["posEveryTicks"])
+	var strong_add: int = int(rules.get("strongAddPct", 0))
 
 	var events: Array = []
 	var tick: int = 0
@@ -242,6 +246,8 @@ static func simulate_battle(
 					continue
 				unit["timer"] = 0
 				var mult: int = element_mult(cfg, _primary(unit), _primary(target))
+				if side == "ally" and mult > 100:
+					mult += strong_add
 				var dmg: int = maxi(1, Rng.fdiv(int(unit["atk"]) * mult, 100))
 				if side == "enemy" and enraged:
 					dmg = Rng.fdiv(dmg * int(enrage["atkPct"]), 100)

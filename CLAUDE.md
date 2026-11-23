@@ -3,7 +3,7 @@
 설계: `docs/superpowers/specs/2026-11-23-wyrmslot-design.md` · 현재 계획: `docs/superpowers/plans/2026-11-23-phase0-prototype.md`
 
 ## 명령
-- Godot(기준): `npm run godot:test` · `npm run sim -- --runs 300 --seed 1000 [--demo] [--calamity 1]` · `npm run godot:export` (Windows 정식·데모) · `npm run godot:apk` (Android 테스트 APK)
+- Godot(기준): `npm run godot:test` · `npm run sim -- --runs 300 --seed 1000 [--demo] [--calamity 1] [--waves] [--margin]` · `npm run godot:export` (Windows 정식·데모) · `npm run godot:apk` (Android 테스트 APK)
 - 화면 확인: `godot --path . --position -4000,-4000 --script res://godot/tests/capture.gd -- <장면> <png> [spin|spinmid|manage|battle|battle-late] [폭]`
 - 웹판(멈춤, 참고용): `npm run dev` · `npm test` · `npm run typecheck`
 
@@ -14,6 +14,7 @@
 - TypeScript는 지울 수 있는 문법만(enum·namespace·생성자 매개변수 속성 금지), import 경로에 `.ts` 확장자.
 - 원소 fire > ice > lightning > fire, 강 135% / 약 75%.
 - 화면 문구 한국어. 금지어: 잭팟, JACKPOT, 코인, 베팅, 칩, 각인, 코어. 대신 줄 맞춤, 마력, 룬 석판, 계승 특성.
+- 성장 구조(2026-11-23 2차): 40웨이브, 원소별 계급 피라미드(기본 4 · 2티어 3 · 1티어 2 · 정점 1), 용 레벨(전투·흡수로 경험치, 레벨 업마다 스킬 점수 1), 진화는 레벨 5/10/15부터, 보스마다 유물 3택 1. 수치는 `data/battle.json`의 level, `data/relics.json`, `data/waves.json`의 growthBands·bossPct.
 - 화면 배치(2026-11-23 개정): 왼쪽 약 34% 조작 패널(석판·알 카드·대기칸), 오른쪽 전장(둥지 발판 포함).
 
 ## 레인 소유권 (설계 8.1)

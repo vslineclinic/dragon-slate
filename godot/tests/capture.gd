@@ -26,7 +26,7 @@ func _init() -> void:
 		ctl.dispatch({"type": "spin"})
 		for i in (12 if mode == "spinmid" else 90):
 			await process_frame
-		if mode in ["manage", "battle", "battle-late", "reward", "skills", "synergy"]:
+		if mode in ["manage", "battle", "battle-late", "reward", "skills", "synergy", "dex", "relic", "levels"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -56,6 +56,19 @@ func _init() -> void:
 				ctl.state["nest"][slot] = {"uid": 900 + slot, "speciesId": ids[slot], "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": 0}
 			scene.call("_render", [], ctl.state)
 			for i in 10:
+				await process_frame
+		if mode in ["dex", "relic", "levels"]:
+			var team: Array = [["fafnir", 7, 3], ["fire_whelp", 4, 1], ["zhulong", 11, 0]]
+			for slot in range(3):
+				ctl.state["nest"][slot] = {"uid": 900 + slot, "speciesId": team[slot][0], "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": team[slot][2], "level": team[slot][1], "xp": 3}
+			ctl.state["relics"] = ["sword", "dice"]
+			if mode == "relic":
+				ctl.state["phase"] = "relic"
+				ctl.state["relicChoices"] = ["shell", "horn", "tome"]
+			scene.call("_render", [], ctl.state)
+			if mode == "dex":
+				scene.call("_open_dex")
+			for i in 30:
 				await process_frame
 		if mode == "skills":
 			for slot in range(3):

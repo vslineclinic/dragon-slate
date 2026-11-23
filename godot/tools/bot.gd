@@ -18,11 +18,14 @@ static func choose(data: Dictionary, state: Dictionary) -> Dictionary:
 			return spend if not spend.is_empty() else _choose_manage(data, state)
 		"reward":
 			return _choose_reward(data, state)
+		"relic":
+			return _choose_relic(state)
 	push_error("no bot command for phase " + str(state["phase"]))
 	return {}
 
 
 const REWARD_ORDER: Array = ["t2egg", "trait", "egg", "life", "mana", "freeSpin", "nudge"]
+const RELIC_ORDER: Array = ["sword", "shell", "horn", "banner", "feather", "fang", "seal", "tome", "scale", "dice", "phoenix", "kiln"]
 const SKILL_ORDER: Array = ["fang", "scale", "pack", "alpha", "frenzy", "leech"]
 
 
@@ -42,6 +45,15 @@ static func _choose_reward(data: Dictionary, state: Dictionary) -> Dictionary:
 			best_rank = rank
 			best = i
 	return {"type": "chooseReward", "index": best}
+
+
+static func _choose_relic(state: Dictionary) -> Dictionary:
+	var choices: Array = state["relicChoices"]
+	var best: int = 0
+	for i: int in range(choices.size()):
+		if RELIC_ORDER.find(choices[i]) < RELIC_ORDER.find(choices[best]):
+			best = i
+	return {"type": "chooseRelic", "index": best}
 
 
 ## 둥지의 드래곤부터, 찍을 수 있는 스킬 중 단계가 가장 낮은 것을 고른다.

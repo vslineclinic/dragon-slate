@@ -60,9 +60,9 @@ static func evolvable_pairs(data: Dictionary, state: Dictionary) -> Array:
 		for j: int in range(i + 1, owned.size()):
 			var a: Dictionary = owned[i]
 			var b: Dictionary = owned[j]
-			var result: Variant = Fusion.find_recipe(data, a["inst"]["speciesId"], b["inst"]["speciesId"])
-			if result != null:
-				pairs.append({"a": a["ref"], "b": b["ref"], "result": result})
+			var preview: Dictionary = Fusion.merge_preview(data, a["inst"], b["inst"])
+			if preview["kind"] == "evolve":
+				pairs.append({"a": a["ref"], "b": b["ref"], "result": preview["result"]})
 	return pairs
 
 

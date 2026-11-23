@@ -340,3 +340,33 @@ func test_real_synergy_table_covers_six_elements() -> void:
 		assert_true(int(row["levels"][0]["count"]) < int(row["levels"][1]["count"]))
 		assert_true(int(row["levels"][0]["value"]) < int(row["levels"][1]["value"]))
 	assert_eq(seen, ELEMENTS)
+
+
+func test_level_raises_stats_by_stat_pct() -> void:
+	var data: Dictionary = Fixture.mini_data()
+	data["battle"]["level"] = {"statPct": 10}
+	var plain: Dictionary = Battle.to_unit(data, _inst("fire_drake"))
+	var grown: Dictionary = _inst("fire_drake")
+	grown["level"] = 6
+	var unit: Dictionary = Battle.to_unit(data, grown)
+	assert_eq(unit["hp"], Rng.fdiv(int(plain["hp"]) * 150, 100))
+	assert_eq(unit["atk"], Rng.fdiv(int(plain["atk"]) * 150, 100))
+
+
+func test_team_adds_extra_bonus_from_relics() -> void:
+	var data: Dictionary = _synergy_data()
+	var plain: Dictionary = Battle.to_unit(data, _inst("ice_drake"))
+	var team: Array = Battle.team(data, [_inst("ice_drake"), null, null, null, null, null], 3, {"atkPct": 100, "escortCount": 2})
+	assert_true(int(team[0]["atk"]) * 10 >= int(plain["atk"]) * 18)
+	assert_eq(team[0]["escortBonus"], 2)
+
+
+func test_strong_add_only_boosts_ally_advantage_hits() -> void:
+	var enemy: Array = [_enemy("dragon", "ice", 100000, 1, 10, 0, 900)]
+	var plain: Dictionary = Battle.simulate_battle(_cfg, _slots([_solo("fire", 100000, 100)]), enemy)
+	var boosted: Dictionary = Battle.simulate_battle(_cfg, _slots([_solo("fire", 100000, 100)]), enemy, {"strongAddPct": 20})
+	var first: Callable = func(result: Dictionary, src: int) -> Dictionary:
+		return _of_kind(result, "attack").filter(func(e: Dictionary) -> bool: return e["src"] == src)[0]
+	assert_eq(first.call(plain, 0)["dmg"], 135)
+	assert_eq(first.call(boosted, 0)["dmg"], 155)
+	assert_eq(first.call(boosted, 1)["dmg"], first.call(plain, 1)["dmg"])

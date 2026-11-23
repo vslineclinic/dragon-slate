@@ -33,6 +33,9 @@ static func create_run(data: Dictionary, seed: int, calamity: int = 0) -> Dictio
 		"bonusNudges": 0,
 		"freeSpins": 0,
 		"rewardChoices": [],
+		"relics": [],
+		"relicChoices": [],
+		"relicPending": false,
 		"discovered": [],
 		"log": [],
 	}
@@ -63,6 +66,8 @@ static func apply_command(data: Dictionary, state: Dictionary, cmd: Dictionary) 
 			reason = _do_choose_reward(data, next, cmd["index"], rng, events)
 		"skill":
 			reason = _do_skill(data, next, cmd["at"], cmd["node"], events)
+		"chooseRelic":
+			reason = _do_choose_relic(data, next, cmd["index"], events)
 	if not reason.is_empty():
 		return {"state": state, "events": [{"t": "rejected", "reason": reason}]}
 	next["rngState"] = rng.state()
@@ -151,6 +156,7 @@ static func _add_to_bench(state: Dictionary, species: String, via: String, event
 		return false
 	var inst: Dictionary = {
 		"uid": state["nextUid"], "speciesId": species, "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": 0,
+		"level": 1, "xp": 0,
 	}
 	state["nextUid"] += 1
 	state["bench"][index] = inst
@@ -236,8 +242,10 @@ static func _do_pick(data: Dictionary, state: Dictionary, index: Variant, rng: R
 			_:
 				var tier: String = "t2" if group["lines"].size() >= 2 else "base"
 				var pool: Array = _species_of_tier(data, tier, group["element"])
-				var roll: int = rng.next_int(maxi(1, pool.size()))
-				if not pool.is_empty() and not _add_to_bench(state, pool[roll], "bonus", events):
+				var bonus_species: String = "" if pool.is_empty() else Slot.pick_species(data, rng, pool)
+				if pool.is_empty():
+					rng.next_int(1)
+				if not pool.is_empty() and not _add_to_bench(state, bonus_species, "bonus", events):
 					converted += 1
 				_add_mana(state, data["slot"]["lineMana"], "line", events)
 	_add_mana(state, converted, "benchFull", events)
@@ -278,7 +286,7 @@ static func _do_merge(data: Dictionary, state: Dictionary, main: Dictionary, mat
 			state["discovered"].append(inst["speciesId"])
 		events.append({"t": "evolved", "inst": inst, "at": main.duplicate(true), "firstTime": first_time})
 	else:
-		events.append({"t": "absorbed", "inst": inst, "at": main.duplicate(true), "trait": result["trait"]})
+		events.append({"t": "absorbed", "inst": inst, "at": main.duplicate(true), "trait": result["trait"], "levels": result["levels"]})
 	return ""
 
 
@@ -313,7 +321,8 @@ static func _do_release(data: Dictionary, state: Dictionary, from: Dictionary, e
 		return "needDragon"
 	zone[index] = null
 	var spec: Dictionary = data["dragons"].get(inst["speciesId"], {})
-	_add_mana(state, data["waves"]["releaseMana"].get(spec.get("tier", "base"), 0), "release", events)
+	var release_mana: int = int(data["waves"]["releaseMana"].get(spec.get("tier", "base"), 0))
+	_add_mana(state, Rng.fdiv(release_mana * (100 + int(relic_bonus(data, state).get("releasePct", 0))), 100), "release", events)
 	return ""
 
 
@@ -336,9 +345,10 @@ static func _roll_reward_choices(data: Dictionary, rng: Rng, boss: bool) -> Arra
 		var detail: Variant = null
 		if reward["kind"] in ["egg", "t2egg"]:
 			var species: Array = _species_of_tier(data, "base" if reward["kind"] == "egg" else "t2")
-			var roll: int = rng.next_int(maxi(1, species.size()))
-			if not species.is_empty():
-				detail = species[roll]
+			if species.is_empty():
+				rng.next_int(1)
+			else:
+				detail = Slot.pick_species(data, rng, species)
 		choices.append({"reward": reward, "detail": detail})
 	return choices
 
@@ -354,6 +364,62 @@ static func _do_choose_reward(data: Dictionary, state: Dictionary, index: Varian
 	state["rewardChoices"] = []
 	state["nudgesLeft"] += int(state["bonusNudges"])
 	state["bonusNudges"] = 0
+	if _offer_relics(data, state, rng, events):
+		return ""
+	state["phase"] = "spin"
+	events.append(_wave_start(data, state))
+	return ""
+
+
+## 가진 유물의 효과를 종류별 합으로.
+static func relic_bonus(data: Dictionary, state: Dictionary) -> Dictionary:
+	var bonus: Dictionary = {}
+	for relic: Dictionary in data.get("relics", []):
+		if relic["id"] in state.get("relics", []):
+			bonus[relic["kind"]] = int(bonus.get(relic["kind"], 0)) + int(relic["value"])
+	return bonus
+
+
+## 보스를 이긴 뒤: 아직 없는 유물 셋을 내놓는다. 내놓았으면 true.
+static func _offer_relics(data: Dictionary, state: Dictionary, rng: Rng, events: Array) -> bool:
+	if not state.get("relicPending", false):
+		return false
+	state["relicPending"] = false
+	var pool: Array = []
+	for relic: Dictionary in data.get("relics", []):
+		if relic["id"] not in state["relics"]:
+			pool.append(relic["id"])
+	var choices: Array = []
+	while choices.size() < REWARD_CHOICES and not pool.is_empty():
+		var at: int = rng.next_int(pool.size())
+		choices.append(pool[at])
+		pool.remove_at(at)
+	if choices.is_empty():
+		return false
+	state["relicChoices"] = choices
+	state["phase"] = "relic"
+	events.append({"t": "relicChoices", "choices": choices})
+	return true
+
+
+static func _do_choose_relic(data: Dictionary, state: Dictionary, index: Variant, events: Array) -> String:
+	if state["phase"] != "relic":
+		return "wrongPhase"
+	var choices: Array = state.get("relicChoices", [])
+	if not _valid_index(index, choices.size()):
+		return "emptySlot"
+	var id: String = choices[int(index)]
+	state["relics"].append(id)
+	state["relicChoices"] = []
+	for relic: Dictionary in data.get("relics", []):
+		if relic["id"] != id:
+			continue
+		if relic["kind"] == "life":
+			state["lives"] = int(state["lives"]) + int(relic["value"])
+			events.append({"t": "lives", "lives": state["lives"]})
+		elif relic["kind"] == "nudge":
+			state["nudgesLeft"] += int(relic["value"])
+	events.append({"t": "relic", "id": id})
 	state["phase"] = "spin"
 	events.append(_wave_start(data, state))
 	return ""
@@ -433,7 +499,8 @@ static func _reward_trait(data: Dictionary, state: Dictionary, rng: Rng) -> Vari
 static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Array) -> String:
 	if state["phase"] != "manage":
 		return "wrongPhase"
-	var allies: Array = Battle.team(data, state["nest"], state["nestOpen"])
+	var relics: Dictionary = relic_bonus(data, state)
+	var allies: Array = Battle.team(data, state["nest"], state["nestOpen"], relics)
 	if allies.all(func(unit: Variant) -> bool: return unit == null):
 		return "nestEmpty"
 	var wave: int = state["wave"]
@@ -442,12 +509,20 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 	var enemies: Array = Waves.generate_enemies(data, wave, rng, state["seed"], mods)
 	var is_boss: bool = Waves.is_boss(waves, wave)
 	var boss: Variant = _boss_spec(data, wave) if is_boss else null
-	var rules: Dictionary = {} if boss == null else boss.get("rules", {})
+	var rules: Dictionary = {} if boss == null else boss.get("rules", {}).duplicate()
+	if relics.has("strongAddPct"):
+		rules["strongAddPct"] = relics["strongAddPct"]
 	var result: Dictionary = Battle.simulate_battle(data["battle"], allies, enemies, rules)
 	events.append({"t": "battle", "result": result})
 	var won: bool = result["winner"] == "ally"
+	var level_cfg: Dictionary = data["battle"].get("level", {})
+	var battle_xp: int = Rng.fdiv(int(level_cfg.get("winXp" if won else "lossXp", 0)) * (100 + int(relics.get("xpPct", 0))), 100)
+	for i: int in range(state["nestOpen"]):
+		var fighter: Variant = state["nest"][i]
+		if fighter != null and battle_xp > 0 and Fusion.add_xp(data, fighter, battle_xp) > 0:
+			events.append({"t": "leveled", "at": {"zone": "nest", "index": i}, "level": fighter["level"]})
 	if won:
-		_add_mana(state, Rng.fdiv(int(waves["winMana"]) * (100 + int(mods["winManaPct"])), 100), "win", events)
+		_add_mana(state, Rng.fdiv(int(waves["winMana"]) * (100 + int(mods["winManaPct"])), 100) + int(relics.get("winMana", 0)), "win", events)
 	else:
 		var loss: int = waves["bossLossLife"] if is_boss else waves["lossLife"]
 		state["lives"] = maxi(0, int(state["lives"]) - loss)
@@ -467,13 +542,16 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 		events.append({"t": "victory"})
 		return ""
 	state["spinsThisWave"] = 0
-	state["nudgesLeft"] = int(data["slot"]["nudgesPerWave"]) + int(state["bonusNudges"])
+	state["nudgesLeft"] = int(data["slot"]["nudgesPerWave"]) + int(state["bonusNudges"]) + int(relics.get("nudge", 0))
 	state["bonusNudges"] = 0
+	state["relicPending"] = won and is_boss
 	if won:
 		state["rewardChoices"] = _roll_reward_choices(data, rng, is_boss)
 	if won and not state["rewardChoices"].is_empty():
 		state["phase"] = "reward"
 		events.append({"t": "rewardChoices", "choices": state["rewardChoices"]})
+		return ""
+	if _offer_relics(data, state, rng, events):
 		return ""
 	state["phase"] = "spin"
 	events.append(_wave_start(data, state))

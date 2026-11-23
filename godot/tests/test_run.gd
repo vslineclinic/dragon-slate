@@ -98,6 +98,8 @@ func test_move_and_merge_reject_locked_nest_slot() -> void:
 
 func test_first_evolution_marks_discovered_once() -> void:
 	var state: Dictionary = _fresh({"phase": "manage", "bench": _full_bench(), "nextUid": 5})
+	state["bench"][0]["level"] = 5
+	state["bench"][2]["level"] = 5
 	var first: Dictionary = _apply(state, {"type": "merge", "main": _ref("bench", 0), "material": _ref("bench", 1)})
 	_assert_fields(first["events"][0], {"t": "evolved", "firstTime": true})
 	assert_eq(first["state"]["bench"][0]["speciesId"], "beowulf_firedrake")
@@ -141,6 +143,62 @@ func test_final_wave_win_ends_in_victory() -> void:
 	var result: Dictionary = _apply(state, {"type": "startBattle"})
 	assert_eq(result["state"]["phase"], "victory")
 	assert_true({"t": "victory"} in result["events"])
+
+
+func _strong_nest(wave: int) -> Dictionary:
+	return _fresh({
+		"wave": wave, "phase": "manage",
+		"nest": [_inst(1, "tiamat", 5000), _inst(2, "tiamat", 5000), null, null, null, null],
+	})
+
+
+func test_low_level_pair_absorbs_instead_of_evolving() -> void:
+	var state: Dictionary = _fresh({"phase": "manage", "bench": _full_bench(), "nextUid": 5})
+	var result: Dictionary = _apply(state, {"type": "merge", "main": _ref("bench", 0), "material": _ref("bench", 1)})
+	_assert_fields(result["events"][0], {"t": "absorbed", "levels": 1})
+	_assert_fields(result["state"]["bench"][0], {"speciesId": "fire_drake", "level": 2, "skillPoints": 1})
+
+
+func test_battle_gives_xp_to_fielded_dragons_only() -> void:
+	var state: Dictionary = _strong_nest(1)
+	state["bench"][0] = _inst(3, "fire_drake")
+	var result: Dictionary = _apply(state, {"type": "startBattle"})
+	var cfg: Dictionary = _data["battle"]["level"]
+	assert_eq(int(cfg["winXp"]) >= int(cfg["xpBase"]), true)
+	_assert_fields(result["state"]["nest"][0], {"level": 2})
+	assert_true({"t": "leveled", "at": _ref("nest", 0), "level": 2} in result["events"])
+	assert_eq(result["state"]["bench"][0].get("level", 1), 1)
+
+
+func test_boss_win_offers_three_relics_and_choice_applies() -> void:
+	var result: Dictionary = _apply(_strong_nest(5), {"type": "startBattle"})
+	var state: Dictionary = result["state"]
+	_assert_fields(state, {"phase": "relic", "wave": 6})
+	assert_eq(state["relicChoices"].size(), 3)
+	_assert_rejected(state, {"type": "spin"}, "wrongPhase")
+	var picked: String = state["relicChoices"][1]
+	var after: Dictionary = _apply(state, {"type": "chooseRelic", "index": 1})
+	_assert_fields(after["state"], {"phase": "spin", "relics": [picked], "relicChoices": []})
+	assert_true({"t": "relic", "id": picked} in after["events"])
+	assert_true(_wave_start(state["seed"], 6) in after["events"])
+
+
+func test_normal_win_offers_no_relic() -> void:
+	var result: Dictionary = _apply(_strong_nest(2), {"type": "startBattle"})
+	_assert_fields(result["state"], {"phase": "spin", "relics": []})
+
+
+func test_relic_bonus_sums_owned_relics() -> void:
+	var state: Dictionary = _fresh({"relics": ["sword", "scale", "kiln"]})
+	assert_eq(RunRules.relic_bonus(_data, state), {"atkPct": 15, "winMana": 3, "releasePct": 100})
+	state["phase"] = "manage"
+	state["bench"] = [_inst(1, "fafnir"), _inst(2, "fire_drake"), null, null]
+	assert_eq(_apply(state, {"type": "release", "from": _ref("bench", 0)})["state"]["mana"], 3 + 4)
+
+
+func test_life_relic_adds_lives_at_once() -> void:
+	var state: Dictionary = _fresh({"phase": "relic", "relicChoices": ["phoenix", "sword", "shell"]})
+	assert_eq(_apply(state, {"type": "chooseRelic", "index": 0})["state"]["lives"], 7)
 
 
 func test_replaying_accepted_commands_is_deterministic() -> void:
@@ -300,3 +358,20 @@ static func _grid(rows: Array) -> Dictionary:
 		reel.append({"symbol": G, "speciesId": null})
 		reels.append(reel)
 	return {"reels": reels, "offsets": [0, 0, 0]}
+
+
+func test_win_offers_three_rewards_then_relic_after_boss() -> void:
+	var data: Dictionary = GameData.load_all()
+	var state: Dictionary = RunRules.create_run(data, 3)["state"]
+	state.merge({"wave": 5, "phase": "manage", "nest": [_inst(1, "tiamat", 5000), null, null, null, null, null]}, true)
+	var won: Dictionary = RunRules.apply_command(data, state, {"type": "startBattle"})["state"]
+	_assert_fields(won, {"phase": "reward", "relicPending": true})
+	assert_eq(won["rewardChoices"].size(), 3)
+	var ids: Array = won["rewardChoices"].map(func(choice: Dictionary) -> String: return choice["reward"]["id"])
+	assert_eq(ids.size(), 3)
+	assert_true(ids[0] != ids[1] and ids[1] != ids[2] and ids[0] != ids[2])
+	var picked: Dictionary = RunRules.apply_command(data, won, {"type": "chooseReward", "index": 0})["state"]
+	_assert_fields(picked, {"phase": "relic", "rewardChoices": [], "relicPending": false})
+	var done: Dictionary = RunRules.apply_command(data, picked, {"type": "chooseRelic", "index": 2})["state"]
+	_assert_fields(done, {"phase": "spin", "wave": 6})
+	assert_eq(done["relics"].size(), 1)

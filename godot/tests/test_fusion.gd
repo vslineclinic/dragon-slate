@@ -22,6 +22,11 @@ static func _data() -> Dictionary:
 		data["traits"][trait_id] = {
 			"id": trait_id, "nameKo": trait_id, "kind": "hpPct", "value": 15,
 		}
+	data["battle"]["level"] = {
+		"max": 10, "statPct": 6, "xpBase": 2, "xpStep": 1,
+		"absorbXp": {"base": 3, "t2": 6}, "absorbLevelXp": 2,
+		"evolveLevel": {"t2": 1, "t1": 3, "dual": 1},
+	}
 	data["dragons"]["ice_drake"]["traitId"] = "tr_icy"
 	data["traits"]["tr_icy"] = {"id": "tr_icy", "nameKo": "icy", "kind": "hastePct", "value": 10}
 	data["recipes"].append_array([
@@ -33,7 +38,7 @@ static func _data() -> Dictionary:
 
 
 static func _inst(uid: int, species_id: String, traits: Array = [], bonus_pct: int = 0) -> Dictionary:
-	return {"uid": uid, "speciesId": species_id, "traits": traits, "bonusPct": bonus_pct, "skills": {}, "skillPoints": 0}
+	return {"uid": uid, "speciesId": species_id, "traits": traits, "bonusPct": bonus_pct, "skills": {}, "skillPoints": 0, "level": 1, "xp": 0}
 
 
 static func _with_points(inst: Dictionary, points: int) -> Dictionary:
@@ -41,9 +46,16 @@ static func _with_points(inst: Dictionary, points: int) -> Dictionary:
 	return inst
 
 
+static func _grown(inst: Dictionary, level: int, xp: int, points: int) -> Dictionary:
+	inst["level"] = level
+	inst["xp"] = xp
+	inst["skillPoints"] = points
+	return inst
+
+
 func test_same_species_evolves_to_t2() -> void:
 	var result: Dictionary = Fusion.merge(_data(), _inst(1, "fire_drake"), _inst(2, "fire_drake"), 9)
-	assert_eq(result, {"inst": _inst(9, "beowulf_firedrake"), "kind": "evolve", "trait": null})
+	assert_eq(result, {"inst": _inst(9, "beowulf_firedrake"), "kind": "evolve", "trait": null, "levels": 0})
 
 
 func test_recipe_order_does_not_matter() -> void:
@@ -54,8 +66,42 @@ func test_recipe_order_does_not_matter() -> void:
 
 
 func test_t2_pair_evolves_to_t1() -> void:
-	var preview: Dictionary = Fusion.merge_preview(_data(), _inst(1, "xiuhcoatl"), _inst(2, "fafnir"))
+	var preview: Dictionary = Fusion.merge_preview(_data(), _grown(_inst(1, "xiuhcoatl"), 3, 0, 0), _inst(2, "fafnir"))
 	assert_eq(preview, {"kind": "evolve", "result": "zhulong"})
+
+
+func test_evolution_waits_for_level_and_absorbs_meanwhile() -> void:
+	var data: Dictionary = _data()
+	var preview: Dictionary = Fusion.merge_preview(data, _grown(_inst(1, "xiuhcoatl"), 2, 0, 0), _inst(2, "fafnir"))
+	assert_eq(preview["kind"], "absorb")
+	assert_eq(preview["blocked"], {"result": "zhulong", "needLevel": 3})
+	assert_eq(Fusion.merge(data, _inst(1, "xiuhcoatl"), _inst(2, "fafnir"), 9)["inst"]["speciesId"], "xiuhcoatl")
+	assert_eq(Fusion.merge_preview(data, _inst(1, "xiuhcoatl"), _grown(_inst(2, "fafnir"), 3, 0, 0))["kind"], "evolve")
+
+
+func test_xp_curve_levels_up_and_stops_at_max() -> void:
+	var data: Dictionary = _data()
+	assert_eq([Fusion.xp_needed(data, 1), Fusion.xp_needed(data, 2), Fusion.xp_needed(data, 10)], [2, 3, 0])
+	var inst: Dictionary = _inst(1, "fafnir")
+	assert_eq(Fusion.add_xp(data, inst, 6), 2)
+	assert_eq([inst["level"], inst["xp"], inst["skillPoints"]], [3, 1, 2])
+	assert_eq(Fusion.add_xp(data, inst, 9999), 7)
+	assert_eq([inst["level"], inst["xp"], inst["skillPoints"]], [10, 0, 9])
+
+
+func test_absorbing_a_grown_dragon_gives_more_xp() -> void:
+	var data: Dictionary = _data()
+	assert_eq(Fusion.absorb_xp(data, _inst(2, "ice_drake")), 3)
+	assert_eq(Fusion.absorb_xp(data, _grown(_inst(2, "ice_drake"), 4, 0, 0)), 9)
+
+
+func test_evolution_inherits_growth_of_the_higher_level_dragon() -> void:
+	var material: Dictionary = _grown(_inst(2, "fire_drake", ["tr_x"]), 4, 2, 1)
+	material["skills"] = {"scale": 2}
+	var result: Dictionary = Fusion.merge(_data(), _inst(1, "fire_drake", ["tr_icy"]), material, 7)
+	var expected: Dictionary = _grown(_inst(7, "beowulf_firedrake", ["tr_x"]), 4, 2, 1)
+	expected["skills"] = {"scale": 2}
+	assert_eq(result["inst"], expected)
 
 
 func test_cross_element_t2_gives_dual() -> void:
@@ -68,22 +114,22 @@ func test_no_recipe_absorbs_trait_and_bonus() -> void:
 	var main: Dictionary = _inst(1, "fafnir")
 	var material: Dictionary = _inst(2, "ice_drake")
 	assert_eq(Fusion.merge(data, main, material, 9), {
-		"inst": _with_points(_inst(1, "fafnir", ["tr_icy"]), 1), "kind": "absorb", "trait": "tr_icy",
+		"inst": _grown(_inst(1, "fafnir", ["tr_icy"]), 2, 1, 1), "kind": "absorb", "trait": "tr_icy", "levels": 1,
 	})
-	assert_eq(Fusion.merge_preview(data, main, material), {"kind": "absorb", "trait": "tr_icy"})
+	assert_eq(Fusion.merge_preview(data, main, material), {"kind": "absorb", "trait": "tr_icy", "xp": 3, "blocked": null})
 
 
 func test_absorb_skips_duplicate_trait() -> void:
 	var main: Dictionary = _inst(1, "fafnir", ["tr_icy"], 12)
 	var result: Dictionary = Fusion.merge(_data(), main, _inst(2, "ice_drake"), 9)
-	assert_eq(result["inst"], _with_points(_inst(1, "fafnir", ["tr_icy"], 12), 1))
+	assert_eq(result["inst"], _grown(_inst(1, "fafnir", ["tr_icy"], 12), 2, 1, 1))
 	assert_eq(result["trait"], null)
 
 
 func test_absorb_respects_max_traits_but_still_adds_bonus() -> void:
 	var main: Dictionary = _inst(1, "zhulong", ["tr_a", "tr_b"])
 	var result: Dictionary = Fusion.merge(_data(), main, _inst(2, "fafnir"), 9)
-	assert_eq(result["inst"], _with_points(_inst(1, "zhulong", ["tr_a", "tr_b"]), 2))
+	assert_eq(result["inst"], _grown(_inst(1, "zhulong", ["tr_a", "tr_b"]), 3, 1, 2))
 	assert_eq(result["trait"], null)
 
 

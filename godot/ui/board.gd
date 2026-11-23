@@ -128,6 +128,19 @@ func _draw_synergies(state: Dictionary) -> void:
 		mark.modulate.a = 1.0 if active else 0.5
 		GameTheme.label(chip, Rect2(30, 3, width - 36, 22), text, 14, Color("#fff3bf") if active else GameTheme.DIM)
 		x += width + 8
+	## 유물: 가진 것을 금색 칩으로.
+	for relic: Dictionary in _ctl.data.get("relics", []):
+		if relic["id"] not in state.get("relics", []):
+			continue
+		var name: String = relic["nameKo"]
+		var chip_w: float = 24 + name.length() * 12.0
+		if x + chip_w > field.end.x - 12:
+			x = field.position.x + 12
+			y -= 32
+		var relic_chip: Panel = GameTheme.panel(_layer, Rect2(x, y, chip_w, 28), Color(0.16, 0.12, 0.02, 0.9), Color("#d4af37"), 2, 14)
+		relic_chip.tooltip_text = relic["descKo"]
+		GameTheme.label(relic_chip, Rect2(0, 3, chip_w, 22), name, 13, Color("#ffe066"), HORIZONTAL_ALIGNMENT_CENTER)
+		x += chip_w + 8
 
 
 func _draw_card(rect: Rect2, inst: Dictionary, ref: Dictionary, draggable: bool, recommended: bool) -> void:
@@ -148,19 +161,25 @@ func _draw_card(rect: Rect2, inst: Dictionary, ref: Dictionary, draggable: bool,
 	var tier: String = spec["tier"]
 	var tier_color: Color = GameTheme.DIM if tier == "base" else Color("#ffd8a8")
 	var dots: String = "●".repeat(inst["traits"].size()) + "○".repeat(maxi(0, _ctl.data["battle"]["maxTraits"] - inst["traits"].size()))
+	var level: int = FusionRules.level_of(inst)
+	var need: int = FusionRules.xp_needed(_ctl.data, level)
+	GameTheme.panel(card, Rect2(8, rect.size.y - 5, rect.size.x - 16, 3), Color(0, 0, 0, 0.5))
+	var filled: float = 1.0 if need == 0 else clampf(float(inst.get("xp", 0)) / need, 0.0, 1.0)
+	GameTheme.panel(card, Rect2(8, rect.size.y - 5, (rect.size.x - 16) * filled, 3), Color("#ffd43b"))
 	if image != null:
-		GameTheme.label(card, Rect2(6, 6, 50, 18), GameTheme.TIER_KO[tier], 11, tier_color)
+		GameTheme.label(card, Rect2(6, 4, 50, 18), "Lv.%d" % level, 12, Color("#fff3bf"))
+		GameTheme.label(card, Rect2(6, 20, 50, 16), GameTheme.TIER_KO[tier], 10, tier_color)
 		GameTheme.label(card, Rect2(0, 68, 120, 18), spec["nameKo"], 12, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 		var skill_total: int = 0
-		for level: Variant in inst.get("skills", {}).values():
-			skill_total += int(level)
+		for learned: Variant in inst.get("skills", {}).values():
+			skill_total += int(learned)
 		var bonus: String = "\n스킬 %d" % skill_total if skill_total > 0 else ""
 		GameTheme.label(card, Rect2(6, 47, 75, 29), dots + bonus, 10, GameTheme.DIM)
 	else:
 		var title: Label = GameTheme.label(card, Rect2(8, 10, 80 if elements.size() == 1 else 60, 36), spec["nameKo"], 14)
 		GameTheme.wrap(title)
 		title.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-		GameTheme.label(card, Rect2(8, 46, 75, 20), GameTheme.TIER_KO[tier], 12, tier_color)
+		GameTheme.label(card, Rect2(8, 46, 75, 20), "Lv.%d · %s" % [level, GameTheme.TIER_KO[tier]], 12, tier_color)
 	var points: int = int(inst.get("skillPoints", 0))
 	if points > 0:
 		var badge: Panel = GameTheme.panel(card, Rect2(34, -12, 86, 20), Color("#5c4a00"), GameTheme.RECOMMEND, 2, 8)
@@ -241,10 +260,13 @@ func _show_preview(point: Vector2) -> void:
 			if preview["kind"] == "evolve":
 				message = "진화 → " + _ctl.data["dragons"][preview["result"]]["nameKo"]
 			else:
-				message = "흡수: 스킬 점수 +%d" % _ctl.data["battle"]["absorbPoints"].get(tier, 1)
+				message = "흡수: 경험치 +%d" % int(preview["xp"])
 				var trait_id: Variant = preview["trait"]
 				if trait_id != null:
 					message += ", 특성 「%s」" % _ctl.data["traits"][trait_id]["nameKo"]
+				var blocked: Variant = preview["blocked"]
+				if blocked != null:
+					message += "\n(레벨 %d가 되면 %s(으)로 진화할 수 있어요)" % [blocked["needLevel"], _ctl.data["dragons"][blocked["result"]]["nameKo"]]
 	_preview.visible = not message.is_empty()
 	if _preview.visible:
 		_preview_text.text = message

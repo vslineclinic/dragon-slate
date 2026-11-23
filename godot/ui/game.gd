@@ -24,7 +24,7 @@ const REJECT_KO: Dictionary = {
 	"nestEmpty": "둥지에 드래곤을 1마리 이상 놓아 주세요",
 	"sameSlot": "같은 칸이에요",
 	"needDragon": "드래곤이 최소 1마리는 있어야 해요",
-	"noSkillPoint": "스킬 점수가 없어요. 다른 드래곤을 흡수하면 받아요",
+	"noSkillPoint": "스킬 점수가 없어요. 레벨이 오르면 받아요",
 	"skillMaxed": "이미 끝까지 찍은 스킬이에요",
 	"skillLocked": "앞 스킬을 먼저 찍어야 해요",
 }
@@ -132,6 +132,7 @@ func _on_change(events: Array, state: Dictionary) -> void:
 	var bonus: PackedStringArray = PackedStringArray()
 	var mana: int = 0
 	var converted: bool = false
+	var leveled: int = 0
 	for event: Dictionary in events:
 		match event["t"]:
 			"rejected":
@@ -152,7 +153,18 @@ func _on_change(events: Array, state: Dictionary) -> void:
 			"reward":
 				flash("보상: %s\n%s" % [event["reward"]["nameKo"], _reward_detail(event["reward"], event["detail"])])
 			"absorbed":
-				flash("스킬 점수를 받았어요! 드래곤을 눌러 스킬을 찍어요.")
+				if int(event.get("levels", 0)) > 0:
+					flash("레벨 업! Lv.%d\n드래곤을 눌러 스킬을 찍어요." % int(event["inst"].get("level", 1)))
+				else:
+					flash("경험치를 받았어요.")
+			"leveled":
+				leveled += 1
+			"relic":
+				for relic: Dictionary in controller.data.get("relics", []):
+					if relic["id"] == event["id"]:
+						flash("유물 획득: %s\n%s" % [relic["nameKo"], relic["descKo"]])
+	if leveled > 0:
+		flash("드래곤 %d마리가 레벨 업!\n눌러서 스킬을 찍어요." % leveled)
 	if mana != 0:
 		bonus.append("마력 +%d" % mana)
 	if not bonus.is_empty():
@@ -191,6 +203,8 @@ func _render(events: Array, state: Dictionary) -> void:
 	_clear_reward()
 	if state["phase"] == "reward":
 		_show_reward_choices(state)
+	elif state["phase"] == "relic":
+		_show_relic_choices(state)
 	if state["phase"] in ["gameOver", "victory"]:
 		_show_result(state)
 		run_finished.emit(state)
@@ -225,7 +239,7 @@ func _open_dex() -> void:
 	var dex: DexOverlay = DexOverlay.new()
 	dex.closed.connect(_close_dex)
 	add_child(dex)
-	dex.setup(controller.data, store)
+	dex.setup(controller.data, store, controller.state, _areas["width"])
 
 
 func _close_dex() -> void:
@@ -278,6 +292,7 @@ func _show_reward_choices(state: Dictionary) -> void:
 	var title: Label = _notice(_reward_overlay, Rect2(0, 120, field.size.x, 50), "승리 보상을 하나 고르세요", 32, Color("#fff3bf"), Color("#5f3dc4"), 8, 0)
 	title.pivot_offset = Vector2.ZERO
 	var choices: Array = state["rewardChoices"]
+	var odds: Dictionary = _reward_odds(Waves.is_boss(controller.data["waves"], int(state["wave"]) - 1))
 	var card_w: float = 230.0
 	var gap: float = 20.0
 	var total: float = choices.size() * card_w + (choices.size() - 1) * gap
@@ -292,7 +307,85 @@ func _show_reward_choices(state: Dictionary) -> void:
 		if art == null:
 			GameTheme.place(card, Marks.new("gold" if reward["kind"] == "mana" else "wild", true), Rect2((card_w - 90) / 2.0, 24, 90, 90))
 		GameTheme.label(card, Rect2(8, 134, card_w - 16, 28), reward["nameKo"], 20, Color("#fff3bf"), HORIZONTAL_ALIGNMENT_CENTER)
-		var detail: Label = GameTheme.label(card, Rect2(12, 166, card_w - 24, 70), _reward_preview(reward, choice["detail"]), 14, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+		var detail: Label = GameTheme.label(card, Rect2(12, 166, card_w - 24, 46), _reward_preview(reward, choice["detail"]), 14, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+		detail.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		GameTheme.wrap(detail)
+		var chance: String = "이 보상이 나올 확률 %d%%" % roundi(odds.get(reward["id"], 0.0) * 100.0)
+		var chance_color: Color = GameTheme.DIM
+		if choice["detail"] != null and reward["kind"] in ["egg", "t2egg"]:
+			var share: float = _species_share(choice["detail"])
+			chance += "\n그중 이 용일 확률 %.1f%%" % (share * 100.0)
+			chance_color = GameTheme.rarity(int(share * 2400.0))[1] if reward["kind"] == "egg" else GameTheme.DIM
+			if not store.discovered().has(choice["detail"]):
+				GameTheme.new_badge(card, rect.size)
+		GameTheme.label(card, Rect2(8, 200, card_w - 16, 40), chance, 12, chance_color, HORIZONTAL_ALIGNMENT_CENTER)
+		card.pivot_offset = rect.size / 2.0
+		card.scale = Vector2(0.8, 0.8)
+		card.modulate.a = 0.0
+		var pop: Tween = card.create_tween().set_parallel()
+		pop.tween_property(card, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(i * 0.08)
+		pop.tween_property(card, "modulate:a", 1.0, 0.2).set_delay(i * 0.08)
+
+
+## 보상 종류마다, 세 장 가운데 한 장으로 나올 확률(0~1). 겹치지 않게 세 번 뽑는 경우를 모두 센다.
+func _reward_odds(boss: bool) -> Dictionary:
+	var key: String = "bossWeight" if boss else "weight"
+	var pool: Array = controller.data["rewards"].filter(func(reward: Dictionary) -> bool: return int(reward[key]) > 0)
+	var odds: Dictionary = {}
+	_walk_reward_draws(pool, key, [], 1.0, odds)
+	return odds
+
+
+func _walk_reward_draws(pool: Array, key: String, taken: Array, chance: float, odds: Dictionary) -> void:
+	var total: float = 0.0
+	for reward: Dictionary in pool:
+		if reward["id"] not in taken:
+			total += float(reward[key])
+	if taken.size() >= Run.REWARD_CHOICES or total <= 0.0:
+		for id: String in taken:
+			odds[id] = float(odds.get(id, 0.0)) + chance
+		return
+	for reward: Dictionary in pool:
+		if reward["id"] not in taken:
+			_walk_reward_draws(pool, key, taken + [reward["id"]], chance * float(reward[key]) / total, odds)
+
+
+## 알 보상에서 같은 계급 가운데 이 종이 뽑힐 비율(0~1).
+func _species_share(id: String) -> float:
+	var tier: String = controller.data["dragons"][id]["tier"]
+	var total: float = 0.0
+	for spec: Dictionary in controller.data["dragons"].values():
+		if spec["tier"] == tier:
+			total += float(Slot.species_weight(controller.data, spec["id"]))
+	return float(Slot.species_weight(controller.data, id)) / maxf(1.0, total)
+
+
+## 보스를 이기면 유물 3개 중 하나를 고른다. 유물은 판이 끝날 때까지 남는다.
+func _show_relic_choices(state: Dictionary) -> void:
+	var field: Rect2 = _areas["field"]
+	_reward_overlay = Control.new()
+	_reward_overlay.z_index = 70
+	GameTheme.place(self, _reward_overlay, field)
+	var dim: ColorRect = ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.6)
+	GameTheme.place(_reward_overlay, dim, Rect2(Vector2.ZERO, field.size))
+	var title: Label = _notice(_reward_overlay, Rect2(0, 110, field.size.x, 50), "보스 유물을 하나 고르세요", 32, Color("#ffe066"), Color("#7a5c00"), 8, 0)
+	title.pivot_offset = Vector2.ZERO
+	GameTheme.label(_reward_overlay, Rect2(0, 162, field.size.x, 24), "유물은 이번 판이 끝날 때까지 계속 적용돼요.", 15, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	var choices: Array = state["relicChoices"]
+	var card_w: float = 230.0
+	var gap: float = 20.0
+	var total: float = choices.size() * card_w + (choices.size() - 1) * gap
+	for i: int in range(choices.size()):
+		var relic: Dictionary = {}
+		for candidate: Dictionary in controller.data["relics"]:
+			if candidate["id"] == choices[i]:
+				relic = candidate
+		var rect: Rect2 = Rect2((field.size.x - total) / 2.0 + i * (card_w + gap), 210, card_w, 220)
+		var card: Button = GameTheme.button(_reward_overlay, rect, "", controller.dispatch.bind({"type": "chooseRelic", "index": i}), Color("#2e2710"), Color("#d4af37"), 2)
+		GameTheme.place(card, Marks.new("gold", true), Rect2((card_w - 80) / 2.0, 18, 80, 80))
+		GameTheme.label(card, Rect2(8, 108, card_w - 16, 28), relic.get("nameKo", ""), 20, Color("#ffe066"), HORIZONTAL_ALIGNMENT_CENTER)
+		var detail: Label = GameTheme.label(card, Rect2(14, 142, card_w - 28, 66), relic.get("descKo", ""), 15, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 		detail.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		GameTheme.wrap(detail)
 		card.pivot_offset = rect.size / 2.0

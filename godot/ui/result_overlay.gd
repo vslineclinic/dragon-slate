@@ -15,7 +15,7 @@ func setup(data: Dictionary, state: Dictionary, on_new: Callable, on_title: Call
 	if won:
 		summary = "%d웨이브를 모두 버텼어요" % data["waves"]["maxWave"]
 		if OS.has_feature("demo"):
-			summary = "데모 클리어! 정식판에서는 20웨이브, 심판 보스 4종, 재앙 5단계가 기다려요."
+			summary = "데모 클리어! 정식판에서는 40웨이브, 심판 보스 8종, 보스 유물, 재앙 5단계가 기다려요."
 	var subheading: Label = GameTheme.label(panel, Rect2(32, 79, 636, 64), summary, 18, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	GameTheme.wrap(subheading)
 	subheading.size.x = 636

@@ -30,6 +30,11 @@ func _init() -> void:
 	var timeouts: int = 0
 	var game_over_wave: Dictionary = {}
 	var boss_first: Dictionary = {}
+	var wave_first: Dictionary = {}
+	var level_sum: Dictionary = {}
+	var margin_sum: Dictionary = {}
+	var margin_n: Dictionary = {}
+	var want_margin: bool = args.has("--margin")
 	for i: int in range(runs):
 		var state: Dictionary = Run.create_run(data, first_seed + i, calamity)["state"]
 		var seen_waves: Dictionary = {}
@@ -37,7 +42,11 @@ func _init() -> void:
 			if state["phase"] in ["victory", "gameOver"]:
 				break
 			var wave: int = state["wave"]
-			var result: Dictionary = Run.apply_command(data, state, Bot.choose(data, state))
+			var command: Dictionary = Bot.choose(data, state)
+			if want_margin and command.get("type") == "startBattle" and not seen_waves.has(wave):
+				margin_sum[wave] = int(margin_sum.get(wave, 0)) + _margin(data, state)
+				margin_n[wave] = int(margin_n.get(wave, 0)) + 1
+			var result: Dictionary = Run.apply_command(data, state, command)
 			state = result["state"]
 			if state.has("log"):
 				state["log"].clear()
@@ -55,6 +64,15 @@ func _init() -> void:
 					var won: bool = battle["winner"] == "ally"
 					if not seen_waves.has(wave):
 						seen_waves[wave] = true
+						var tally: Array = wave_first.get(wave, [0, 0])
+						tally[0] += 1
+						tally[1] += 1 if won else 0
+						wave_first[wave] = tally
+						var top: int = 0
+						for inst: Variant in state["nest"]:
+							if inst != null:
+								top = maxi(top, int(inst.get("level", 1)))
+						level_sum[wave] = int(level_sum.get(wave, 0)) + top
 						if wave == 1 and won:
 							wave1_wins += 1
 						if Waves.is_boss(data["waves"], wave):
@@ -80,6 +98,20 @@ func _init() -> void:
 		Rng.fdiv(ticks_total, maxi(1, battles)), timeouts, max_units,
 	])
 	print("bossFirstTry: " + ", ".join(bosses))
+	if want_margin:
+		var cells: Array = []
+		var margin_waves: Array = margin_sum.keys()
+		margin_waves.sort()
+		for wave: int in margin_waves:
+			cells.append("%d:%d" % [wave, Rng.fdiv(int(margin_sum[wave]), int(margin_n[wave]))])
+		print("marginPct(이길 수 있는 적 전투력 배율): " + " ".join(cells))
+	if args.has("--waves"):
+		var rows: Array = []
+		var all_waves: Array = wave_first.keys()
+		all_waves.sort()
+		for wave: int in all_waves:
+			rows.append("%d:%d%%/L%d" % [wave, Rng.fdiv(wave_first[wave][1] * 100, maxi(1, wave_first[wave][0])), Rng.fdiv(int(level_sum[wave]), maxi(1, wave_first[wave][0]))])
+		print("firstTryByWave(win/topLevel): " + " ".join(rows))
 	var losses: Array = []
 	var wave_keys: Array = game_over_wave.keys()
 	wave_keys.sort()
@@ -87,6 +119,30 @@ func _init() -> void:
 		losses.append("%d:%d" % [wave, game_over_wave[wave]])
 	print("gameOverWave: " + " ".join(losses))
 	quit()
+
+
+## 지금 편성으로 이길 수 있는 가장 큰 적 전투력 배율(%). 100이면 딱 맞는 난이도.
+static func _margin(data: Dictionary, state: Dictionary) -> int:
+	var wave: int = state["wave"]
+	var relics: Dictionary = Run.relic_bonus(data, state)
+	var allies: Array = Battle.team(data, state["nest"], state["nestOpen"], relics)
+	var rules: Dictionary = {}
+	for boss: Dictionary in data["bosses"]:
+		if boss["wave"] == wave and Waves.is_boss(data["waves"], wave):
+			rules = boss.get("rules", {}).duplicate()
+	if relics.has("strongAddPct"):
+		rules["strongAddPct"] = relics["strongAddPct"]
+	var best: int = 25
+	var pct: int = 35
+	while pct <= 900:
+		var mods: Dictionary = Calamity.mods(data, 0).duplicate()
+		mods["enemyPowerPct"] = pct - 100
+		var enemies: Array = Waves.generate_enemies(data, wave, Rng.new(int(state["seed"]) + wave * 31), state["seed"], mods)
+		if Battle.simulate_battle(data["battle"], allies, enemies, rules)["winner"] != "ally":
+			break
+		best = pct
+		pct = Rng.fdiv(pct * 130, 100)
+	return best
 
 
 ## 기본 드래곤 1마리(호위 포함)를 전열 가운데에 두고 1웨이브만 싸운다. 설계 목표: 승률 90% 이상.

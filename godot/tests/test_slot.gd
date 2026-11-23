@@ -122,3 +122,28 @@ func test_hit_rate_is_sane() -> void:
 			hits += 1
 	assert_true(hits > 2500, "hit count %d" % hits)
 	assert_true(hits < 7500, "hit count %d" % hits)
+
+
+func test_species_odds_follow_weights() -> void:
+	var data: Dictionary = GameData.load_all()
+	var common: int = Slot.species_odds(data, "fire_drake")
+	var rare: int = Slot.species_odds(data, "fire_whelp")
+	assert_true(common > rare * 3)
+	var total: int = 0
+	for spec: Dictionary in data["dragons"].values():
+		total += Slot.species_odds(data, spec["id"])
+	## 금빛 칸을 뺀 나머지(88%)가 알이다. 정수 나눗셈 오차만 허용.
+	assert_true(total > 8700 and total <= 8800, str(total))
+	assert_eq(Slot.species_odds(data, "zhulong"), 0)
+
+
+func test_weighted_pool_prefers_heavier_species() -> void:
+	var data: Dictionary = GameData.load_all()
+	var pool: Array = Slot.base_pool(data, "fire")
+	assert_eq(pool.size(), 4)
+	var counts: Dictionary = {}
+	var rng: Rng = Rng.new(7)
+	for i: int in range(2000):
+		var id: String = Slot.pick_species(data, rng, pool)
+		counts[id] = int(counts.get(id, 0)) + 1
+	assert_true(counts["fire_drake"] > counts["fire_whelp"] * 2)

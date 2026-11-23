@@ -4,27 +4,107 @@
     "nameKo": "홍염의 가뭄",
     "descKo": "15초가 지나면 흡혈 회복이 절반이 되고, 3초마다 체력이 가장 낮은 드래곤이 최대 체력의 8%만큼 타요.",
     "hintKo": "흡혈에 기대지 말고 체력 높은 드래곤을 전열에 두세요.",
-    "rules": { "healCutPct": 50, "healCutFromTick": 300, "burn": { "everyTicks": 60, "pct": 8 } }
+    "rules": {
+      "healCutPct": 50,
+      "healCutFromTick": 300,
+      "burn": {
+        "everyTicks": 60,
+        "pct": 8
+      }
+    }
   },
   {
     "wave": 10,
     "nameKo": "흑요석 화산 폭풍",
     "descKo": "6초마다 전열과 후열에 번갈아 용암탄이 떨어져 그 줄 전원이 최대 체력의 12% 피해를 입어요.",
     "hintKo": "전열·후열 모두 튼튼하게, 둥지를 꽉 채우세요.",
-    "rules": { "rowBlast": { "everyTicks": 120, "pct": 12 } }
+    "rules": {
+      "rowBlast": {
+        "everyTicks": 120,
+        "pct": 12
+      }
+    }
   },
   {
     "wave": 15,
     "nameKo": "영원한 빙하기",
     "descKo": "추위로 아군 모두의 공격 속도가 35% 느려져요.",
     "hintKo": "가속 특성과 높은 공격력으로 버티세요.",
-    "rules": { "allySlowPct": 35 }
+    "rules": {
+      "allySlowPct": 35
+    }
   },
   {
     "wave": 20,
     "nameKo": "심연의 월식",
     "descKo": "15초마다 아군 전체가 최대 체력의 10% 피해를 입고, 45초가 지나면 적이 광폭화해 공격력이 2배가 돼요.",
     "hintKo": "45초 안에 끝낼 화력이 필요해요. 2티어 이상으로 둥지를 채우세요.",
-    "rules": { "pulse": { "everyTicks": 300, "pct": 10 }, "enrage": { "atTick": 900, "atkPct": 200 } }
+    "rules": {
+      "pulse": {
+        "everyTicks": 300,
+        "pct": 10
+      },
+      "enrage": {
+        "atTick": 900,
+        "atkPct": 200
+      }
+    }
+  },
+  {
+    "wave": 25,
+    "nameKo": "강철 유성우",
+    "descKo": "5초마다 전열과 후열에 번갈아 쇳덩이가 떨어져 그 줄 전원이 최대 체력의 14% 피해를 입어요.",
+    "hintKo": "한 줄에 몰지 말고 체력을 고르게 키우세요.",
+    "rules": {
+      "rowBlast": {
+        "everyTicks": 100,
+        "pct": 14
+      }
+    }
+  },
+  {
+    "wave": 30,
+    "nameKo": "맹독 늪의 안개",
+    "descKo": "처음부터 흡혈 회복이 70% 줄고, 2초마다 체력이 가장 낮은 드래곤이 최대 체력의 6%만큼 타요.",
+    "hintKo": "흡혈 대신 체력과 호위로 버티세요.",
+    "rules": {
+      "healCutPct": 70,
+      "healCutFromTick": 0,
+      "burn": {
+        "everyTicks": 40,
+        "pct": 6
+      }
+    }
+  },
+  {
+    "wave": 35,
+    "nameKo": "뇌신의 진노",
+    "descKo": "아군 모두의 공격 속도가 25% 느려지고, 12초마다 아군 전체가 최대 체력의 8% 피해를 입어요.",
+    "hintKo": "공격 속도 스킬과 번개 시너지로 맞서세요.",
+    "rules": {
+      "allySlowPct": 25,
+      "pulse": {
+        "everyTicks": 240,
+        "pct": 8
+      }
+    }
+  },
+  {
+    "wave": 40,
+    "nameKo": "종말의 용황",
+    "descKo": "15초마다 아군 전체가 최대 체력의 10% 피해를 입고, 흡혈 회복이 30% 줄어요. 60초가 지나면 적이 광폭화해 공격력이 2배가 돼요.",
+    "hintKo": "정점 드래곤과 유물을 모두 동원해 60초 안에 끝내세요.",
+    "rules": {
+      "pulse": {
+        "everyTicks": 300,
+        "pct": 10
+      },
+      "healCutPct": 30,
+      "healCutFromTick": 0,
+      "enrage": {
+        "atTick": 1200,
+        "atkPct": 200
+      }
+    }
   }
 ]

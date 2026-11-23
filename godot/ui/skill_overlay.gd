@@ -63,14 +63,18 @@ func _draw_map() -> void:
 	var back: Panel = GameTheme.panel(_body, Rect2(Vector2.ZERO, PANEL_SIZE), Color("#1b2030"), Color("#5f3dc4"), 2, 14)
 	back.mouse_filter = Control.MOUSE_FILTER_STOP
 	GameTheme.dragon(_body, Rect2(20, 14, 72, 72), inst["speciesId"])
-	GameTheme.label(_body, Rect2(104, 16, 400, 30), spec["nameKo"] + " 스킬 맵", 24, Color("#fff3bf"))
+	var level: int = FusionRules.level_of(inst)
+	var need: int = FusionRules.xp_needed(_ctl.data, level)
+	var growth: String = "최고 레벨" if need == 0 else "경험치 %d / %d" % [int(inst.get("xp", 0)), need]
+	GameTheme.label(_body, Rect2(104, 16, 400, 30), "%s  Lv.%d" % [spec["nameKo"], level], 24, Color("#fff3bf"))
+	GameTheme.label(_body, Rect2(104, 72, 520, 20), growth + " · 싸우거나 다른 드래곤을 흡수하면 올라요", 13, GameTheme.DIM)
 	var unit: Dictionary = Battle.to_unit(_ctl.data, inst)
 	var escorts: int = int(_ctl.data["battle"]["escort"]["count"].get(spec["tier"], 0)) + int(unit["escortBonus"])
 	GameTheme.label(_body, Rect2(104, 50, 520, 22), "체력 %d · 공격력 %d · 호위 %d마리" % [unit["hp"], unit["atk"], escorts], 15, GameTheme.DIM)
 	var point_color: Color = Color("#ffe066") if points > 0 else GameTheme.DIM
 	GameTheme.label(_body, Rect2(PANEL_SIZE.x - 300, 16, 220, 30), "스킬 점수 %d" % points, 22, point_color, HORIZONTAL_ALIGNMENT_RIGHT)
 	GameTheme.button(_body, Rect2(PANEL_SIZE.x - 64, 12, 48, 40), "✕", _close)
-	var hint: String = "다른 드래곤을 흡수하면 스킬 점수를 받아요." if points == 0 else "찍을 스킬을 눌러요."
+	var hint: String = "레벨이 오를 때마다 스킬 점수를 1점 받아요." if points == 0 else "찍을 스킬을 눌러요."
 	GameTheme.label(_body, Rect2(20, PANEL_SIZE.y - 36, PANEL_SIZE.x - 40, 22), hint, 14, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 
 	var column_w: float = (PANEL_SIZE.x - 40 - 24) / 3.0

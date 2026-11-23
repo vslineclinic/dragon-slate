@@ -52,11 +52,11 @@ static func pad_rect(width: float, field_cfg: Dictionary, index: int) -> Rect2:
 
 ## 배경 그림: 웨이브 구간별.
 static func background_for(wave: int) -> String:
-	if wave <= 5:
-		return "res://assets/backgrounds/plains_ruins.png"
 	if wave <= 10:
+		return "res://assets/backgrounds/plains_ruins.png"
+	if wave <= 20:
 		return "res://assets/backgrounds/ice_canyon.png"
-	if wave <= 15:
+	if wave <= 30:
 		return "res://assets/backgrounds/volcano.png"
 	return "res://assets/backgrounds/abyss.png"
 const COLOR: Dictionary = {
@@ -71,7 +71,8 @@ const SYMBOL_LABEL: Dictionary = {
 	"fire": "불", "ice": "얼음", "lightning": "번개", "poison": "독", "steel": "강철", "abyss": "심연",
 	"gold": "금", "wild": "여의주",
 }
-const TIER_KO: Dictionary = {"base": "기본", "t2": "2티어", "t1": "1티어", "dual": "이중", "secret": "???"}
+const TIER_KO: Dictionary = {"base": "기본", "t2": "2티어", "t1": "1티어", "apex": "정점", "dual": "이중", "secret": "???"}
+const NEW_COLOR: Color = Color("#66d9e8")
 const PANEL: Color = Color("#232838")
 const PANEL_LINE: Color = Color("#3a4157")
 const TEXT: Color = Color("#e9ecf5")
@@ -102,6 +103,30 @@ static func korean_font() -> Font:
 	var system: SystemFont = SystemFont.new()
 	system.font_names = PackedStringArray(["Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo"])
 	return system
+
+
+## 만분율을 "5.9%"처럼.
+static func percent(odds: int) -> String:
+	return "%d.%d%%" % [Rng.fdiv(odds, 100), Rng.fdiv(odds % 100, 10)]
+
+
+## 알이 나올 확률(만분율)에 따른 희귀도 이름과 색.
+static func rarity(odds: int) -> Array:
+	if odds >= 500:
+		return ["흔함", Color("#adb5bd")]
+	if odds >= 400:
+		return ["보통", Color("#8ce99a")]
+	if odds >= 200:
+		return ["드묾", Color("#74c0fc")]
+	return ["희귀", Color("#ffd43b")]
+
+
+## 도감에 없는 용에 붙이는 "새 용!" 표시(깜빡이는 테두리 + 꼬리표).
+static func new_badge(card: Control, card_size: Vector2) -> void:
+	var outline: Panel = panel(card, Rect2(Vector2(-3, -3), card_size + Vector2(6, 6)), Color.TRANSPARENT, NEW_COLOR, 3, 10)
+	outline.create_tween().set_loops().tween_property(outline, "modulate:a", 0.3, 0.6).from(1.0)
+	var tag: Panel = panel(card, Rect2(card_size.x - 58, -10, 62, 20), Color("#0b3d46"), NEW_COLOR, 2, 8)
+	label(tag, Rect2(0, 0, 62, 20), "새 용!", 12, NEW_COLOR, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 static func place(parent: Control, child: Control, rect: Rect2) -> void:

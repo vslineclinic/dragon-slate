@@ -1,0 +1,14 @@
+[
+  {"id": "sword", "nameKo": "용사의 검", "descKo": "아군 공격력 +15%", "kind": "atkPct", "value": 15},
+  {"id": "shell", "nameKo": "거북 등껍질", "descKo": "아군 체력 +18%", "kind": "hpPct", "value": 18},
+  {"id": "feather", "nameKo": "질풍의 깃털", "descKo": "아군 공격 속도 +10%", "kind": "hastePct", "value": 10},
+  {"id": "fang", "nameKo": "붉은 송곳니", "descKo": "아군 흡혈 +8%", "kind": "lifestealPct", "value": 8},
+  {"id": "horn", "nameKo": "전쟁 나팔", "descKo": "모든 드래곤의 호위 +1마리", "kind": "escortCount", "value": 1},
+  {"id": "banner", "nameKo": "근위대 깃발", "descKo": "호위 능력 +30%", "kind": "escortPct", "value": 30},
+  {"id": "tome", "nameKo": "현자의 서", "descKo": "전투 경험치 +50%", "kind": "xpPct", "value": 50},
+  {"id": "scale", "nameKo": "황금 저울", "descKo": "이길 때마다 마력 +3", "kind": "winMana", "value": 3},
+  {"id": "dice", "nameKo": "행운의 주사위", "descKo": "웨이브마다 밀기 +1", "kind": "nudge", "value": 1},
+  {"id": "seal", "nameKo": "상성의 인장", "descKo": "강한 상성으로 주는 피해 +20%", "kind": "strongAddPct", "value": 20},
+  {"id": "phoenix", "nameKo": "불사조 깃털", "descKo": "생명 +2", "kind": "life", "value": 2},
+  {"id": "kiln", "nameKo": "연금술 가마", "descKo": "놓아줄 때 받는 마력 2배", "kind": "releasePct", "value": 100}
+]

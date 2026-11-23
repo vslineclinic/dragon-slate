@@ -9,35 +9,89 @@ static func find_recipe(data: Dictionary, a: String, b: String) -> Variant:
 	return null
 
 
+static func level_of(inst: Dictionary) -> int:
+	return maxi(1, int(inst.get("level", 1)))
+
+
+## 다음 레벨까지 필요한 경험치. 최고 레벨이면 0.
+static func xp_needed(data: Dictionary, level: int) -> int:
+	var cfg: Dictionary = data["battle"].get("level", {})
+	if level >= int(cfg.get("max", 1)):
+		return 0
+	return int(cfg.get("xpBase", 1)) + int(cfg.get("xpStep", 0)) * (level - 1)
+
+
+## 경험치를 더하고 오른 레벨 수를 돌려준다. 레벨이 오를 때마다 스킬 점수 1.
+static func add_xp(data: Dictionary, inst: Dictionary, amount: int) -> int:
+	var level: int = level_of(inst)
+	var xp: int = int(inst.get("xp", 0)) + maxi(0, amount)
+	var gained: int = 0
+	var need: int = xp_needed(data, level)
+	while need > 0 and xp >= need:
+		xp -= need
+		level += 1
+		gained += 1
+		need = xp_needed(data, level)
+	if need == 0:
+		xp = 0
+	inst["level"] = level
+	inst["xp"] = xp
+	inst["skillPoints"] = int(inst.get("skillPoints", 0)) + gained
+	return gained
+
+
+## 그 종으로 전직(합체)하는 데 필요한 레벨. 둘 중 하나만 채우면 된다.
+static func evolve_level(data: Dictionary, result_species: String) -> int:
+	var spec: Dictionary = data["dragons"].get(result_species, {})
+	var needs: Dictionary = data["battle"].get("level", {}).get("evolveLevel", {})
+	return int(needs.get(spec.get("tier", "base"), 1))
+
+
+static func absorb_xp(data: Dictionary, material: Dictionary) -> int:
+	var cfg: Dictionary = data["battle"].get("level", {})
+	var spec: Dictionary = data["dragons"].get(material["speciesId"], {})
+	return int(cfg.get("absorbXp", {}).get(spec.get("tier", "base"), 1)) + int(cfg.get("absorbLevelXp", 0)) * (level_of(material) - 1)
+
+
+## kind: evolve(전직) 또는 absorb(흡수). 조합은 맞지만 레벨이 모자라면 absorb에 blocked가 붙는다.
 static func merge_preview(data: Dictionary, main: Dictionary, material: Dictionary) -> Dictionary:
 	var result: Variant = find_recipe(data, main["speciesId"], material["speciesId"])
+	var blocked: Variant = null
 	if result != null:
-		return {"kind": "evolve", "result": result}
-	return {"kind": "absorb", "trait": _absorbed_trait(data, main, material)}
+		var need: int = evolve_level(data, result)
+		if maxi(level_of(main), level_of(material)) >= need:
+			return {"kind": "evolve", "result": result}
+		blocked = {"result": result, "needLevel": need}
+	return {
+		"kind": "absorb", "trait": _absorbed_trait(data, main, material),
+		"xp": absorb_xp(data, material), "blocked": blocked,
+	}
 
 
 static func merge(data: Dictionary, main: Dictionary, material: Dictionary, new_uid: int) -> Dictionary:
 	var preview: Dictionary = merge_preview(data, main, material)
-	var traits: Array = main["traits"].duplicate()
 	if preview["kind"] == "evolve":
+		## 레벨이 높은 쪽의 성장(레벨·스킬·특성)을 이어받는다. 같으면 주 드래곤.
+		var carrier: Dictionary = material if level_of(material) > level_of(main) else main
 		var evolved: Dictionary = {
-			"uid": new_uid, "speciesId": preview["result"], "traits": traits, "bonusPct": int(main["bonusPct"]),
-			"skills": main.get("skills", {}).duplicate(), "skillPoints": int(main.get("skillPoints", 0)),
+			"uid": new_uid, "speciesId": preview["result"], "traits": carrier["traits"].duplicate(),
+			"bonusPct": int(carrier.get("bonusPct", 0)),
+			"skills": carrier.get("skills", {}).duplicate(), "skillPoints": int(carrier.get("skillPoints", 0)),
+			"level": level_of(carrier), "xp": int(carrier.get("xp", 0)),
 		}
-		return {"inst": evolved, "kind": "evolve", "trait": null}
+		return {"inst": evolved, "kind": "evolve", "trait": null, "levels": 0}
 
-	var spec: Dictionary = data["dragons"].get(material["speciesId"], {})
-	var tier: String = spec.get("tier", "base")
-	var bonus_pct: int = int(main["bonusPct"])
-	var points: int = int(main.get("skillPoints", 0)) + int(data["battle"]["absorbPoints"].get(tier, 1))
+	var traits: Array = main["traits"].duplicate()
 	var inherited: Variant = preview["trait"]
 	if inherited != null:
 		traits.append(inherited)
 	var absorbed: Dictionary = {
-		"uid": main["uid"], "speciesId": main["speciesId"], "traits": traits, "bonusPct": bonus_pct,
-		"skills": main.get("skills", {}).duplicate(), "skillPoints": points,
+		"uid": main["uid"], "speciesId": main["speciesId"], "traits": traits, "bonusPct": int(main.get("bonusPct", 0)),
+		"skills": main.get("skills", {}).duplicate(), "skillPoints": int(main.get("skillPoints", 0)),
+		"level": level_of(main), "xp": int(main.get("xp", 0)),
 	}
-	return {"inst": absorbed, "kind": "absorb", "trait": inherited}
+	var levels: int = add_xp(data, absorbed, int(preview["xp"]))
+	return {"inst": absorbed, "kind": "absorb", "trait": inherited, "levels": levels}
 
 
 ## 스킬 맵: 찍을 수 있으면 "" 아니면 거부 이유.

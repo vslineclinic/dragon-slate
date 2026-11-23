@@ -41,7 +41,8 @@ func set_boss_preview(wave: int, element: Variant, spec: Variant) -> void:
 
 func render(state: Dictionary, max_wave: int) -> void:
 	_wave.text = "웨이브 %d / %d" % [state["wave"], max_wave]
-	_lives.text = "생명 " + "♥".repeat(maxi(0, state["lives"]))
+	var lives: int = maxi(0, state["lives"])
+	_lives.text = "생명 " + ("♥".repeat(lives) if lives <= 6 else "♥ ×%d" % lives)
 	_mana.text = "마력 %d" % state["mana"]
 	_boss.visible = not _preview.is_empty()
 	if _preview.is_empty():

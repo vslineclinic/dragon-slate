@@ -68,6 +68,8 @@ func test_evolvable_pairs_crosses_nest_and_bench() -> void:
 	state["nest"][0] = _inst(1, "fire_drake")
 	state["bench"][0] = _inst(2, "fire_drake")
 	state["bench"][1] = _inst(3, "ice_drake")
+	assert_eq(HintRules.evolvable_pairs(_data, state), [], "레벨이 모자라면 추천하지 않아요")
+	state["nest"][0]["level"] = Fusion.evolve_level(_data, "beowulf_firedrake")
 	assert_eq(HintRules.evolvable_pairs(_data, state), [{
 		"a": {"zone": "nest", "index": 0},
 		"b": {"zone": "bench", "index": 0},

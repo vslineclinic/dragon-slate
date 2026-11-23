@@ -80,6 +80,57 @@ static func offers_from(data: Dictionary, grid: Dictionary) -> Array:
 	return offers
 
 
+## 그 무늬에서 나올 수 있는 기본종(id 순). wild는 전부.
+static func base_pool(data: Dictionary, symbol: Variant) -> Array:
+	var pool: Array = []
+	for spec: Dictionary in data["dragons"].values():
+		if spec["tier"] != "base":
+			continue
+		var elements: Array = spec["elements"]
+		var primary: Variant = null if elements.is_empty() else elements[0]
+		if symbol == "wild" or primary == symbol:
+			pool.append(spec["id"])
+	pool.sort()
+	return pool
+
+
+static func species_weight(data: Dictionary, id: String) -> int:
+	return maxi(1, int(data["dragons"][id].get("weight", 1)))
+
+
+## 종마다 weight가 있으면 그 비율로, 없으면 고르게 뽑는다.
+static func pick_species(data: Dictionary, rng: Rng, pool: Array) -> String:
+	var weights: Array = []
+	var weighted: bool = false
+	for id: String in pool:
+		weights.append(species_weight(data, id))
+		if data["dragons"][id].has("weight"):
+			weighted = true
+	if not weighted:
+		return pool[rng.next_int(maxi(1, pool.size()))]
+	return rng.pick_weighted(pool, weights)
+
+
+## 석판 한 칸에 그 종의 알이 나올 확률(만분율).
+static func species_odds(data: Dictionary, id: String) -> int:
+	var spec: Dictionary = data["dragons"][id]
+	if spec["tier"] != "base" or spec["elements"].is_empty():
+		return 0
+	var weights: Dictionary = data["slot"]["weights"]
+	var total: int = 0
+	for key: String in weights:
+		total += int(weights[key])
+	var odds: int = 0
+	for symbol: String in [spec["elements"][0], "wild"]:
+		var pool: Array = base_pool(data, symbol)
+		var pool_weight: int = 0
+		for other: String in pool:
+			pool_weight += species_weight(data, other)
+		if total > 0 and pool_weight > 0:
+			odds += Rng.fdiv(int(weights.get(symbol, 0)) * species_weight(data, id) * 10000, total * pool_weight)
+	return odds
+
+
 static func _offset(offsets: Array, col: int) -> int:
 	if col >= offsets.size() or offsets[col] == null:
 		return 0
@@ -91,18 +142,11 @@ static func _roll_cell(data: Dictionary, rng: Rng, symbol: Variant) -> Dictionar
 	if symbol == "gold":
 		return cell
 
-	var pool: Array = []
-	for spec: Dictionary in data["dragons"].values():
-		if spec["tier"] != "base":
-			continue
-		var elements: Array = spec["elements"]
-		var primary: Variant = null if elements.is_empty() else elements[0]
-		if symbol == "wild" or primary == symbol:
-			pool.append(spec["id"])
-	pool.sort()
-	var index: int = rng.next_int(maxi(1, pool.size()))
+	var pool: Array = base_pool(data, symbol)
 	if not pool.is_empty():
-		cell["speciesId"] = pool[index]
+		cell["speciesId"] = pick_species(data, rng, pool)
+	else:
+		rng.next_int(1)
 	if symbol == null:
 		cell.erase("symbol")
 	return cell

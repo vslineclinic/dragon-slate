@@ -8,8 +8,13 @@ static func is_boss(cfg: Dictionary, wave: int) -> bool:
 
 static func enemy_power(cfg: Dictionary, wave: int, mods: Dictionary = Calamity.NONE) -> int:
 	var power: int = int(cfg["basePower"])
-	var growth_pct: int = int(cfg["growthPct"])
+	## 구간별 성장률: growthBands의 from 이상인 마지막 구간을 쓴다. 없으면 growthPct.
+	var bands: Array = cfg.get("growthBands", [])
 	for w: int in range(2, wave + 1):
+		var growth_pct: int = int(cfg["growthPct"])
+		for band: Dictionary in bands:
+			if w >= int(band["from"]):
+				growth_pct = int(band["pct"])
 		power = Rng.fdiv(power * growth_pct, 100)
 
 	var early: Dictionary = cfg.get("earlyPct", {})
@@ -54,13 +59,18 @@ static func generate_enemies(
 	var leaders: Array = []
 	if is_boss(cfg, wave):
 		var element: Variant = boss_element(run_seed, wave, GameData.active_elements(data))
+		var boss_tier: String = "apex" if wave >= int(squad.get("bossApexFromWave", 9999)) else "t1"
 		for spec: Dictionary in specs:
-			if spec["tier"] == "t1" and not spec["elements"].is_empty() and spec["elements"][0] == element:
+			if spec["tier"] == boss_tier and not spec["elements"].is_empty() and spec["elements"][0] == element:
 				leaders.append(_spec_unit(spec))
 				break
+	var tiers: Array = ["base"] if wave <= 5 else ["base", "t2"]
+	for band: Dictionary in squad.get("leaderTiers", []):
+		if wave >= int(band["from"]):
+			tiers = band["tiers"]
 	var pool: Array = []
 	for spec: Dictionary in specs:
-		if spec["tier"] == "base" or (wave > 5 and spec["tier"] == "t2"):
+		if spec["tier"] in tiers:
 			pool.append(spec)
 	while leaders.size() < leader_count:
 		leaders.append(_spec_unit(pool[rng.next_int(pool.size())]))
