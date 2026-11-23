@@ -276,3 +276,67 @@ func test_six_element_table_has_neutral_pairs() -> void:
 	assert_eq(Battle.element_mult(_real, "fire", "poison"), 100)
 	assert_eq(Battle.element_mult(_real, "ice", "abyss"), 100)
 	assert_eq(Battle.element_mult(_real, "lightning", "steel"), 100)
+
+
+const SYNERGIES: Array = [
+	{"element": "fire", "nameKo": "불길", "kind": "atkPct", "levels": [{"count": 2, "value": 50}, {"count": 4, "value": 100}]},
+	{"element": "ice", "nameKo": "서리", "kind": "escortCount", "levels": [{"count": 2, "value": 1}]},
+]
+
+
+static func _inst(species: String) -> Dictionary:
+	return {"uid": 1, "speciesId": species, "traits": [], "bonusPct": 0}
+
+
+static func _synergy_data() -> Dictionary:
+	var data: Dictionary = Fixture.mini_data()
+	data["synergies"] = SYNERGIES
+	return data
+
+
+func test_one_dragon_shows_progress_but_no_synergy() -> void:
+	var found: Array = Battle.synergies(_synergy_data(), [_inst("fire_drake")])
+	assert_eq(found.size(), 1)
+	assert_eq([found[0]["element"], found[0]["count"], found[0]["level"], found[0]["value"], found[0]["nextCount"]], ["fire", 1, 0, 0, 2])
+
+
+func test_synergy_level_follows_dragon_count() -> void:
+	var data: Dictionary = _synergy_data()
+	var two: Array = Battle.synergies(data, [_inst("fire_drake"), _inst("fire_wyvern"), null])
+	assert_eq([two[0]["level"], two[0]["value"], two[0]["nextCount"]], [1, 50, 4])
+	var four: Array = Battle.synergies(data, [_inst("fire_drake"), _inst("fire_drake"), _inst("fire_wyvern"), _inst("fire_wyvern")])
+	assert_eq([four[0]["level"], four[0]["value"], four[0]["nextCount"]], [2, 100, 0])
+
+
+func test_team_applies_synergy_to_every_dragon() -> void:
+	var data: Dictionary = _synergy_data()
+	var plain: Dictionary = Battle.to_unit(data, _inst("ice_drake"))
+	var nest: Array = [_inst("fire_drake"), _inst("fire_wyvern"), _inst("ice_drake"), null, null, null]
+	var team: Array = Battle.team(data, nest, 3)
+	assert_eq(team.size(), 6)
+	assert_eq(team[2]["atk"], Rng.fdiv(int(plain["atk"]) * 150, 100))
+	assert_eq(team[3], null)
+
+
+func test_team_ignores_locked_slots() -> void:
+	var data: Dictionary = _synergy_data()
+	var nest: Array = [_inst("fire_drake"), null, null, _inst("fire_wyvern"), null, null]
+	var team: Array = Battle.team(data, nest, 3)
+	assert_eq(team[3], null)
+	assert_eq(team[0]["atk"], Battle.to_unit(data, _inst("fire_drake"))["atk"])
+
+
+func test_escort_synergy_adds_escorts() -> void:
+	var data: Dictionary = _synergy_data()
+	var team: Array = Battle.team(data, [_inst("ice_drake"), _inst("ice_wyvern"), null, null, null, null], 3)
+	assert_eq(team[0]["escortBonus"], 1)
+
+
+func test_real_synergy_table_covers_six_elements() -> void:
+	var table: Array = TestCase.load_json("res://data/synergies.json")
+	var seen: Array = []
+	for row: Dictionary in table:
+		seen.append(row["element"])
+		assert_true(int(row["levels"][0]["count"]) < int(row["levels"][1]["count"]))
+		assert_true(int(row["levels"][0]["value"]) < int(row["levels"][1]["value"]))
+	assert_eq(seen, ELEMENTS)

@@ -100,7 +100,34 @@ func render(state: Dictionary) -> void:
 				ready = true
 	_battle.visible = manage
 	_battle.disabled = not ready
+	_draw_synergies(state)
 	get_node("Release").visible = not _fighting
+
+
+## 전장 위쪽에 원소 시너지를 보여 준다. 발동한 것은 밝게, 모으는 중인 것은 흐리게.
+func _draw_synergies(state: Dictionary) -> void:
+	var field: Rect2 = _areas["field"]
+	var x: float = field.position.x + 12
+	var y: float = field.end.y - 40
+	for row: Dictionary in Battle.synergies(_ctl.data, Battle.fielded(state["nest"], state["nestOpen"])):
+		var active: bool = row["level"] > 0
+		var goal: int = int(row["nextCount"]) if not active else int(row["count"])
+		var text: String = "%s %d/%d" % [row["nameKo"], row["count"], goal]
+		if active:
+			text = "%s %d마리 · %s" % [row["nameKo"], row["count"], str(row["descKo"]) % int(row["value"])]
+		var width: float = 42 + text.length() * 11.0
+		if x + width > field.end.x - 12:
+			x = field.position.x + 12
+			y -= 32
+		var tint: Color = GameTheme.COLOR[row["element"]]
+		var chip: Panel = GameTheme.panel(_layer, Rect2(x, y, width, 28),
+			Color(0.05, 0.06, 0.1, 0.85 if active else 0.55), tint if active else Color(1, 1, 1, 0.25), 2 if active else 1, 14)
+		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var mark: Control = Marks.new(row["element"])
+		GameTheme.place(chip, mark, Rect2(6, 4, 20, 20))
+		mark.modulate.a = 1.0 if active else 0.5
+		GameTheme.label(chip, Rect2(30, 3, width - 36, 22), text, 14, Color("#fff3bf") if active else GameTheme.DIM)
+		x += width + 8
 
 
 func _draw_card(rect: Rect2, inst: Dictionary, ref: Dictionary, draggable: bool, recommended: bool) -> void:

@@ -3,7 +3,7 @@ extends RefCounted
 
 const ELEMENTS: Array = ["fire", "ice", "lightning", "poison", "steel", "abyss"]
 const _FILES: Array = [
-	"dragons", "traits", "recipes", "slot", "waves", "battle", "rewards", "bosses", "calamity", "minions", "skills",
+	"dragons", "traits", "recipes", "slot", "waves", "battle", "rewards", "bosses", "calamity", "minions", "skills", "synergies",
 ]
 
 

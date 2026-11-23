@@ -1,0 +1,8 @@
+[
+  {"element":"fire","nameKo":"불길","kind":"atkPct","descKo":"공격력 +%d%%","levels":[{"count":2,"value":10},{"count":4,"value":22}]},
+  {"element":"ice","nameKo":"서리","kind":"hpPct","descKo":"체력 +%d%%","levels":[{"count":2,"value":12},{"count":4,"value":26}]},
+  {"element":"lightning","nameKo":"번개","kind":"hastePct","descKo":"공격 속도 +%d%%","levels":[{"count":2,"value":6},{"count":4,"value":14}]},
+  {"element":"poison","nameKo":"맹독","kind":"lifestealPct","descKo":"흡혈 +%d%%","levels":[{"count":2,"value":4},{"count":4,"value":10}]},
+  {"element":"steel","nameKo":"강철","kind":"escortPct","descKo":"호위 능력 +%d%%","levels":[{"count":2,"value":15},{"count":4,"value":35}]},
+  {"element":"abyss","nameKo":"심연","kind":"escortCount","descKo":"호위 +%d마리","levels":[{"count":2,"value":1},{"count":4,"value":2}]}
+]

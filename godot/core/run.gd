@@ -433,16 +433,8 @@ static func _reward_trait(data: Dictionary, state: Dictionary, rng: Rng) -> Vari
 static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Array) -> String:
 	if state["phase"] != "manage":
 		return "wrongPhase"
-	var allies: Array = []
-	var has_ally: bool = false
-	for i: int in range(state["nest"].size()):
-		var inst: Variant = state["nest"][i]
-		if inst != null and i < state["nestOpen"]:
-			has_ally = true
-			allies.append(Battle.to_unit(data, inst))
-		else:
-			allies.append(null)
-	if not has_ally:
+	var allies: Array = Battle.team(data, state["nest"], state["nestOpen"])
+	if allies.all(func(unit: Variant) -> bool: return unit == null):
 		return "nestEmpty"
 	var wave: int = state["wave"]
 	var waves: Dictionary = data["waves"]

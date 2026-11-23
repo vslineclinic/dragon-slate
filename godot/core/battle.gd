@@ -16,7 +16,7 @@ static func element_mult(cfg: Dictionary, atk: Variant, def: Variant) -> int:
 
 
 ## 종 고유 특성과 계승 특성을 모두 적용한다.
-static func to_unit(data: Dictionary, inst: Dictionary) -> Dictionary:
+static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary = {}) -> Dictionary:
 	var species_id: String = inst["speciesId"]
 	var spec: Variant = data["dragons"].get(species_id)
 	if spec == null:
@@ -63,6 +63,13 @@ static func to_unit(data: Dictionary, inst: Dictionary) -> Dictionary:
 			"escortPct":
 				escort_pct += amount
 
+	hp_pct += int(team_bonus.get("hpPct", 0))
+	atk_pct += int(team_bonus.get("atkPct", 0))
+	haste_pct += int(team_bonus.get("hastePct", 0))
+	lifesteal_pct += int(team_bonus.get("lifestealPct", 0))
+	escort_bonus += int(team_bonus.get("escortCount", 0))
+	escort_pct += int(team_bonus.get("escortPct", 0))
+
 	var stats: Dictionary = spec["stats"]
 	var bonus_pct: int = int(inst["bonusPct"])
 	return {
@@ -76,6 +83,66 @@ static func to_unit(data: Dictionary, inst: Dictionary) -> Dictionary:
 		"escortBonus": escort_bonus,
 		"escortPct": escort_pct,
 	}
+
+
+## 원소 시너지: 전장에 놓인 드래곤을 원소별로 세어 단계와 효과를 돌려준다(이중 원소는 양쪽에 센다).
+## 결과는 자료 순서대로, 한 마리 이상 있는 원소만. level 0이면 아직 발동 전.
+static func synergies(data: Dictionary, insts: Array) -> Array:
+	var counts: Dictionary = {}
+	for inst: Variant in insts:
+		if inst == null:
+			continue
+		var spec: Variant = data["dragons"].get(inst["speciesId"])
+		if spec == null:
+			continue
+		for element: String in spec["elements"]:
+			counts[element] = int(counts.get(element, 0)) + 1
+	var found: Array = []
+	for row: Dictionary in data.get("synergies", []):
+		var count: int = int(counts.get(row["element"], 0))
+		if count == 0:
+			continue
+		var level: int = 0
+		var value: int = 0
+		var next_count: int = 0
+		for step: Dictionary in row["levels"]:
+			if count >= int(step["count"]):
+				level += 1
+				value = int(step["value"])
+			elif next_count == 0:
+				next_count = int(step["count"])
+		found.append({
+			"element": row["element"], "nameKo": row["nameKo"], "kind": row["kind"], "descKo": row.get("descKo", ""),
+			"count": count, "level": level, "value": value, "nextCount": next_count,
+		})
+	return found
+
+
+## 열린 둥지 칸의 드래곤(빈칸 null).
+static func fielded(nest: Array, open: int) -> Array:
+	var out: Array = []
+	for i: int in range(nest.size()):
+		out.append(nest[i] if i < open else null)
+	return out
+
+
+## 발동한 시너지를 종류별 합으로.
+static func team_bonus(data: Dictionary, insts: Array) -> Dictionary:
+	var bonus: Dictionary = {}
+	for row: Dictionary in synergies(data, insts):
+		if row["level"] > 0:
+			bonus[row["kind"]] = int(bonus.get(row["kind"], 0)) + int(row["value"])
+	return bonus
+
+
+## 둥지 6칸을 전투 유닛으로(시너지 적용, 빈칸·잠긴 칸은 null).
+static func team(data: Dictionary, nest: Array, open: int) -> Array:
+	var insts: Array = fielded(nest, open)
+	var bonus: Dictionary = team_bonus(data, insts)
+	var out: Array = []
+	for inst: Variant in insts:
+		out.append(null if inst == null else to_unit(data, inst, bonus))
+	return out
 
 
 ## allies: 둥지 6칸(빈칸 null, to_unit 결과). enemies: Waves.generate_enemies 결과.
