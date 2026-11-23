@@ -1,5 +1,9 @@
 class_name Battle
 extends RefCounted
+## 부대 전투(설계 2026-11-23-squad-battlefield 4장). 정수 좌표 x(0~1000), 줄 0~2.
+## 드래곤은 움직이지 않고 어디든 쏘며, 호위·졸병은 걸어가 같은 줄에서 근접 공격한다.
+
+const LANES: int = 3
 
 
 static func element_mult(cfg: Dictionary, atk: Variant, def: Variant) -> int:
@@ -41,6 +45,7 @@ static func to_unit(data: Dictionary, inst: Dictionary) -> Dictionary:
 	var bonus_pct: int = int(inst["bonusPct"])
 	return {
 		"speciesId": spec["id"],
+		"tier": spec["tier"],
 		"elements": spec["elements"].duplicate(),
 		"hp": Rng.fdiv(int(stats["hp"]) * (100 + bonus_pct + hp_pct), 100),
 		"atk": Rng.fdiv(int(stats["atk"]) * (100 + bonus_pct + atk_pct), 100),
@@ -49,118 +54,236 @@ static func to_unit(data: Dictionary, inst: Dictionary) -> Dictionary:
 	}
 
 
+## allies: 둥지 6칸(빈칸 null, to_unit 결과). enemies: Waves.generate_enemies 결과.
 static func simulate_battle(
 	cfg: Dictionary, allies: Array, enemies: Array, rules: Dictionary = {},
 ) -> Dictionary:
-	var ally_slow_pct: int = int(rules.get("allySlowPct", 0))
-	var ally_fighters: Array = _prepare(allies, ally_slow_pct)
-	var enemy_fighters: Array = _prepare(enemies, 0)
+	var field: Dictionary = cfg["field"]
+	var units: Array = _spawn(cfg, allies, enemies, int(rules.get("allySlowPct", 0)))
+	var spawn_info: Array = []
+	for unit: Dictionary in units:
+		spawn_info.append({
+			"id": unit["id"], "side": unit["side"], "kind": unit["kind"], "ref": unit["ref"],
+			"elements": unit["elements"].duplicate(), "slot": unit["slot"], "owner": unit["owner"],
+			"lane": unit["lane"], "x": unit["x"], "hp": unit["hp"],
+		})
+
 	var burn: Variant = rules.get("burn")
 	var row_blast: Variant = rules.get("rowBlast")
 	var pulse: Variant = rules.get("pulse")
 	var enrage: Variant = rules.get("enrage")
 	var heal_cut_pct: int = int(rules.get("healCutPct", 0))
 	var heal_cut_from: int = int(rules.get("healCutFromTick", 0))
+	var pos_every: int = int(field["posEveryTicks"])
 
 	var events: Array = []
 	var tick: int = 0
 	var winner: String = ""
 	var blast_front: bool = true
 	var enraged: bool = false
+	var dirty: Dictionary = {}
 	while winner.is_empty() and tick < cfg["maxTicks"]:
 		tick += 1
 		if _hazard_due(burn, tick):
-			var lowest: int = -1
-			for idx: int in range(ally_fighters.size()):
-				var fighter: Variant = ally_fighters[idx]
-				if fighter != null and fighter["hp"] > 0:
-					if lowest < 0 or fighter["hp"] < ally_fighters[lowest]["hp"]:
-						lowest = idx
-			if lowest >= 0:
-				_hurt_ally(ally_fighters[lowest], tick, lowest, "burn", int(burn["pct"]), events)
+			var lowest: Variant = null
+			for unit: Dictionary in units:
+				if unit["side"] == "ally" and unit["kind"] == "dragon" and unit["hp"] > 0:
+					if lowest == null or unit["hp"] < lowest["hp"]:
+						lowest = unit
+			if lowest != null:
+				_hurt(units, lowest, tick, "burn", int(burn["pct"]), events)
 		if _hazard_due(row_blast, tick):
-			var start: int = 0 if blast_front else 3
+			var front: bool = blast_front
 			blast_front = not blast_front
-			for idx: int in range(start, mini(start + 3, ally_fighters.size())):
-				_hurt_ally(ally_fighters[idx], tick, idx, "rowBlast", int(row_blast["pct"]), events)
+			for unit: Dictionary in units:
+				if unit["side"] != "ally" or unit["hp"] <= 0:
+					continue
+				var slot: int = unit["slot"]
+				if (slot < 3) == front:
+					_hurt(units, unit, tick, "rowBlast", int(row_blast["pct"]), events)
 		if _hazard_due(pulse, tick):
-			for idx: int in range(ally_fighters.size()):
-				_hurt_ally(ally_fighters[idx], tick, idx, "pulse", int(pulse["pct"]), events)
+			for unit: Dictionary in units:
+				if unit["side"] == "ally" and unit["hp"] > 0:
+					_hurt(units, unit, tick, "pulse", int(pulse["pct"]), events)
 		if enrage != null and not enraged and tick >= enrage["atTick"]:
 			enraged = true
 			events.append({"tick": tick, "kind": "enrage"})
-		if _first_alive(ally_fighters) < 0:
+		if not _any_alive(units, "ally"):
 			winner = "enemy"
 			break
 
-		for side: String in ["ally", "enemy"]:
-			var is_ally: bool = side == "ally"
-			var mine: Array = ally_fighters if is_ally else enemy_fighters
-			var theirs: Array = enemy_fighters if is_ally else ally_fighters
-			var opposing_side: String = "enemy" if is_ally else "ally"
-			for idx: int in range(mine.size()):
-				var fighter: Variant = mine[idx]
-				if fighter == null or fighter["hp"] <= 0:
-					continue
-				fighter["timer"] += 1
-				if fighter["timer"] < fighter["unit"]["cooldownTicks"]:
-					continue
-				var dst: int = _first_alive(theirs)
-				if dst < 0:
-					break
-				fighter["timer"] = 0
+		for unit: Dictionary in units:
+			if unit["hp"] > 0 and unit["speed"] > 0:
+				if _step(field, units, unit):
+					dirty[unit["id"]] = true
 
-				var target: Dictionary = theirs[dst]
-				var unit: Dictionary = fighter["unit"]
-				var mult: int = element_mult(cfg, _primary(unit), _primary(target["unit"]))
+		for side: String in ["ally", "enemy"]:
+			for unit: Dictionary in units:
+				if unit["side"] != side or unit["hp"] <= 0:
+					continue
+				unit["timer"] += 1
+				if unit["timer"] < unit["cd"]:
+					continue
+				var target: Variant = _nearest(field, units, unit)
+				if target == null:
+					break
+				if not _can_hit(field, unit, target):
+					unit["timer"] = unit["cd"]
+					continue
+				unit["timer"] = 0
+				var mult: int = element_mult(cfg, _primary(unit), _primary(target))
 				var dmg: int = maxi(1, Rng.fdiv(int(unit["atk"]) * mult, 100))
-				if not is_ally and enraged:
+				if side == "enemy" and enraged:
 					dmg = Rng.fdiv(dmg * int(enrage["atkPct"]), 100)
 				target["hp"] -= dmg
-
-				var raw_heal: int = Rng.fdiv(dmg * int(unit["lifestealPct"]), 100)
-				if is_ally and heal_cut_pct != 0 and tick >= heal_cut_from:
+				var raw_heal: int = Rng.fdiv(dmg * int(unit["lifesteal"]), 100)
+				if side == "ally" and heal_cut_pct != 0 and tick >= heal_cut_from:
 					raw_heal = Rng.fdiv(raw_heal * (100 - heal_cut_pct), 100)
-				var heal: int = maxi(0, mini(raw_heal, int(unit["hp"]) - int(fighter["hp"])))
-				fighter["hp"] += heal
+				var heal: int = maxi(0, mini(raw_heal, int(unit["maxHp"]) - int(unit["hp"])))
+				unit["hp"] += heal
 				events.append({
-					"tick": tick, "kind": "attack", "side": side, "src": idx,
-					"dst": dst, "dmg": dmg, "mult": mult, "heal": heal,
+					"tick": tick, "kind": "attack", "src": unit["id"], "dst": target["id"],
+					"dmg": dmg, "mult": mult, "heal": heal,
 				})
 				if target["hp"] <= 0:
-					events.append({"tick": tick, "kind": "death", "side": opposing_side, "idx": dst})
+					_kill(units, target, tick, "hit", events)
 
-		if _first_alive(enemy_fighters) < 0:
+		if pos_every > 0 and tick % pos_every == 0 and not dirty.is_empty():
+			_record_pos(units, dirty, tick, events)
+			dirty = {}
+		if not _any_alive(units, "enemy"):
 			winner = "ally"
-		elif _first_alive(ally_fighters) < 0:
+		elif not _any_alive(units, "ally"):
 			winner = "enemy"
 
+	if not dirty.is_empty():
+		_record_pos(units, dirty, tick, events)
 	return {
 		"winner": "enemy" if winner.is_empty() else winner,
-		"ticks": tick, "allies": allies, "enemies": enemies, "events": events,
+		"ticks": tick, "events": events, "units": spawn_info,
 	}
 
 
-static func _prepare(units: Array, slow_pct: int) -> Array:
-	var fighters: Array = []
-	for item: Variant in units:
+static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int) -> Array:
+	var field: Dictionary = cfg["field"]
+	var escort: Dictionary = cfg["escort"]
+	var units: Array = []
+	for slot: int in range(allies.size()):
+		var item: Variant = allies[slot]
 		if item == null:
-			fighters.append(null)
 			continue
 		var unit: Dictionary = item
-		if slow_pct != 0:
-			unit = unit.duplicate()
-			unit["cooldownTicks"] = Rng.fdiv(int(unit["cooldownTicks"]) * (100 + slow_pct), 100)
-		fighters.append({"unit": unit, "hp": int(unit["hp"]), "timer": 0})
-	return fighters
+		var dragon: Dictionary = _make(units.size(), "ally", "dragon", unit["speciesId"], unit["elements"],
+			int(unit["hp"]), int(unit["atk"]), _slowed(int(unit["cooldownTicks"]), slow_pct), 0,
+			slot % LANES, int(field["frontX"]) if slot < 3 else int(field["backX"]))
+		dragon["slot"] = slot
+		dragon["lifesteal"] = int(unit["lifestealPct"])
+		units.append(dragon)
+		var count: int = int(escort["count"].get(unit.get("tier", "base"), 0))
+		var first: Array = [] if unit["elements"].is_empty() else [unit["elements"][0]]
+		for k: int in range(count):
+			var guard: Dictionary = _make(units.size(), "ally", "escort", unit["speciesId"], first,
+				maxi(1, Rng.fdiv(int(unit["hp"]) * int(escort["hpPct"]), 100)),
+				maxi(1, Rng.fdiv(int(unit["atk"]) * int(escort["atkPct"]), 100)),
+				_slowed(int(escort["cooldownTicks"]), slow_pct), int(escort["speed"]),
+				dragon["lane"], dragon["x"] + int(escort["offsetX"]) + k * int(escort["spacingX"]))
+			guard["slot"] = slot
+			guard["owner"] = dragon["id"]
+			units.append(guard)
+	for item: Dictionary in enemies:
+		units.append(_make(units.size(), "enemy", item["kind"], item["id"], item["elements"],
+			int(item["hp"]), int(item["atk"]), int(item["cooldownTicks"]), int(item.get("speed", 0)),
+			int(item["lane"]), int(item["x"])))
+	return units
 
 
-static func _first_alive(fighters: Array) -> int:
-	for idx: int in range(fighters.size()):
-		var fighter: Variant = fighters[idx]
-		if fighter != null and fighter["hp"] > 0:
-			return idx
-	return -1
+static func _make(
+	id: int, side: String, kind: String, ref: String, elements: Array,
+	hp: int, atk: int, cd: int, speed: int, lane: int, x: int,
+) -> Dictionary:
+	return {
+		"id": id, "side": side, "kind": kind, "ref": ref, "elements": elements.duplicate(),
+		"hp": hp, "maxHp": hp, "atk": atk, "cd": cd, "timer": 0, "speed": speed,
+		"lane": lane, "x": x, "laneTimer": 0, "slot": -1, "owner": -1, "lifesteal": 0,
+	}
+
+
+static func _slowed(cd: int, slow_pct: int) -> int:
+	return cd if slow_pct == 0 else Rng.fdiv(cd * (100 + slow_pct), 100)
+
+
+static func _distance(field: Dictionary, a: Dictionary, b: Dictionary) -> int:
+	return absi(int(a["x"]) - int(b["x"])) + absi(int(a["lane"]) - int(b["lane"])) * int(field["laneGap"])
+
+
+## 가장 가까운 살아 있는 적. 동률이면 줄 번호, 그다음 id가 작은 쪽.
+static func _nearest(field: Dictionary, units: Array, me: Dictionary) -> Variant:
+	var best: Variant = null
+	var best_d: int = 0
+	for other: Dictionary in units:
+		if other["side"] == me["side"] or other["hp"] <= 0:
+			continue
+		var d: int = _distance(field, me, other)
+		if best == null or d < best_d or (d == best_d and int(other["lane"]) < int(best["lane"])):
+			best = other
+			best_d = d
+	return best
+
+
+static func _can_hit(field: Dictionary, unit: Dictionary, target: Dictionary) -> bool:
+	if unit["kind"] == "dragon":
+		return true
+	return unit["lane"] == target["lane"] and absi(int(unit["x"]) - int(target["x"])) <= int(field["meleeRange"])
+
+
+## 걷는 유닛 한 틱 이동. 움직였으면 true.
+static func _step(field: Dictionary, units: Array, unit: Dictionary) -> bool:
+	var target: Variant = _nearest(field, units, unit)
+	if target == null or _can_hit(field, unit, target):
+		unit["laneTimer"] = 0
+		return false
+	var moved: bool = false
+	var dx: int = int(target["x"]) - int(unit["x"])
+	var melee: int = int(field["meleeRange"])
+	if target["lane"] != unit["lane"] and absi(dx) <= int(field["laneChangeRange"]):
+		unit["laneTimer"] += 1
+		if unit["laneTimer"] >= int(field["laneChangeTicks"]):
+			unit["laneTimer"] = 0
+			unit["lane"] += signi(int(target["lane"]) - int(unit["lane"]))
+			moved = true
+	else:
+		unit["laneTimer"] = 0
+	if absi(dx) > melee:
+		unit["x"] += signi(dx) * mini(int(unit["speed"]), absi(dx) - melee)
+		moved = true
+	return moved
+
+
+static func _kill(units: Array, target: Dictionary, tick: int, cause: String, events: Array) -> void:
+	events.append({"tick": tick, "kind": "death", "id": target["id"], "cause": cause})
+	if target["kind"] != "dragon":
+		return
+	for unit: Dictionary in units:
+		if unit["owner"] == target["id"] and unit["hp"] > 0:
+			unit["hp"] = 0
+			events.append({"tick": tick, "kind": "death", "id": unit["id"], "cause": "owner"})
+
+
+static func _record_pos(units: Array, dirty: Dictionary, tick: int, events: Array) -> void:
+	var xs: Dictionary = {}
+	var lanes: Dictionary = {}
+	for unit: Dictionary in units:
+		if dirty.has(unit["id"]):
+			xs[unit["id"]] = unit["x"]
+			lanes[unit["id"]] = unit["lane"]
+	events.append({"tick": tick, "kind": "pos", "xs": xs, "lanes": lanes})
+
+
+static func _any_alive(units: Array, side: String) -> bool:
+	for unit: Dictionary in units:
+		if unit["side"] == side and unit["hp"] > 0:
+			return true
+	return false
 
 
 static func _primary(unit: Dictionary) -> Variant:
@@ -175,13 +298,11 @@ static func _hazard_due(hazard: Variant, tick: int) -> bool:
 	return interval != 0 and tick % interval == 0
 
 
-static func _hurt_ally(
-	fighter: Variant, tick: int, idx: int, hazard_name: String, pct: int, events: Array,
-) -> void:
-	if fighter == null or fighter["hp"] <= 0:
+static func _hurt(units: Array, unit: Dictionary, tick: int, hazard_name: String, pct: int, events: Array) -> void:
+	if unit["hp"] <= 0:
 		return
-	var dmg: int = maxi(1, Rng.fdiv(int(fighter["unit"]["hp"]) * pct, 100))
-	fighter["hp"] -= dmg
-	events.append({"tick": tick, "kind": "hazard", "name": hazard_name, "idx": idx, "dmg": dmg})
-	if fighter["hp"] <= 0:
-		events.append({"tick": tick, "kind": "death", "side": "ally", "idx": idx})
+	var dmg: int = maxi(1, Rng.fdiv(int(unit["maxHp"]) * pct, 100))
+	unit["hp"] -= dmg
+	events.append({"tick": tick, "kind": "hazard", "name": hazard_name, "id": unit["id"], "dmg": dmg})
+	if unit["hp"] <= 0:
+		_kill(units, unit, tick, "hazard", events)

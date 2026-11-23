@@ -3,7 +3,7 @@ extends RefCounted
 
 const ELEMENTS: Array = ["fire", "ice", "lightning", "poison", "steel", "abyss"]
 const _FILES: Array = [
-	"dragons", "traits", "recipes", "slot", "waves", "battle", "rewards", "bosses", "calamity",
+	"dragons", "traits", "recipes", "slot", "waves", "battle", "rewards", "bosses", "calamity", "minions",
 ]
 
 
@@ -61,8 +61,12 @@ static func _from_raw(raw: Dictionary) -> Dictionary:
 				push_error("recipe %s+%s: unknown dragon id %s" % [recipe["a"], recipe["b"], id])
 				return {}
 
+	var minions: Dictionary = {}
+	for spec: Variant in data["minions"]:
+		minions[spec["id"]] = spec
 	data["dragons"] = dragons
 	data["traits"] = traits
+	data["minions"] = minions
 	return data
 
 

@@ -5,9 +5,9 @@ var _data: Dictionary = GameData.load_all()
 
 func test_load_all_maps_ids_and_keeps_the_data_shape() -> void:
 	assert_eq(_data.keys(), [
-		"dragons", "traits", "recipes", "slot", "waves", "battle", "rewards", "bosses", "calamity",
+		"dragons", "traits", "recipes", "slot", "waves", "battle", "rewards", "bosses", "calamity", "minions",
 	])
-	for key: String in ["dragons", "traits"]:
+	for key: String in ["dragons", "traits", "minions"]:
 		var entries: Array = TestCase.load_json("res://data/" + key + ".json")
 		assert_eq(_data[key].size(), entries.size())
 		for entry: Dictionary in entries:

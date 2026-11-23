@@ -25,5 +25,16 @@
     "t1": 4,
     "dual": 4,
     "secret": 6
+  },
+  "squad": {
+    "leaderSharePct": 55,
+    "minionBase": 4,
+    "minionMax": 14,
+    "leaderX": 860,
+    "extraLeaderX": 900,
+    "minionX": 700,
+    "minionSpacingX": 30,
+    "secondLeaderWave": 8,
+    "thirdLeaderWave": 14
   }
 }

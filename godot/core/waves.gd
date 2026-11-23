@@ -34,46 +34,92 @@ static func unit_power(unit: Dictionary) -> int:
 	return Rng.fdiv(int(unit["hp"]), 4) + Rng.fdiv(int(unit["atk"]) * 20, int(unit["cooldownTicks"]))
 
 
+## 적 부대: 우두머리 드래곤(1~3) + 졸병 무리. 힘 예산을 둘로 나눠 맞춘다.
 static func generate_enemies(
 	data: Dictionary, wave: int, rng: Rng, run_seed: int, mods: Dictionary = Calamity.NONE,
 ) -> Array:
-	var count: int = mini(1 + Rng.fdiv(wave, 2), 6)
+	var cfg: Dictionary = data["waves"]
+	var squad: Dictionary = cfg["squad"]
 	var specs: Array = data["dragons"].values()
 	specs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["id"] < b["id"])
 
-	var cfg: Dictionary = data["waves"]
-	var units: Array = []
+	var leader_count: int = 1
+	if wave >= int(squad["secondLeaderWave"]):
+		leader_count += 1
+	if wave >= int(squad["thirdLeaderWave"]):
+		leader_count += 1
+	var leaders: Array = []
 	if is_boss(cfg, wave):
 		var element: Variant = boss_element(run_seed, wave, GameData.active_elements(data))
 		for spec: Dictionary in specs:
 			if spec["tier"] == "t1" and not spec["elements"].is_empty() and spec["elements"][0] == element:
-				units.append(_spec_unit(spec))
+				leaders.append(_spec_unit(spec))
 				break
-
 	var pool: Array = []
 	for spec: Dictionary in specs:
 		if spec["tier"] == "base" or (wave > 5 and spec["tier"] == "t2"):
 			pool.append(spec)
-	while units.size() < count:
-		units.append(_spec_unit(pool[rng.next_int(pool.size())]))
+	while leaders.size() < leader_count:
+		leaders.append(_spec_unit(pool[rng.next_int(pool.size())]))
 
+	var minion_specs: Array = data["minions"].values()
+	minion_specs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["id"] < b["id"])
+	var minions: Array = []
+	var minion_count: int = mini(int(squad["minionBase"]) + Rng.fdiv(wave, 2), int(squad["minionMax"]))
+	if not minion_specs.is_empty():
+		for i: int in range(minion_count):
+			var leader: Dictionary = leaders[rng.next_int(leaders.size())]
+			var element: Variant = null if leader["elements"].is_empty() else leader["elements"][0]
+			var chosen: Dictionary = minion_specs[0]
+			for spec: Dictionary in minion_specs:
+				if spec["element"] == element:
+					chosen = spec
+					break
+			minions.append(_minion_unit(chosen))
+
+	var target: int = enemy_power(cfg, wave, mods)
+	var leader_budget: int = target if minions.is_empty() else Rng.fdiv(target * int(squad["leaderSharePct"]), 100)
+	_scale_to(leaders, leader_budget)
+	_scale_to(minions, target - leader_budget)
+
+	var leader_lanes: Array = [1, 0, 2]
+	for i: int in range(leaders.size()):
+		leaders[i]["lane"] = leader_lanes[i]
+		leaders[i]["x"] = int(squad["leaderX"]) if i == 0 else int(squad["extraLeaderX"])
+	for i: int in range(minions.size()):
+		minions[i]["lane"] = i % 3
+		minions[i]["x"] = int(squad["minionX"]) + Rng.fdiv(i, 3) * int(squad["minionSpacingX"])
+	return leaders + minions
+
+
+static func _scale_to(units: Array, budget: int) -> void:
+	if units.is_empty():
+		return
 	var total: int = 0
 	for unit: Dictionary in units:
 		total += unit_power(unit)
-	var scale_pct: int = maxi(50, Rng.fdiv(enemy_power(cfg, wave, mods) * 100, total))
+	var scale_pct: int = maxi(50, Rng.fdiv(budget * 100, maxi(1, total)))
 	for unit: Dictionary in units:
-		unit["hp"] = Rng.fdiv(unit["hp"] * scale_pct, 100)
+		unit["hp"] = maxi(1, Rng.fdiv(unit["hp"] * scale_pct, 100))
 		unit["atk"] = maxi(1, Rng.fdiv(unit["atk"] * scale_pct, 100))
-	return units
+
+
+static func _minion_unit(spec: Dictionary) -> Dictionary:
+	return {
+		"kind": "minion", "id": spec["id"], "elements": [spec["element"]],
+		"hp": int(spec["hp"]), "atk": int(spec["atk"]),
+		"cooldownTicks": int(spec["cooldownTicks"]), "speed": int(spec["speed"]),
+		"lane": 0, "x": 0,
+	}
 
 
 static func _spec_unit(spec: Dictionary) -> Dictionary:
 	var stats: Dictionary = spec["stats"]
 	return {
-		"speciesId": spec["id"],
+		"kind": "dragon", "id": spec["id"],
 		"elements": spec["elements"].duplicate(),
 		"hp": int(stats["hp"]),
 		"atk": int(stats["atk"]),
 		"cooldownTicks": int(stats["cooldownTicks"]),
-		"lifestealPct": 0,
+		"speed": 0, "lane": 0, "x": 0,
 	}
