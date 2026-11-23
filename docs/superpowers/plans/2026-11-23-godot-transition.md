@@ -35,3 +35,9 @@
 - G4 1차(Android 테스트 APK): JDK 17(Temurin 17.0.21.1, `C:/claude/tools/jdk`), Android SDK(`C:/claude/tools/android-sdk`: platform-tools, build-tools 35.0.1, android-35, 사용자가 SDK 약관 동의, 사용 기록 수집 끔)를 설치함. Gradle 빌드를 안 쓰니 NDK·CMake는 받지 않음.
   - `npm run godot:apk` → `release-godot-android/Wyrmslot-debug.apk`(약 39MB, arm64, 가로, targetSdk 36, 디버그 키 서명). 프로젝트 설정에 ETC2/ASTC 텍스처를 켜고 임시 아이콘(yinglong)을 넣음.
   - 아직 안 한 것: 실제 휴대폰·에뮬레이터 실행 확인, 세로로 긴 화면의 좌우 여백(지금은 1280×720 비율 고정), 스토어용 릴리스 서명 키(사용자가 만들어 보관), Play용 AAB(Gradle 빌드 필요).
+- G4 2차(에뮬레이터 확인, 2026-11-23): Android Emulator + `medium_phone`(Android 16, x86_64, Play 이미지) AVD, 구글 공식 `android-cli` 스킬(`~/.claude/skills/android-cli`) 설치. WHPX 가속이 이미 켜져 있어 윈도 설정은 바꾸지 않음.
+  - 켜기(창 없이, 실제 GPU): `C:/claude/tools/android-sdk/emulator/emulator.exe -avd medium_phone -no-window -gpu host -no-audio -no-boot-anim` / 끄기: `adb emu kill`. `android emulator start --headless`는 소프트웨어 그래픽이라 Godot가 그려지지 않음.
+  - 확인함: 시작 화면, 터치로 시작·돌리기·알 고르기·끌어서 둥지 놓기·전투·패배 화면·다음 웨이브.
+  - 모바일은 Compatibility(OpenGL ES 3) 렌더러(`rendering_method.mobile`)로 바꿈. 2D 게임이고 저가폰 Vulkan 드라이버 문제를 피함. PC는 그대로.
+  - APK에 x86_64도 넣음(에뮬레이터·크롬북용). 약 66MB.
+  - Godot 내보내기가 adb 서버를 다시 띄워서 내보낸 직후엔 `adb wait-for-device`가 필요함.

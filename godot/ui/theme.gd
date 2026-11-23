@@ -54,6 +54,7 @@ static func korean_font() -> Font:
 static func place(parent: Control, child: Control, rect: Rect2) -> void:
 	child.position = rect.position
 	child.size = rect.size
+	child.set_meta("placed_size", rect.size)
 	parent.add_child(child)
 
 
@@ -104,6 +105,9 @@ static func keep_words(copy: String) -> String:
 static func wrap(node: Label) -> Label:
 	node.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	node.text = keep_words(node.text)
+	# 줄바꿈을 켜기 전에 긴 글자 때문에 넓어진 칸을 원래 너비로 되돌린다.
+	if node.has_meta("placed_size"):
+		node.size = node.get_meta("placed_size")
 	return node
 
 

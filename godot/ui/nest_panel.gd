@@ -79,7 +79,7 @@ func _draw_card(rect: Rect2, inst: Dictionary, ref: Dictionary, draggable: bool,
 	if recommended:
 		var outline: Panel = GameTheme.panel(card, Rect2(-3, -3, 126, 94), Color.TRANSPARENT, GameTheme.RECOMMEND, 3, 10)
 		outline.create_tween().set_loops().tween_property(outline, "modulate:a", 0.35, 0.5).from(1.0)
-		GameTheme.label(card, Rect2(88, 48, 26, 34), "합체\n가능", 10, Color("#ffe066"), HORIZONTAL_ALIGNMENT_RIGHT)
+		GameTheme.label(card, Rect2(88, 37, 26, 28), "합체\n가능", 10, Color("#ffe066"), HORIZONTAL_ALIGNMENT_RIGHT)
 	var tier: String = spec["tier"]
 	var tier_color: Color = GameTheme.DIM if tier == "base" else Color("#ffd8a8")
 	var dots: String = "●".repeat(inst["traits"].size()) + "○".repeat(maxi(0, _ctl.data["battle"]["maxTraits"] - inst["traits"].size()))

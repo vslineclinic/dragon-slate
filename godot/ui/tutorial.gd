@@ -6,7 +6,7 @@ const PAPER: Color = Color("#fff3bf")
 const BORDER: Color = Color("#5f3dc4")
 const STEPS: Array[Dictionary] = [
 	{"copy": "① 이 버튼을 눌러 룬 석판을 돌려요.", "at": Vector2(800, 538), "point": Vector2(1095, 648)},
-	{"copy": "② 보라 띠의 알 3개가 오른쪽 카드로 나와요.\n하나를 고르세요. 노란 테두리가 추천이에요.", "at": Vector2(760, 270), "point": Vector2(1095, 422)},
+	{"copy": "② 보라 띠의 알 3개가 오른쪽 카드로 나와요.\n하나를 고르세요. 노란 테두리가 추천이에요.", "at": Vector2(760, 200), "point": Vector2(1095, 422)},
 	{"copy": "③ 대기칸의 드래곤을 위의 둥지 칸으로 끌어 놓아요.\n같은 드래곤끼리 겹치면 합체해요!", "at": Vector2(24, 246), "point": Vector2(80, 590)},
 	{"copy": "④ 준비되면 전투 시작! 전투는 자동이에요.", "at": Vector2(200, 245), "point": Vector2(525, 470)},
 	{"copy": "⑤ 위쪽에 다음 보스 예보가 있어요. 눌러서 대응법을 보세요.\n이제 혼자 해 볼까요? 행운을 빌어요!", "at": Vector2(420, 60), "point": Vector2(600, 44)},

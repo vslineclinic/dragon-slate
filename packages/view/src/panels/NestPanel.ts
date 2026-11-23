@@ -119,7 +119,7 @@ export class NestPanel {
       parts.push(text(this.scene, 8, 50, TIER_KO[tier], 12, tier === 'base' ? UI.dim : '#ffd8a8'));
       parts.push(text(this.scene, 8, 68, dots + (inst.bonusPct ? '  +' + inst.bonusPct + '%' : ''), 12, UI.dim));
     }
-    if (evolveTo) parts.push(text(this.scene, W - 6, 52, '합체\n가능', 10, '#ffe066').setOrigin(1, 0).setAlign('right'));
+    if (evolveTo) parts.push(text(this.scene, W - 6, 38, '합체\n가능', 10, '#ffe066').setOrigin(1, 0).setAlign('right'));
     const c = this.scene.add.container(r.x, r.y, parts);
     if (!draggable) return c;
     c.setSize(W, H);
