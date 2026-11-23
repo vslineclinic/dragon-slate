@@ -9,7 +9,7 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
     "lint:data": "node tools/lint-data/lint.ts",
-    "sim": "node tools/sim/run.ts",
+    "sim": "C:/claude/tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://godot/tools/sim.gd --",
     "build:demo": "vite build --mode demo --outDir ../../dist-demo",
     "desktop": "vite build && electron .",
     "desktop:pack": "vite build && electron-builder --config apps/desktop/electron-builder.yml",

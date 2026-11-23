@@ -2,7 +2,7 @@ extends RefCounted
 
 const MAX_WAVE: int = 10
 const MAX_CALAMITY: int = 1
-const FINAL_BOSS_PCT: int = 465
+const FINAL_BOSS_PCT: int = 740
 
 
 static func load_data() -> Dictionary:
