@@ -4,6 +4,7 @@ const GameTheme = preload("res://godot/ui/theme.gd")
 const Build = preload("res://godot/ui/build.gd")
 const Store = preload("res://godot/ui/store.gd")
 const DexOverlay = preload("res://godot/ui/dex_overlay.gd")
+const Music = preload("res://godot/ui/music.gd")
 const Game = preload("res://godot/ui/game.gd")
 const GameScene = preload("res://godot/scenes/game.tscn")
 const Controller = preload("res://godot/ui/controller.gd")
@@ -15,6 +16,7 @@ var _menu: Control
 var _game: Game
 var _start_button: Button
 var _dex_button: Button
+var _music_button: Button
 var _calamity_label: Label
 var _lower: Button
 var _higher: Button
@@ -47,6 +49,10 @@ func _ready() -> void:
 	GameTheme.label(_menu, Rect2(320, 428, 640, 92), intro, 18, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	_start_button = GameTheme.button(_menu, Rect2(520, 538, 240, 60), "시작하기", _start, Color("#5f3dc4"))
 	_dex_button = GameTheme.button(_menu, Rect2(540, 614, 200, 50), "드래곤 도감", _open_dex)
+	var music: Node = Music.get_for(get_tree())
+	music.play("title")
+	_music_button = GameTheme.button(_menu, Rect2(1160, 20, 100, 44), Music.SET_KO[music.current_set()], _cycle_music)
+	_music_button.tooltip_text = "배경음악: A, B, 끔"
 	_lower = GameTheme.button(_menu, Rect2(850, 544, 44, 48), "◀", _select_level.bind(-1))
 	_higher = GameTheme.button(_menu, Rect2(1190, 544, 44, 48), "▶", _select_level.bind(1))
 	_calamity_label = GameTheme.label(_menu, Rect2(902, 520, 280, 96), "", 16, Color("#ffc078"), HORIZONTAL_ALIGNMENT_CENTER)
@@ -73,6 +79,10 @@ func _select_level(delta: int) -> void:
 		if calamity["level"] == _level:
 			_calamity_label.text = "%s\n%s (누적)" % [calamity["nameKo"], calamity["descKo"]]
 			break
+
+
+func _cycle_music() -> void:
+	_music_button.text = Music.SET_KO[Music.get_for(get_tree()).cycle_set()]
 
 
 func _open_dex() -> void:

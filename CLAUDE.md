@@ -4,7 +4,8 @@
 
 ## 명령
 - Godot(기준): `npm run godot:test` · `npm run sim -- --runs 300 --seed 1000 [--demo] [--calamity 1] [--waves] [--margin]` · `npm run godot:export` (Windows 정식·데모) · `npm run godot:apk` (Android 테스트 APK)
-- 화면 확인: `godot --path . --position -4000,-4000 --script res://godot/tests/capture.gd -- <장면> <png> [spin|spinmid|manage|battle|battle-late] [폭]`
+- 화면 확인: `godot --audio-driver Dummy --path . --position -4000,-4000 --script res://godot/tests/capture.gd -- <장면> <png> [spin|spinmid|manage|battle|battle-late] [폭]`
+- 배경음악: `python tools/music/make_tracks.py`(A 모음) · `python tools/music/codex_tracks.py`(B 모음) → ffmpeg로 `assets/music/a|b/*.ogg`. 재생·전환은 `godot/ui/music.gd`.
 - 웹판(멈춤, 참고용): `npm run dev` · `npm test` · `npm run typecheck`
 
 ## 불변 규칙

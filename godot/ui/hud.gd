@@ -20,7 +20,8 @@ func setup(store: Store, width: float = 1280.0) -> void:
 	_wave = GameTheme.label(self, Rect2(16, 0, 160, 44), "", 20)
 	_lives = GameTheme.label(self, Rect2(180, 0, 160, 44), "", 20, Color("#ff8787"))
 	_mana = GameTheme.label(self, Rect2(340, 0, 130, 44), "", 20, Color("#b197fc"))
-	_boss = GameTheme.button(self, Rect2(470, 0, 470, 44), "", _show_boss_info)
+	_boss = GameTheme.button(self, Rect2(470, 0, maxf(300.0, width - 404 - 470 - 8), 44), "", _show_boss_info)
+	_boss.clip_text = true
 	_boss.flat = true
 	_boss.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_boss.add_theme_font_size_override("font_size", 16)

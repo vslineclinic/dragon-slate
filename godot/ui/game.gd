@@ -14,6 +14,7 @@ const DexOverlay = preload("res://godot/ui/dex_overlay.gd")
 const ResultOverlay = preload("res://godot/ui/result_overlay.gd")
 const Tutorial = preload("res://godot/ui/tutorial.gd")
 const Marks = preload("res://godot/ui/marks.gd")
+const Music = preload("res://godot/ui/music.gd")
 const REJECT_KO: Dictionary = {
 	"wrongPhase": "지금은 할 수 없어요",
 	"notEnoughMana": "마력이 모자라요",
@@ -53,6 +54,8 @@ var _pending: Dictionary = {}
 var _tutorial: Tutorial
 var _result: ResultOverlay
 var _dex_button: Button
+var _music_button: Button
+var _boss_fight: bool = false
 
 
 func _ready() -> void:
@@ -100,6 +103,10 @@ func _build_panels() -> void:
 	_battle.finished.connect(_battle_finished)
 	_hud.boss_info.connect(flash)
 	_dex_button = GameTheme.button(_hud, Rect2(width - 328, 0, 80, 44), "도감", _open_dex)
+	var music: Node = Music.get_for(get_tree())
+	_music_button = GameTheme.button(_hud, Rect2(width - 404, 0, 70, 44), Music.SET_KO[music.current_set()], _cycle_music)
+	_music_button.tooltip_text = "배경음악: A, B, 끔"
+	_battle.reinforced.connect(_on_reinforced)
 	var field: Rect2 = _areas["field"]
 	var center_x: float = field.position.x + (field.size.x - 800.0) / 2.0
 	_banner = _notice(self, Rect2(center_x, 108, 800, 124), "", 40, Color("#fff3bf"), Color("#5f3dc4"), 8, 60)
@@ -181,6 +188,9 @@ func _on_change(events: Array, state: Dictionary) -> void:
 	_tutorial.hide()
 	_pending = {"events": events, "state": state, "won": fight["winner"] == "ally"}
 	var boss: bool = Waves.is_boss(controller.data["waves"], _wave_before)
+	_boss_fight = boss
+	var final: bool = _wave_before >= int(controller.data["waves"]["maxWave"])
+	Music.get_for(get_tree()).play(("final_boss" if final else "boss") if boss else "battle_calm")
 	_board.set_fighting(true)
 	_slot.modulate = Color(0.55, 0.55, 0.62)
 	_battle.play(fight, boss, _wave_before)
@@ -194,6 +204,7 @@ func _render(events: Array, state: Dictionary) -> void:
 			if boss != null:
 				flash("예보: %d웨이브에 「%s」\n%s" % [event["wave"] + 4, boss["nameKo"], boss["hintKo"]])
 	_hud.render(state, controller.data["waves"]["maxWave"])
+	Music.get_for(get_tree()).play("prepare")
 	_wave_before = state["wave"]
 	_slot.render(state, events)
 	_slot.modulate = Color.WHITE
@@ -210,6 +221,16 @@ func _render(events: Array, state: Dictionary) -> void:
 		run_finished.emit(state)
 	else:
 		_tutorial.update(state)
+
+
+func _cycle_music() -> void:
+	_music_button.text = Music.SET_KO[Music.get_for(get_tree()).cycle_set()]
+
+
+## 일반 전투에서 적이 더 몰려오면 급박한 곡으로 바꾼다. 보스전은 처음부터 보스 곡이다.
+func _on_reinforced() -> void:
+	if not _boss_fight and controller.busy:
+		Music.get_for(get_tree()).play("battle_rush")
 
 
 func _battle_finished() -> void:

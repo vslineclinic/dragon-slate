@@ -12,6 +12,8 @@ const TICK_SECONDS: float = 0.05
 const SIZE_BY_KIND: Dictionary = {"dragon": 112.0, "escort": 62.0, "minion": 64.0}
 
 signal finished
+## 전투 도중 적 무리가 더 나타났다(음악을 급박하게 바꿀 때 쓴다).
+signal reinforced
 
 class UnitView:
 	var root: Control
@@ -233,6 +235,7 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				if animate:
 					view.root.modulate.a = 0.0
 					view.root.create_tween().tween_property(view.root, "modulate:a", 1.0, 0.3 / _store.speed)
+			reinforced.emit()
 			if animate:
 				_caption.text = "%d번째 무리 등장! (%d / %d)" % [int(event["stage"]) + 1, int(event["stage"]) + 1, int(event["total"])]
 				_flash.color.a = 0.18
