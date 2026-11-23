@@ -4,22 +4,30 @@ const GameTheme = preload("res://godot/ui/theme.gd")
 const Store = preload("res://godot/ui/store.gd")
 const PAPER: Color = Color("#fff3bf")
 const BORDER: Color = Color("#5f3dc4")
-const STEPS: Array[Dictionary] = [
-	{"copy": "① 이 버튼을 눌러 룬 석판을 돌려요.", "at": Vector2(800, 538), "point": Vector2(1095, 648)},
-	{"copy": "② 보라 띠의 알 3개가 오른쪽 카드로 나와요.\n하나를 고르세요. 노란 테두리가 추천이에요.", "at": Vector2(760, 200), "point": Vector2(1095, 422)},
-	{"copy": "③ 대기칸의 드래곤을 위의 둥지 칸으로 끌어 놓아요.\n같은 드래곤끼리 겹치면 합체해요!", "at": Vector2(24, 246), "point": Vector2(80, 590)},
-	{"copy": "④ 준비되면 전투 시작! 전투는 자동이에요.", "at": Vector2(200, 245), "point": Vector2(525, 470)},
-	{"copy": "⑤ 위쪽에 다음 보스 예보가 있어요. 눌러서 대응법을 보세요.\n이제 혼자 해 볼까요? 행운을 빌어요!", "at": Vector2(420, 60), "point": Vector2(600, 44)},
-]
+const BUBBLE: Vector2 = Vector2(474, 108)
 
 var _store: Store
+var _steps: Array[Dictionary] = []
 var _step: int = -1
 var _balloon: Control
 var _ending: Tween
 
 
-func setup(store: Store) -> void:
+func setup(store: Store, areas: Dictionary = {}) -> void:
 	_store = store
+	if areas.is_empty():
+		areas = GameTheme.areas(1280.0)
+	var spin: Rect2 = areas["spin"]
+	var right: Rect2 = areas["right"]
+	var bubble_x: float = right.position.x + (right.size.x - BUBBLE.x) / 2.0
+	var pad: Rect2 = GameTheme.pad_rect(areas["width"], {"frontX": 260, "backX": 140}, 1)
+	_steps = [
+		{"copy": "① 이 버튼을 눌러 룬 석판을 돌려요.", "at": Vector2(bubble_x, 524), "point": spin.get_center() + Vector2(0, -24)},
+		{"copy": "② 보라 띠의 알 3개가 아래 카드로 나와요.\n하나를 고르세요. 노란 테두리가 추천이에요.", "at": Vector2(bubble_x, 366), "point": Vector2(right.get_center().x, right.position.y + 66)},
+		{"copy": "③ 대기칸의 드래곤을 전장의 노란 발판으로 끌어 놓아요.\n같은 드래곤끼리 겹치면 합체해요!", "at": Vector2(pad.end.x + 40, pad.position.y - 40), "point": pad.get_center() + Vector2(40, 0)},
+		{"copy": "④ 준비되면 전투 시작! 전투는 자동이에요.\n전열은 먼저 맞고, 후열은 오래 버텨요.", "at": Vector2(bubble_x, 524), "point": spin.get_center() + Vector2(0, -24)},
+		{"copy": "⑤ 위쪽에 다음 보스 예보가 있어요. 눌러서 대응법을 보세요.\n이제 혼자 해 볼까요? 행운을 빌어요!", "at": Vector2(420, 60), "point": Vector2(600, 44)},
+	]
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 85
 
@@ -33,9 +41,9 @@ func update(state: Dictionary) -> void:
 		return
 	if _step != next:
 		_step = next
-		_show_step(STEPS[next])
+		_show_step(_steps[next])
 	show()
-	if next == STEPS.size() - 1 and _ending == null:
+	if next == _steps.size() - 1 and _ending == null:
 		_ending = create_tween()
 		_ending.tween_interval(7.0)
 		_ending.tween_callback(finish)
@@ -72,7 +80,7 @@ func _show_step(step: Dictionary) -> void:
 		_balloon.queue_free()
 	var at: Vector2 = step["at"]
 	var tip: Vector2 = step["point"] - at
-	var bounds: Vector2 = Vector2(474, 108)
+	var bounds: Vector2 = BUBBLE
 	_balloon = Control.new()
 	_balloon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	GameTheme.place(self, _balloon, Rect2(at, bounds))

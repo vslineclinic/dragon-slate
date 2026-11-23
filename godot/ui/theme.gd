@@ -1,11 +1,56 @@
 extends RefCounted
 
-const AREA: Dictionary = {
-	"hud": Rect2(0, 0, 1280, 44),
-	"battle": Rect2(0, 44, 1280, 286),
-	"nest": Rect2(0, 330, 640, 390),
-	"slab": Rect2(640, 330, 640, 390),
-}
+const HEIGHT: float = 720.0
+const MIN_WIDTH: float = 1280.0
+const MAX_WIDTH: float = 1600.0
+const HUD_H: float = 44.0
+const STRIP_Y: float = 480.0
+const FIELD_MARGIN: float = 40.0
+const LANE_Y: Array = [196.0, 296.0, 396.0]
+const CARD_SIZE: Vector2 = Vector2(120, 88)
+
+
+## 화면 폭(1280~1600)에 맞춘 배치. 위 HUD, 가운데 전장, 아래 띠(대기칸 · 석판 · 알 카드).
+static func areas(width: float) -> Dictionary:
+	var w: float = clampf(width, MIN_WIDTH, MAX_WIDTH)
+	var right_x: float = 530.0
+	var right_w: float = w - right_x - 16.0
+	return {
+		"width": w,
+		"hud": Rect2(0, 0, w, HUD_H),
+		"field": Rect2(0, HUD_H, w, STRIP_Y - HUD_H),
+		"strip": Rect2(0, STRIP_Y, w, HEIGHT - STRIP_Y),
+		"bench": Rect2(16, STRIP_Y + 26, CARD_SIZE.x * 2 + 8, CARD_SIZE.y * 2 + 8),
+		"slab": Rect2(290, STRIP_Y, 236, HEIGHT - STRIP_Y),
+		"right": Rect2(right_x, STRIP_Y, right_w, HEIGHT - STRIP_Y),
+		"spin": Rect2(right_x, HEIGHT - 74, right_w, 62),
+		"release": Rect2(16, HUD_H + 12, 190, 72),
+	}
+
+
+## core 전장 좌표(x 0~1000, 줄 0~2) → 화면 좌표(유닛 중심).
+static func field_point(width: float, x: float, lane: float) -> Vector2:
+	var w: float = clampf(width, MIN_WIDTH, MAX_WIDTH)
+	var lane_y: float = lerpf(LANE_Y[0], LANE_Y[2], clampf(lane, 0.0, 2.0) / 2.0)
+	return Vector2(FIELD_MARGIN + x * (w - 2.0 * FIELD_MARGIN) / 1000.0, lane_y)
+
+
+## 둥지 칸(0~5)의 발판 사각형. 전열 0~2, 후열 3~5, 줄 = 번호 % 3.
+static func pad_rect(width: float, field_cfg: Dictionary, index: int) -> Rect2:
+	var x: int = int(field_cfg["frontX"]) if index < 3 else int(field_cfg["backX"])
+	var center: Vector2 = field_point(width, x, index % 3)
+	return Rect2(center - CARD_SIZE / 2.0, CARD_SIZE)
+
+
+## 배경 그림: 웨이브 구간별.
+static func background_for(wave: int) -> String:
+	if wave <= 5:
+		return "res://assets/backgrounds/plains_ruins.png"
+	if wave <= 10:
+		return "res://assets/backgrounds/ice_canyon.png"
+	if wave <= 15:
+		return "res://assets/backgrounds/volcano.png"
+	return "res://assets/backgrounds/abyss.png"
 const COLOR: Dictionary = {
 	"fire": Color("#e8590c"), "ice": Color("#4dabf7"), "lightning": Color("#fab005"),
 	"poison": Color("#82c91e"), "steel": Color("#adb5bd"), "abyss": Color("#5f3dc4"),

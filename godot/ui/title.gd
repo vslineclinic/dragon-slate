@@ -7,6 +7,7 @@ const DexOverlay = preload("res://godot/ui/dex_overlay.gd")
 const Game = preload("res://godot/ui/game.gd")
 const GameScene = preload("res://godot/scenes/game.tscn")
 const Controller = preload("res://godot/ui/controller.gd")
+const AppWindow = preload("res://godot/ui/window.gd")
 
 var _data: Dictionary
 var _store: Store
@@ -26,8 +27,11 @@ func _ready() -> void:
 	_store = Store.new()
 	_max_level = Build.max_calamity(_data)
 	theme = GameTheme.create()
+	AppWindow.fit_first_time()
+	var width: float = get_viewport_rect().size.x
+	GameTheme.panel(self, Rect2(0, 0, maxf(width, 1280.0), 720), Color("#141824"))
 	_menu = Control.new()
-	GameTheme.place(self, _menu, Rect2(0, 0, 1280, 720))
+	GameTheme.place(self, _menu, Rect2(maxf(0.0, (width - 1280.0) / 2.0), 0, 1280, 720))
 	GameTheme.panel(_menu, Rect2(0, 0, 1280, 720), Color("#141824"))
 	GameTheme.dragon(_menu, Rect2(135, 185, 230, 230), "zhulong")
 	GameTheme.dragon(_menu, Rect2(915, 185, 230, 230), "kuraokami", false)
@@ -49,6 +53,11 @@ func _ready() -> void:
 	_calamity_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_select_level(0)
 	_start_button.grab_focus()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if AppWindow.handle_shortcut(event):
+		get_viewport().set_input_as_handled()
 
 
 func _select_level(delta: int) -> void:

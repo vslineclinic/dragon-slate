@@ -14,7 +14,7 @@ var _speeds: Dictionary = {}
 var _preview: Dictionary = {}
 
 
-func setup(store: Store) -> void:
+func setup(store: Store, width: float = 1280.0) -> void:
 	_store = store
 	GameTheme.panel(self, Rect2(Vector2.ZERO, size), Color("#151925"))
 	_wave = GameTheme.label(self, Rect2(16, 0, 160, 44), "", 20)
@@ -28,7 +28,7 @@ func setup(store: Store) -> void:
 		_boss.add_theme_color_override(name, Color("#ffc078"))
 	for i: int in range(3):
 		var speed: int = 1 << i
-		_speeds[speed] = GameTheme.button(self, Rect2(1040 + i * 78, 0, 70, 44), "%dx" % speed, _set_speed.bind(speed))
+		_speeds[speed] = GameTheme.button(self, Rect2(width - 240 + i * 78, 0, 70, 44), "%dx" % speed, _set_speed.bind(speed))
 	_refresh_speed()
 
 

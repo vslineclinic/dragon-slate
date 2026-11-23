@@ -5,8 +5,9 @@ const GameTheme = preload("res://godot/ui/theme.gd")
 const Store = preload("res://godot/ui/store.gd")
 const Hud = preload("res://godot/ui/hud.gd")
 const SlotPanel = preload("res://godot/ui/slot_panel.gd")
-const NestPanel = preload("res://godot/ui/nest_panel.gd")
-const BattlePanel = preload("res://godot/ui/battle_panel.gd")
+const Board = preload("res://godot/ui/board.gd")
+const Field = preload("res://godot/ui/field.gd")
+const AppWindow = preload("res://godot/ui/window.gd")
 const Build = preload("res://godot/ui/build.gd")
 const DexOverlay = preload("res://godot/ui/dex_overlay.gd")
 const ResultOverlay = preload("res://godot/ui/result_overlay.gd")
@@ -32,8 +33,11 @@ var store: Store
 var calamity: int = -1
 var _hud: Hud
 var _slot: SlotPanel
-var _nest: NestPanel
-var _battle: BattlePanel
+var _board: Board
+var _battle: Field
+var _areas: Dictionary = {}
+var _wave_before: int = 1
+var _built_width: float = 0.0
 var _banner: Label
 var _toast: Label
 var _toast_animation: Tween
@@ -52,30 +56,60 @@ func _ready() -> void:
 	if store == null:
 		store = Store.new()
 	theme = GameTheme.create()
-	_battle = BattlePanel.new()
-	_hud = Hud.new()
-	_nest = NestPanel.new()
-	_slot = SlotPanel.new()
-	GameTheme.place(self, _battle, GameTheme.AREA["battle"])
-	GameTheme.place(self, _hud, GameTheme.AREA["hud"])
-	GameTheme.place(self, _nest, GameTheme.AREA["nest"])
-	GameTheme.place(self, _slot, GameTheme.AREA["slab"])
-	_battle.setup(controller.data, store)
-	_hud.setup(store)
-	_nest.setup(controller)
-	_slot.setup(controller, store)
-	_battle.finished.connect(_battle_finished)
-	_hud.boss_info.connect(flash)
-	_dex_button = GameTheme.button(_hud, Rect2(952, 0, 80, 44), "도감", _open_dex)
-	_banner = _notice(self, Rect2(240, 108, 800, 124), "", 40, Color("#fff3bf"), Color("#5f3dc4"), 8, 60)
-	_banner.modulate.a = 0.0
-	_toast = _notice(self, Rect2(240, 210, 800, 80), "", 22, Color("#ffd8a8"), Color("#000000aa"), 7, 50)
-	_toast.modulate.a = 0.0
+	_build_panels()
 	_tutorial = Tutorial.new()
 	add_child(_tutorial)
-	_tutorial.setup(store)
+	_tutorial.setup(store, _areas)
 	controller.changed.connect(_on_change)
+	get_viewport().size_changed.connect(_on_resize)
 	controller.restart(controller.state["seed"], calamity)
+
+
+## 화면 폭에 맞춰 HUD · 전장 · 아래 띠 · 배치판을 만든다(창 크기가 바뀌면 다시 만듦).
+func _build_panels() -> void:
+	for panel: Variant in [_battle, _hud, _slot, _board, _banner, _toast]:
+		if panel != null and is_instance_valid(panel):
+			remove_child(panel)
+			panel.queue_free()
+	_areas = GameTheme.areas(get_viewport_rect().size.x)
+	_built_width = _areas["width"]
+	var width: float = _areas["width"]
+	_battle = Field.new()
+	_hud = Hud.new()
+	_slot = SlotPanel.new()
+	_board = Board.new()
+	GameTheme.place(self, _battle, _areas["field"])
+	GameTheme.place(self, _hud, _areas["hud"])
+	GameTheme.place(self, _slot, _areas["strip"])
+	GameTheme.place(self, _board, Rect2(0, 0, width, GameTheme.HEIGHT))
+	for panel: Control in [_battle, _hud, _slot, _board]:
+		move_child(panel, 0)
+	move_child(_board, 3)
+	_battle.setup(controller.data, store, width)
+	_hud.setup(store, width)
+	_slot.setup(controller, store)
+	_board.setup(controller, _areas)
+	_battle.finished.connect(_battle_finished)
+	_hud.boss_info.connect(flash)
+	_dex_button = GameTheme.button(_hud, Rect2(width - 328, 0, 80, 44), "도감", _open_dex)
+	var center_x: float = (width - 800.0) / 2.0
+	_banner = _notice(self, Rect2(center_x, 108, 800, 124), "", 40, Color("#fff3bf"), Color("#5f3dc4"), 8, 60)
+	_banner.modulate.a = 0.0
+	_toast = _notice(self, Rect2(center_x, 210, 800, 80), "", 22, Color("#ffd8a8"), Color("#000000aa"), 7, 50)
+	_toast.modulate.a = 0.0
+
+
+func _on_resize() -> void:
+	var width: float = GameTheme.areas(get_viewport_rect().size.x)["width"]
+	if is_equal_approx(width, _built_width) or controller.busy or not _pending.is_empty():
+		return
+	_build_panels()
+	_render([], controller.state)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if AppWindow.handle_shortcut(event):
+		get_viewport().set_input_as_handled()
 
 
 func _on_change(events: Array, state: Dictionary) -> void:
@@ -115,9 +149,10 @@ func _on_change(events: Array, state: Dictionary) -> void:
 	controller.busy = true
 	_tutorial.hide()
 	_pending = {"events": events, "state": state, "won": fight["winner"] == "ally"}
-	var lead: Variant = fight["enemies"].front() if not fight["enemies"].is_empty() else null
-	var boss: bool = lead != null and controller.data["dragons"][lead["speciesId"]]["tier"] == "t1"
-	_battle.play(fight, boss)
+	var boss: bool = Waves.is_boss(controller.data["waves"], _wave_before)
+	_board.set_fighting(true)
+	_slot.modulate = Color(0.55, 0.55, 0.62)
+	_battle.play(fight, boss, _wave_before)
 
 
 func _render(events: Array, state: Dictionary) -> void:
@@ -128,8 +163,11 @@ func _render(events: Array, state: Dictionary) -> void:
 			if boss != null:
 				flash("예보: %d웨이브에 「%s」\n%s" % [event["wave"] + 4, boss["nameKo"], boss["hintKo"]])
 	_hud.render(state, controller.data["waves"]["maxWave"])
+	_wave_before = state["wave"]
 	_slot.render(state, events)
-	_nest.render(state)
+	_slot.modulate = Color.WHITE
+	_board.set_fighting(false)
+	_board.render(state)
 	_battle.show_idle(state)
 	if state["phase"] in ["gameOver", "victory"]:
 		_show_result(state)
@@ -189,7 +227,7 @@ func _show_result(state: Dictionary) -> void:
 
 func _set_modal(active: bool) -> void:
 	controller.busy = active
-	for panel: Control in [_hud, _slot, _nest, _tutorial]:
+	for panel: Control in [_hud, _slot, _board, _tutorial]:
 		panel.focus_behavior_recursive = Control.FOCUS_BEHAVIOR_DISABLED if active else Control.FOCUS_BEHAVIOR_INHERITED
 
 
