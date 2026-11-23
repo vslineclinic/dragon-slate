@@ -9,8 +9,10 @@ const Store = preload("res://godot/ui/store.gd")
 const ROWS: Array[String] = ["apex", "t1", "t2", "base"]
 const ROW_NOTE: Dictionary = {"apex": "용의 황제", "t1": "전설의 용", "t2": "자란 용", "base": "새끼 용"}
 const PANEL_W: float = 1200.0
-const CARD: Vector2 = Vector2(196, 104)
-const ROW_H: float = 122.0
+const CARD: Vector2 = Vector2(196, 86)
+const BASE_CARD: Vector2 = Vector2(160, 74)
+const ROW_H: float = 102.0
+const BASE_PER_ROW: int = 6
 const OWNED: Color = Color("#69db7c")
 
 var _data: Dictionary
@@ -57,7 +59,7 @@ func setup(data: Dictionary, store: Store, state: Dictionary = {}, width: float 
 	_entries = Control.new()
 	_entries.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(_entries)
-	_detail = GameTheme.label(panel, Rect2(24, 566, PANEL_W - 48, 96), "", 15)
+	_detail = GameTheme.label(panel, Rect2(24, 574, PANEL_W - 48, 90), "", 14)
 	GameTheme.wrap(_detail)
 	_show_page(_first_page())
 	close_button.grab_focus()
@@ -115,18 +117,25 @@ func _show_page(page: String) -> void:
 		var tier: String = ROWS[r]
 		var row: Array = dragons.filter(func(dragon: Dictionary) -> bool: return dragon["elements"] == [page] and dragon["tier"] == tier)
 		row.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["id"] < b["id"])
-		var y: float = 62.0 + r * ROW_H
-		var width: float = row.size() * CARD.x + maxi(0, row.size() - 1) * 14.0
-		var left: float = (PANEL_W - width) / 2.0
+		var y: float = 60.0 + r * ROW_H
+		var base: bool = tier == "base"
+		var card_size: Vector2 = BASE_CARD if base else CARD
+		var per_row: int = BASE_PER_ROW if base else maxi(1, row.size())
+		var lines: int = maxi(1, ceili(float(row.size()) / per_row))
+		var width: float = mini(per_row, row.size()) * card_size.x + maxi(0, mini(per_row, row.size()) - 1) * 10.0
+		var left: float = (PANEL_W - width) / 2.0 + (60.0 if base else 0.0)
+		var block_h: float = lines * (card_size.y + 6) + 10
 		## 계단 모양 받침: 위로 갈수록 좁아져 피라미드가 된다.
-		GameTheme.panel(_entries, Rect2(left - 26, y + 2, width + 52, ROW_H - 6), Color(tint, 0.10 + 0.05 * (ROWS.size() - 1 - r)), Color(tint, 0.45), 1, 10)
+		GameTheme.panel(_entries, Rect2(left - 20, y + 2, width + 40, block_h), Color(tint, 0.10 + 0.05 * (ROWS.size() - 1 - r)), Color(tint, 0.45), 1, 10)
 		var need: String = "알에서 얻어요" if tier == "base" else "레벨 %d부터 진화" % int(needs.get(tier, 1))
-		GameTheme.label(_entries, Rect2(24, y + 22, 190, 26), GameTheme.TIER_KO[tier], 20, tint.lightened(0.35))
-		GameTheme.label(_entries, Rect2(24, y + 50, 190, 20), ROW_NOTE[tier], 13, GameTheme.DIM)
-		GameTheme.label(_entries, Rect2(24, y + 70, 190, 20), need, 13, GameTheme.DIM)
+		GameTheme.label(_entries, Rect2(24, y + 14, 150, 26), GameTheme.TIER_KO[tier], 20, tint.lightened(0.35))
+		GameTheme.label(_entries, Rect2(24, y + 42, 150, 20), ROW_NOTE[tier], 13, GameTheme.DIM)
+		GameTheme.label(_entries, Rect2(24, y + 62, 150, 20), need, 13, GameTheme.DIM)
 		for i: int in range(row.size()):
-			_card(row[i], Rect2(left + i * (CARD.x + 14), y + 9, CARD.x, CARD.y))
-		if r > 0:
+			@warning_ignore("integer_division")
+			var line: int = i / per_row
+			_card(row[i], Rect2(left + (i % per_row) * (card_size.x + 10), y + 8 + line * (card_size.y + 6), card_size.x, card_size.y))
+		if r > 0 and not base:
 			GameTheme.label(_entries, Rect2(PANEL_W - 210, y + 40, 190, 22), "▲ 둘을 합치면 위 계급", 13, GameTheme.DIM, HORIZONTAL_ALIGNMENT_RIGHT)
 
 
@@ -197,7 +206,7 @@ func _card(dragon: Dictionary, rect: Rect2) -> void:
 		width = 2
 	var card: Button = GameTheme.button(_entries, rect, "", _show_detail.bind(dragon), GameTheme.PANEL if known else Color("#171a24"), border, width)
 	var caption: String = dragon["nameKo"] if known else "???"
-	var side: float = rect.size.y - 30.0
+	var side: float = rect.size.y - 26.0
 	if dragon["tier"] == "secret" and not known:
 		GameTheme.label(card, Rect2(8, 0, side, rect.size.y), "?", 40, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 	else:
@@ -205,7 +214,7 @@ func _card(dragon: Dictionary, rect: Rect2) -> void:
 		if image != null and not known:
 			image.modulate = Color(0, 0, 0, 0.85)
 	var name_x: float = side + 14.0
-	var name_label: Label = GameTheme.label(card, Rect2(name_x, 8, rect.size.x - name_x - 6, 44), caption, 14, GameTheme.TEXT if known else GameTheme.DIM)
+	var name_label: Label = GameTheme.label(card, Rect2(name_x, 6, rect.size.x - name_x - 6, 40), caption, 13, GameTheme.TEXT if known else GameTheme.DIM)
 	GameTheme.wrap(name_label)
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	var tag: String = ""
@@ -218,7 +227,7 @@ func _card(dragon: Dictionary, rect: Rect2) -> void:
 		tag_color = GameTheme.RECOMMEND
 	elif not known:
 		tag = "아직 못 만난 용"
-	GameTheme.label(card, Rect2(8, rect.size.y - 24, rect.size.x - 16, 20), tag, 12, tag_color, HORIZONTAL_ALIGNMENT_CENTER)
+	GameTheme.label(card, Rect2(4, rect.size.y - 21, rect.size.x - 8, 18), tag, 11, tag_color, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _show_detail(dragon: Dictionary) -> void:

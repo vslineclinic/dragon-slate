@@ -140,7 +140,7 @@ func test_species_odds_follow_weights() -> void:
 func test_weighted_pool_prefers_heavier_species() -> void:
 	var data: Dictionary = GameData.load_all()
 	var pool: Array = Slot.base_pool(data, "fire")
-	assert_eq(pool.size(), 4)
+	assert_eq(pool.size(), 12)
 	var counts: Dictionary = {}
 	var rng: Rng = Rng.new(7)
 	for i: int in range(2000):

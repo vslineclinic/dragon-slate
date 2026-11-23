@@ -25,6 +25,7 @@ var _press_point: Vector2
 
 signal inspect(ref: Dictionary)
 var _last_state: Dictionary = {}
+var _team_bonus: Dictionary = {}
 
 
 func setup(ctl: Controller, areas: Dictionary) -> void:
@@ -62,6 +63,11 @@ func set_fighting(active: bool) -> void:
 
 func render(state: Dictionary) -> void:
 	_last_state = state
+	## 전투력은 지금 전장의 시너지와 유물을 넣어 계산한다.
+	_team_bonus = Battle.team_bonus(_ctl.data, Battle.fielded(state["nest"], state["nestOpen"]))
+	var relics: Dictionary = Run.relic_bonus(_ctl.data, state)
+	for kind: String in relics:
+		_team_bonus[kind] = int(_team_bonus.get(kind, 0)) + int(relics[kind])
 	_cancel_drag()
 	for child: Node in _layer.get_children():
 		_layer.remove_child(child)
@@ -173,8 +179,12 @@ func _draw_card(rect: Rect2, inst: Dictionary, ref: Dictionary, draggable: bool,
 		var skill_total: int = 0
 		for learned: Variant in inst.get("skills", {}).values():
 			skill_total += int(learned)
-		var bonus: String = "\n스킬 %d" % skill_total if skill_total > 0 else ""
-		GameTheme.label(card, Rect2(6, 47, 75, 29), dots + bonus, 10, GameTheme.DIM)
+		var bonus: String = " 스킬 %d" % skill_total if skill_total > 0 else ""
+		GameTheme.label(card, Rect2(6, 52, 75, 16), dots + bonus, 10, GameTheme.DIM)
+		var power: Label = GameTheme.label(card, Rect2(4, 35, 60, 17), "⚔%d" % Waves.unit_power(Battle.to_unit(_ctl.data, inst, _team_bonus)), 12, Color("#ffd8a8"))
+		power.add_theme_constant_override("outline_size", 4)
+		power.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+		power.tooltip_text = "전투력"
 	else:
 		var title: Label = GameTheme.label(card, Rect2(8, 10, 80 if elements.size() == 1 else 60, 36), spec["nameKo"], 14)
 		GameTheme.wrap(title)

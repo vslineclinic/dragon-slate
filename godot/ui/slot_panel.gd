@@ -241,7 +241,7 @@ func _draw_offers(state: Dictionary) -> void:
 			var title: Label = GameTheme.label(card, Rect2(62, 5, text_w, 22), spec["nameKo"] + " 알", 14)
 			title.clip_text = true
 			var odds: int = SlotRules.species_odds(_ctl.data, id)
-			var rarity: Array = GameTheme.rarity(odds)
+			var rarity: Array = GameTheme.rarity(SlotRules.species_weight(_ctl.data, id))
 			GameTheme.label(card, Rect2(62, 26, text_w, 16), "%s · 등장 %s" % [rarity[0], GameTheme.percent(odds)], 11, rarity[1])
 			if not _store.discovered().has(id):
 				GameTheme.new_badge(card, rect.size)

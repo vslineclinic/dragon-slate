@@ -29,6 +29,11 @@ const REJECT_KO: Dictionary = {
 	"skillMaxed": "이미 끝까지 찍은 스킬이에요",
 	"skillLocked": "앞 스킬을 먼저 찍어야 해요",
 }
+const FORK_DONE_KO: Dictionary = {
+	"elite": "정예 사냥! 다음 적이 강해져요.\n이기면 보상을 한 번 더 골라요.",
+	"rest": "쉼터에서 쉬었어요.",
+	"merchant": "상인에게 마력을 냈어요.",
+}
 const BONUS_REASONS: Array[String] = ["line", "goldLine", "wildLine", "goldCells", "benchFull"]
 
 signal run_finished(state: Dictionary)
@@ -166,6 +171,8 @@ func _on_change(events: Array, state: Dictionary) -> void:
 					flash("경험치를 받았어요.")
 			"leveled":
 				leveled += 1
+			"fork":
+				flash(FORK_DONE_KO.get(event["option"], ""))
 			"relic":
 				for relic: Dictionary in controller.data.get("relics", []):
 					if relic["id"] == event["id"]:
@@ -188,12 +195,13 @@ func _on_change(events: Array, state: Dictionary) -> void:
 	_tutorial.hide()
 	_pending = {"events": events, "state": state, "won": fight["winner"] == "ally"}
 	var boss: bool = Waves.is_boss(controller.data["waves"], _wave_before)
-	_boss_fight = boss
+	var elite: bool = Waves.is_elite(controller.data["waves"], _wave_before)
+	_boss_fight = boss or elite
 	var final: bool = _wave_before >= int(controller.data["waves"]["maxWave"])
-	Music.get_for(get_tree()).play(("final_boss" if final else "boss") if boss else "battle_calm")
+	Music.get_for(get_tree()).play(("final_boss" if final else "boss") if _boss_fight else "battle_calm")
 	_board.set_fighting(true)
 	_slot.modulate = Color(0.55, 0.55, 0.62)
-	_battle.play(fight, boss, _wave_before)
+	_battle.play(fight, boss, _wave_before, elite)
 
 
 func _render(events: Array, state: Dictionary) -> void:
@@ -216,6 +224,8 @@ func _render(events: Array, state: Dictionary) -> void:
 		_show_reward_choices(state)
 	elif state["phase"] == "relic":
 		_show_relic_choices(state)
+	elif state["phase"] == "fork":
+		_show_fork_choices(state)
 	if state["phase"] in ["gameOver", "victory"]:
 		_show_result(state)
 		run_finished.emit(state)
@@ -336,7 +346,7 @@ func _show_reward_choices(state: Dictionary) -> void:
 		if choice["detail"] != null and reward["kind"] in ["egg", "t2egg"]:
 			var share: float = _species_share(choice["detail"])
 			chance += "\n그중 이 용일 확률 %.1f%%" % (share * 100.0)
-			chance_color = GameTheme.rarity(int(share * 2400.0))[1] if reward["kind"] == "egg" else GameTheme.DIM
+			chance_color = GameTheme.rarity(Slot.species_weight(controller.data, choice["detail"]))[1] if reward["kind"] == "egg" else GameTheme.DIM
 			if not store.discovered().has(choice["detail"]):
 				GameTheme.new_badge(card, rect.size)
 		GameTheme.label(card, Rect2(8, 200, card_w - 16, 40), chance, 12, chance_color, HORIZONTAL_ALIGNMENT_CENTER)
@@ -415,6 +425,43 @@ func _show_relic_choices(state: Dictionary) -> void:
 		var pop: Tween = card.create_tween().set_parallel()
 		pop.tween_property(card, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(i * 0.08)
 		pop.tween_property(card, "modulate:a", 1.0, 0.2).set_delay(i * 0.08)
+
+
+## 갈림길: 세 길 가운데 하나를 고른다.
+func _show_fork_choices(state: Dictionary) -> void:
+	var field: Rect2 = _areas["field"]
+	var fork: Dictionary = controller.data["waves"].get("fork", {})
+	var cost: int = int(fork.get("merchantCost", 0))
+	var cards: Dictionary = {
+		"elite": ["정예 사냥", "다음 웨이브의 적이 %d%% 강해져요. 이기면 보상을 한 번 더 골라요." % int(fork.get("elitePowerPct", 0)), Color("#c92a2a"), "fire"],
+		"rest": ["쉼터", "생명 +%d(가득 차 있으면 그대로), 모든 드래곤 경험치 +%d." % [int(fork.get("restLives", 0)), int(fork.get("restXp", 0))], Color("#2f9e44"), "poison"],
+		"merchant": ["떠돌이 상인", "마력 %d을 내고 유물 3개 가운데 하나를 골라요." % cost, Color("#d4af37"), "gold"],
+	}
+	_reward_overlay = Control.new()
+	_reward_overlay.z_index = 70
+	GameTheme.place(self, _reward_overlay, field)
+	var dim: ColorRect = ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.6)
+	GameTheme.place(_reward_overlay, dim, Rect2(Vector2.ZERO, field.size))
+	var title: Label = _notice(_reward_overlay, Rect2(0, 110, field.size.x, 50), "갈림길이에요. 어느 길로 갈까요?", 32, Color("#fff3bf"), Color("#5f3dc4"), 8, 0)
+	title.pivot_offset = Vector2.ZERO
+	var choices: Array = state["forkChoices"]
+	var card_w: float = 230.0
+	var gap: float = 20.0
+	var total: float = choices.size() * card_w + (choices.size() - 1) * gap
+	for i: int in range(choices.size()):
+		var option: String = choices[i]
+		var info: Array = cards[option]
+		var rect: Rect2 = Rect2((field.size.x - total) / 2.0 + i * (card_w + gap), 200, card_w, 230)
+		var card: Button = GameTheme.button(_reward_overlay, rect, "", controller.dispatch.bind({"type": "chooseFork", "option": option}), Color("#2b3045"), info[2], 2)
+		GameTheme.place(card, Marks.new(info[3], true), Rect2((card_w - 80) / 2.0, 18, 80, 80))
+		GameTheme.label(card, Rect2(8, 108, card_w - 16, 28), info[0], 20, Color("#fff3bf"), HORIZONTAL_ALIGNMENT_CENTER)
+		var detail: Label = GameTheme.label(card, Rect2(14, 142, card_w - 28, 60), info[1], 14, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+		detail.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		GameTheme.wrap(detail)
+		if option == "merchant" and int(state["mana"]) < cost:
+			card.disabled = true
+			GameTheme.label(card, Rect2(8, 202, card_w - 16, 20), "마력이 모자라요 (지금 %d)" % int(state["mana"]), 13, Color("#ff8787"), HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _reward_preview(reward: Dictionary, detail: Variant) -> String:

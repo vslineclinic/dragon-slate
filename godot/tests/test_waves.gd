@@ -130,3 +130,17 @@ func test_early_wave_pct_softens_only_listed_waves() -> void:
 	cfg["earlyPct"] = {"1": 50}
 	assert_eq(Waves.enemy_power(cfg, 1), 50)
 	assert_eq(Waves.enemy_power(cfg, 2), 118)
+
+
+func test_elite_wave_has_one_strong_leader() -> void:
+	var data: Dictionary = GameData.load_all()
+	var cfg: Dictionary = data["waves"]
+	assert_true(Waves.is_elite(cfg, 7))
+	assert_true(not Waves.is_elite(cfg, 5) and not Waves.is_elite(cfg, 6))
+	var plain: Dictionary = cfg.duplicate(true)
+	plain["elitePct"] = {}
+	assert_eq(Waves.enemy_power(cfg, 7), Rng.fdiv(Waves.enemy_power(plain, 7) * int(cfg["elitePct"]["7"]), 100))
+	var enemies: Array = Waves.generate_enemies(data, 17, Rng.new(5), 5)
+	var leaders: Array = enemies.filter(func(unit: Dictionary) -> bool: return unit["kind"] == "dragon")
+	assert_eq(leaders.size(), 1)
+	assert_eq(leaders[0].get("elite", false), true)

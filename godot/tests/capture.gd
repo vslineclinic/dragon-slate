@@ -57,7 +57,7 @@ func _init() -> void:
 			scene.call("_render", [], ctl.state)
 			for i in 10:
 				await process_frame
-		if mode in ["dex", "relic", "levels"]:
+		if mode in ["dex", "relic", "levels", "fork"]:
 			var team: Array = [["fafnir", 7, 3], ["fire_whelp", 4, 1], ["zhulong", 11, 0]]
 			for slot in range(3):
 				ctl.state["nest"][slot] = {"uid": 900 + slot, "speciesId": team[slot][0], "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": team[slot][2], "level": team[slot][1], "xp": 3}
@@ -65,6 +65,9 @@ func _init() -> void:
 			if mode == "relic":
 				ctl.state["phase"] = "relic"
 				ctl.state["relicChoices"] = ["shell", "horn", "tome"]
+			if mode == "fork":
+				ctl.state["phase"] = "fork"
+				ctl.state["forkChoices"] = ["elite", "rest", "merchant"]
 			scene.call("_render", [], ctl.state)
 			if mode == "dex":
 				scene.call("_open_dex")

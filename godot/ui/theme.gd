@@ -110,13 +110,13 @@ static func percent(odds: int) -> String:
 	return "%d.%d%%" % [Rng.fdiv(odds, 100), Rng.fdiv(odds % 100, 10)]
 
 
-## 알이 나올 확률(만분율)에 따른 희귀도 이름과 색.
-static func rarity(odds: int) -> Array:
-	if odds >= 500:
+## 종의 등장 비율(weight)에 따른 희귀도 이름과 색.
+static func rarity(weight: int) -> Array:
+	if weight >= 35:
 		return ["흔함", Color("#adb5bd")]
-	if odds >= 400:
+	if weight >= 25:
 		return ["보통", Color("#8ce99a")]
-	if odds >= 200:
+	if weight >= 15:
 		return ["드묾", Color("#74c0fc")]
 	return ["희귀", Color("#ffd43b")]
 

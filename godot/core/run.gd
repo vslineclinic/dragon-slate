@@ -36,6 +36,11 @@ static func create_run(data: Dictionary, seed: int, calamity: int = 0) -> Dictio
 		"relics": [],
 		"relicChoices": [],
 		"relicPending": false,
+		"forkPending": false,
+		"forkChoices": [],
+		"waveMod": {},
+		"extraRewards": 0,
+		"rewardBoss": false,
 		"discovered": [],
 		"log": [],
 	}
@@ -67,7 +72,9 @@ static func apply_command(data: Dictionary, state: Dictionary, cmd: Dictionary) 
 		"skill":
 			reason = _do_skill(data, next, cmd["at"], cmd["node"], events)
 		"chooseRelic":
-			reason = _do_choose_relic(data, next, cmd["index"], events)
+			reason = _do_choose_relic(data, next, cmd["index"], rng, events)
+		"chooseFork":
+			reason = _do_choose_fork(data, next, cmd["option"], rng, events)
 	if not reason.is_empty():
 		return {"state": state, "events": [{"t": "rejected", "reason": reason}]}
 	next["rngState"] = rng.state()
@@ -364,10 +371,58 @@ static func _do_choose_reward(data: Dictionary, state: Dictionary, index: Varian
 	state["rewardChoices"] = []
 	state["nudgesLeft"] += int(state["bonusNudges"])
 	state["bonusNudges"] = 0
+	if int(state.get("extraRewards", 0)) > 0:
+		state["extraRewards"] = int(state["extraRewards"]) - 1
+		state["rewardChoices"] = _roll_reward_choices(data, rng, state.get("rewardBoss", false))
+		if not state["rewardChoices"].is_empty():
+			events.append({"t": "rewardChoices", "choices": state["rewardChoices"]})
+			return ""
+	_proceed(data, state, rng, events)
+	return ""
+
+
+## 보상 뒤의 차례: 유물 → 갈림길 → 다음 웨이브.
+static func _proceed(data: Dictionary, state: Dictionary, rng: Rng, events: Array) -> void:
 	if _offer_relics(data, state, rng, events):
-		return ""
+		return
+	if state.get("forkPending", false):
+		state["forkPending"] = false
+		state["forkChoices"] = ["elite", "rest", "merchant"]
+		state["phase"] = "fork"
+		events.append({"t": "forkChoices", "choices": state["forkChoices"]})
+		return
 	state["phase"] = "spin"
 	events.append(_wave_start(data, state))
+
+
+## 갈림길: 정예 사냥(다음 적이 강해지고 보상을 한 번 더) · 쉼터(생명과 경험치) · 상인(마력으로 유물).
+static func _do_choose_fork(data: Dictionary, state: Dictionary, option: Variant, rng: Rng, events: Array) -> String:
+	if state["phase"] != "fork":
+		return "wrongPhase"
+	if option not in state.get("forkChoices", []):
+		return "emptySlot"
+	var fork: Dictionary = data["waves"].get("fork", {})
+	match option:
+		"elite":
+			state["waveMod"] = {"powerPct": int(fork.get("elitePowerPct", 0)), "extraRewards": 1}
+		"rest":
+			var max_lives: int = maxi(int(state["lives"]), int(data["waves"]["startLives"]))
+			state["lives"] = mini(max_lives, int(state["lives"]) + int(fork.get("restLives", 0)))
+			events.append({"t": "lives", "lives": state["lives"]})
+			for zone: String in ["nest", "bench"]:
+				for i: int in range(state[zone].size()):
+					var inst: Variant = state[zone][i]
+					if inst != null and Fusion.add_xp(data, inst, int(fork.get("restXp", 0))) > 0:
+						events.append({"t": "leveled", "at": {"zone": zone, "index": i}, "level": inst["level"]})
+		"merchant":
+			var cost: int = int(fork.get("merchantCost", 0))
+			if int(state["mana"]) < cost:
+				return "notEnoughMana"
+			_add_mana(state, -cost, "merchant", events)
+			state["relicPending"] = true
+	state["forkChoices"] = []
+	events.append({"t": "fork", "option": option})
+	_proceed(data, state, rng, events)
 	return ""
 
 
@@ -402,7 +457,7 @@ static func _offer_relics(data: Dictionary, state: Dictionary, rng: Rng, events:
 	return true
 
 
-static func _do_choose_relic(data: Dictionary, state: Dictionary, index: Variant, events: Array) -> String:
+static func _do_choose_relic(data: Dictionary, state: Dictionary, index: Variant, rng: Rng, events: Array) -> String:
 	if state["phase"] != "relic":
 		return "wrongPhase"
 	var choices: Array = state.get("relicChoices", [])
@@ -420,8 +475,7 @@ static func _do_choose_relic(data: Dictionary, state: Dictionary, index: Variant
 		elif relic["kind"] == "nudge":
 			state["nudgesLeft"] += int(relic["value"])
 	events.append({"t": "relic", "id": id})
-	state["phase"] = "spin"
-	events.append(_wave_start(data, state))
+	_proceed(data, state, rng, events)
 	return ""
 
 
@@ -505,9 +559,13 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 		return "nestEmpty"
 	var wave: int = state["wave"]
 	var waves: Dictionary = data["waves"]
-	var mods: Dictionary = Calamity.mods(data, state["calamity"])
+	var mods: Dictionary = Calamity.mods(data, state["calamity"]).duplicate()
+	var wave_mod: Dictionary = state.get("waveMod", {})
+	mods["enemyPowerPct"] = int(mods["enemyPowerPct"]) + int(wave_mod.get("powerPct", 0))
+	state["waveMod"] = {}
 	var enemies: Array = Waves.generate_enemies(data, wave, rng, state["seed"], mods)
 	var is_boss: bool = Waves.is_boss(waves, wave)
+	var strong_wave: bool = is_boss or Waves.is_elite(waves, wave)
 	var boss: Variant = _boss_spec(data, wave) if is_boss else null
 	var rules: Dictionary = {} if boss == null else boss.get("rules", {}).duplicate()
 	if relics.has("strongAddPct"):
@@ -545,14 +603,14 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 	state["nudgesLeft"] = int(data["slot"]["nudgesPerWave"]) + int(state["bonusNudges"]) + int(relics.get("nudge", 0))
 	state["bonusNudges"] = 0
 	state["relicPending"] = won and is_boss
+	state["forkPending"] = wave in waves.get("fork", {}).get("after", []) and int(state["wave"]) > wave
+	state["extraRewards"] = int(wave_mod.get("extraRewards", 0)) if won else 0
+	state["rewardBoss"] = strong_wave
 	if won:
-		state["rewardChoices"] = _roll_reward_choices(data, rng, is_boss)
+		state["rewardChoices"] = _roll_reward_choices(data, rng, strong_wave)
 	if won and not state["rewardChoices"].is_empty():
 		state["phase"] = "reward"
 		events.append({"t": "rewardChoices", "choices": state["rewardChoices"]})
 		return ""
-	if _offer_relics(data, state, rng, events):
-		return ""
-	state["phase"] = "spin"
-	events.append(_wave_start(data, state))
+	_proceed(data, state, rng, events)
 	return ""

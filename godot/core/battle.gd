@@ -160,7 +160,7 @@ static func simulate_battle(
 			"id": unit["id"], "side": unit["side"], "kind": unit["kind"], "ref": unit["ref"],
 			"elements": unit["elements"].duplicate(), "slot": unit["slot"], "owner": unit["owner"],
 			"lane": unit["lane"], "x": unit["x"], "hp": unit["hp"], "stage": unit["stage"],
-			"ultNeed": unit["ultNeed"],
+			"ultNeed": unit["ultNeed"], "elite": unit["elite"],
 		})
 	var last_stage: int = 0
 	for unit: Dictionary in units:
@@ -337,6 +337,7 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 			maxi(1, Rng.fdiv(int(item["hp"]) * hp_scale, 100)), int(item["atk"]), int(item["cooldownTicks"]), int(item.get("speed", 0)),
 			int(item["lane"]), int(item["x"]))
 		foe["stage"] = int(item.get("stage", 0))
+		foe["elite"] = bool(item.get("elite", false))
 		foe["active"] = foe["stage"] == 0
 		units.append(foe)
 	return units
@@ -350,7 +351,7 @@ static func _make(
 		"id": id, "side": side, "kind": kind, "ref": ref, "elements": elements.duplicate(),
 		"hp": hp, "maxHp": hp, "atk": atk, "cd": cd, "timer": 0, "speed": speed,
 		"lane": lane, "x": x, "laneTimer": 0, "slot": -1, "owner": -1, "lifesteal": 0,
-		"stage": 0, "active": true, "tier": "", "ultNeed": 0, "charge": 0,
+		"stage": 0, "active": true, "tier": "", "ultNeed": 0, "charge": 0, "elite": false,
 	}
 
 

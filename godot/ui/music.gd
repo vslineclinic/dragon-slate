@@ -15,7 +15,7 @@ static var _instance: Node
 var _players: Array[AudioStreamPlayer] = []
 var _active: int = 0
 var _track: String = ""
-var _set: String = "a"
+var _set: String = "b"
 
 
 static func get_for(tree: SceneTree) -> Node:
@@ -35,8 +35,8 @@ func _init() -> void:
 		_players.append(player)
 	var config: ConfigFile = ConfigFile.new()
 	if config.load(SETTINGS_PATH) == OK:
-		var saved: String = str(config.get_value("music", "set", "a"))
-		_set = saved if saved in SETS else "a"
+		var saved: String = str(config.get_value("music", "set", "b"))
+		_set = saved if saved in SETS else "b"
 
 
 ## 전투 배속과 상관없이 같은 빠르기로 들리게 한다.

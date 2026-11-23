@@ -77,7 +77,7 @@ func setup(data: Dictionary, store: Store, width: float) -> void:
 	_fx_layer = Control.new()
 	_fx_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fx_layer)
-	_caption = GameTheme.label(self, Rect2(size.x / 2.0 - 360, 10, 720, 30), "", 18, Color("#fff3bf"), HORIZONTAL_ALIGNMENT_CENTER)
+	_caption = GameTheme.label(self, Rect2(size.x / 2.0 - 360, 8, 720, 52), "", 18, Color("#fff3bf"), HORIZONTAL_ALIGNMENT_CENTER)
 	_caption.add_theme_constant_override("outline_size", 5)
 	_caption.add_theme_color_override("font_outline_color", Color("#000000cc"))
 	_flash = ColorRect.new()
@@ -98,11 +98,25 @@ func show_idle(state: Dictionary) -> void:
 	set_process(false)
 	_caption.text = ""
 	if state["phase"] not in ["gameOver", "victory"]:
-		var boss: bool = Waves.is_boss(_data["waves"], state["wave"])
-		_caption.text = "다음 전투: 웨이브 %d%s" % [state["wave"], " · 심판 보스" if boss else ""]
+		var wave: int = state["wave"]
+		var kind: String = ""
+		if Waves.is_boss(_data["waves"], wave):
+			kind = " · 심판 보스"
+		elif Waves.is_elite(_data["waves"], wave):
+			kind = " · 중간 보스"
+		var hunt: Dictionary = state.get("waveMod", {})
+		if not hunt.is_empty():
+			kind += " · 정예 사냥(보상 2번)"
+		var mods: Dictionary = Calamity.mods(_data, state["calamity"]).duplicate()
+		mods["enemyPowerPct"] = int(mods["enemyPowerPct"]) + int(hunt.get("powerPct", 0))
+		var ours: int = 0
+		for unit: Variant in Battle.team(_data, state["nest"], state["nestOpen"], Run.relic_bonus(_data, state)):
+			if unit != null:
+				ours += Waves.unit_power(unit)
+		_caption.text = "다음 전투: 웨이브 %d%s\n적 전투력 %d · 우리 드래곤 %d" % [wave, kind, Waves.enemy_power(_data["waves"], wave, mods), ours]
 
 
-func play(result: Dictionary, boss: bool, wave: int) -> void:
+func play(result: Dictionary, boss: bool, wave: int, elite: bool = false) -> void:
 	_set_background(wave)
 	_clear_units()
 	for unit: Dictionary in result["units"]:
@@ -111,7 +125,7 @@ func play(result: Dictionary, boss: bool, wave: int) -> void:
 		if view.stage > 0:
 			view.root.hide()
 		_views[unit["id"]] = view
-	_caption.text = "심판 보스 전투!" if boss else "전투 중"
+	_caption.text = "심판 보스 전투!" if boss else ("중간 보스 등장!" if elite else "전투 중")
 	_result = result
 	_events = result["events"]
 	_next_event = 0
@@ -153,7 +167,7 @@ func _unit_view(unit: Dictionary) -> UnitView:
 		var id: int = int(unit["id"])
 		view.offset = Vector2((id % 2) * 16.0 - 8.0, (id * 7 % 3 - 1) * 34.0)
 	view.center = _point(unit["x"], unit["lane"]) + view.offset
-	var edge: float = SIZE_BY_KIND.get(view.kind, 56.0)
+	var edge: float = SIZE_BY_KIND.get(view.kind, 56.0) * (1.4 if unit.get("elite", false) else 1.0)
 	view.root = Control.new()
 	view.root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	view.root.size = Vector2(edge, edge)

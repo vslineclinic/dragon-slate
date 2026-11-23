@@ -20,6 +20,13 @@ static func choose(data: Dictionary, state: Dictionary) -> Dictionary:
 			return _choose_reward(data, state)
 		"relic":
 			return _choose_relic(state)
+		"fork":
+			var cost: int = int(data["waves"].get("fork", {}).get("merchantCost", 0))
+			if int(state["lives"]) < int(data["waves"]["startLives"]) - 1:
+				return {"type": "chooseFork", "option": "rest"}
+			if int(state["mana"]) >= cost + 4:
+				return {"type": "chooseFork", "option": "merchant"}
+			return {"type": "chooseFork", "option": "rest"}
 	push_error("no bot command for phase " + str(state["phase"]))
 	return {}
 

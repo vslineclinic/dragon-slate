@@ -375,3 +375,45 @@ func test_win_offers_three_rewards_then_relic_after_boss() -> void:
 	var done: Dictionary = RunRules.apply_command(data, picked, {"type": "chooseRelic", "index": 2})["state"]
 	_assert_fields(done, {"phase": "spin", "wave": 6})
 	assert_eq(done["relics"].size(), 1)
+
+
+func test_fork_appears_after_listed_waves_and_rest_heals() -> void:
+	var state: Dictionary = _strong_nest(3)
+	state["lives"] = 3
+	var after: Dictionary = _apply(state, {"type": "startBattle"})["state"]
+	_assert_fields(after, {"phase": "fork", "wave": 4, "forkChoices": ["elite", "rest", "merchant"]})
+	var rested: Dictionary = _apply(after, {"type": "chooseFork", "option": "rest"})
+	_assert_fields(rested["state"], {"phase": "spin", "lives": 4, "forkChoices": []})
+	assert_true(rested["events"].any(func(event: Dictionary) -> bool: return event["t"] == "waveStart" and event["wave"] == 4))
+
+
+func test_rest_never_raises_lives_above_the_start() -> void:
+	var state: Dictionary = _fresh({"phase": "fork", "forkChoices": ["elite", "rest", "merchant"]})
+	assert_eq(_apply(state, {"type": "chooseFork", "option": "rest"})["state"]["lives"], 5)
+
+
+func test_merchant_costs_mana_and_offers_relics() -> void:
+	var cost: int = _data["waves"]["fork"]["merchantCost"]
+	var poor: Dictionary = _fresh({"phase": "fork", "forkChoices": ["elite", "rest", "merchant"], "mana": cost - 1})
+	_assert_rejected(poor, {"type": "chooseFork", "option": "merchant"}, "notEnoughMana")
+	var rich: Dictionary = _fresh({"phase": "fork", "forkChoices": ["elite", "rest", "merchant"], "mana": cost + 2})
+	var bought: Dictionary = _apply(rich, {"type": "chooseFork", "option": "merchant"})["state"]
+	_assert_fields(bought, {"phase": "relic", "mana": 2})
+	assert_eq(bought["relicChoices"].size(), 3)
+	_assert_fields(_apply(bought, {"type": "chooseRelic", "index": 0})["state"], {"phase": "spin"})
+
+
+func test_elite_hunt_strengthens_next_wave_and_gives_a_second_reward() -> void:
+	var data: Dictionary = GameData.load_all()
+	var state: Dictionary = RunRules.create_run(data, 4)["state"]
+	state.merge({"phase": "fork", "forkChoices": ["elite", "rest", "merchant"], "wave": 4,
+		"nest": [_inst(1, "tiamat", 9000), null, null, null, null, null]}, true)
+	var hunting: Dictionary = RunRules.apply_command(data, state, {"type": "chooseFork", "option": "elite"})["state"]
+	_assert_fields(hunting, {"phase": "spin", "waveMod": {"powerPct": int(data["waves"]["fork"]["elitePowerPct"]), "extraRewards": 1}})
+	hunting["phase"] = "manage"
+	var won: Dictionary = RunRules.apply_command(data, hunting, {"type": "startBattle"})["state"]
+	_assert_fields(won, {"phase": "reward", "extraRewards": 1, "waveMod": {}})
+	var first: Dictionary = RunRules.apply_command(data, won, {"type": "chooseReward", "index": 0})["state"]
+	_assert_fields(first, {"phase": "reward", "extraRewards": 0})
+	assert_eq(first["rewardChoices"].size(), 3)
+	_assert_fields(RunRules.apply_command(data, first, {"type": "chooseReward", "index": 0})["state"], {"phase": "spin"})

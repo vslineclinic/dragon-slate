@@ -6,6 +6,11 @@ static func is_boss(cfg: Dictionary, wave: int) -> bool:
 	return wave <= cfg["maxWave"] and cfg["bossPct"].has(str(wave))
 
 
+## 중간 보스(정예 우두머리) 웨이브: 보스가 아닌 웨이브 가운데 elitePct에 적힌 것.
+static func is_elite(cfg: Dictionary, wave: int) -> bool:
+	return wave <= cfg["maxWave"] and cfg.get("elitePct", {}).has(str(wave)) and not is_boss(cfg, wave)
+
+
 static func enemy_power(cfg: Dictionary, wave: int, mods: Dictionary = Calamity.NONE) -> int:
 	var power: int = int(cfg["basePower"])
 	## 구간별 성장률: growthBands의 from 이상인 마지막 구간을 쓴다. 없으면 growthPct.
@@ -20,6 +25,8 @@ static func enemy_power(cfg: Dictionary, wave: int, mods: Dictionary = Calamity.
 	var early: Dictionary = cfg.get("earlyPct", {})
 	if early.has(str(wave)):
 		power = Rng.fdiv(power * int(early[str(wave)]), 100)
+	if is_elite(cfg, wave):
+		power = Rng.fdiv(power * int(cfg["elitePct"][str(wave)]), 100)
 	var boss: bool = is_boss(cfg, wave)
 	if boss:
 		power = Rng.fdiv(power * int(cfg["bossPct"][str(wave)]), 100)
@@ -91,7 +98,13 @@ static func generate_enemies(
 			minions.append(_minion_unit(chosen))
 
 	var target: int = enemy_power(cfg, wave, mods)
-	var leader_budget: int = target if minions.is_empty() else Rng.fdiv(target * int(squad["leaderSharePct"]), 100)
+	var elite: bool = is_elite(cfg, wave)
+	var share: int = int(squad.get("eliteLeaderSharePct", squad["leaderSharePct"])) if elite else int(squad["leaderSharePct"])
+	var leader_budget: int = target if minions.is_empty() else Rng.fdiv(target * share, 100)
+	if elite:
+		## 중간 보스는 우두머리 하나가 힘을 거의 다 가진다.
+		leaders.resize(1)
+		leaders[0]["elite"] = true
 	_scale_to(leaders, leader_budget)
 	_scale_to(minions, target - leader_budget)
 
