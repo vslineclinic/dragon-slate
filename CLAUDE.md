@@ -3,7 +3,9 @@
 설계: `docs/superpowers/specs/2026-11-23-wyrmslot-design.md` · 현재 계획: `docs/superpowers/plans/2026-11-23-phase0-prototype.md`
 
 ## 명령
-- `npm run dev` 브라우저 플레이(5173) · `npm test` · `npm run typecheck` · `npm run lint:data` · `npm run sim -- --runs 10000 --seed 1` · `npm run build`
+- Godot(기준): `npm run godot:test` · `npm run sim -- --runs 300 --seed 1000 [--demo] [--calamity 1]` · `npm run godot:export` (Windows 정식·데모) · `npm run godot:apk` (Android 테스트 APK)
+- 화면 확인: `godot --path . --position -4000,-4000 --script res://godot/tests/capture.gd -- <장면> <png> [spin|spinmid|manage|battle|battle-late] [폭]`
+- 웹판(멈춤, 참고용): `npm run dev` · `npm test` · `npm run typecheck`
 
 ## 불변 규칙
 - `packages/core/**`에서는 `phaser`, `document`, `window`, `localStorage`, `Math.random`, `Date.now`, `performance.now`, `Math.sin|cos|tan|pow|exp|log|sqrt`를 쓰지 않는다. 난수는 `Rng`만 쓴다.
@@ -29,5 +31,5 @@
 ## Godot 전환 (2026-11-23, 설계 문서 8.2)
 - Godot 4.7.2 + GDScript, 실행 파일 `C:\claude\tools\godot\Godot_v4.7.2-stable_win64_console.exe`.
 - `project.godot`는 저장소 맨 위. 규칙 이식은 `godot/core/`, 테스트는 `godot/tests/` (실행: `godot --headless --path . --script res://godot/tests/run_tests.gd`).
-- TypeScript판과 비트 단위로 같은 결과여야 함. 기준 자료는 `npm run parity` → `godot/tests/fixtures/`.
-- 웹판(packages/*)은 Godot판이 따라잡을 때까지 기준·시험판으로 유지.
+- **2026-11-23부터 Godot판만 개발**(사용자 결정). 웹판(packages/*, apps/web, tools/sim, tools/parity)은 고치지 않음. run 일치 검사는 은퇴, rng·slot 일치 기준 자료(`godot/tests/fixtures/`)는 유지.
+- 부대 전투 설계: `docs/superpowers/specs/2026-11-23-squad-battlefield-design.md` · 계획: `docs/superpowers/plans/2026-11-23-squad-battlefield.md`

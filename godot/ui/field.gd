@@ -140,7 +140,8 @@ func _unit_view(unit: Dictionary) -> UnitView:
 	view.hp = int(unit["hp"])
 	view.max_hp = maxi(view.hp, 1)
 	if view.kind != "dragon":
-		view.offset = Vector2(0, (int(unit["id"]) * 7 % 3 - 1) * 16.0)
+		var id: int = int(unit["id"])
+		view.offset = Vector2((id % 2) * 16.0 - 8.0, (id * 7 % 3 - 1) * 22.0)
 	view.center = _point(unit["x"], unit["lane"]) + view.offset
 	var edge: float = SIZE_BY_KIND.get(view.kind, 56.0)
 	view.root = Control.new()

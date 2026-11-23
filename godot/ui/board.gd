@@ -80,8 +80,11 @@ func render(state: Dictionary) -> void:
 			var pad_fill: Color = Color(0.05, 0.06, 0.1, 0.55 if not locked else 0.35)
 			var pad_line: Color = Color(1, 0.83, 0.23, 0.9) if manage and not locked else Color(1, 1, 1, 0.25)
 			GameTheme.panel(_layer, rect, pad_fill, pad_line, 2, 12)
-			GameTheme.label(_layer, Rect2(rect.position.x, rect.position.y - 18, rect.size.x, 16),
-				"전열" if ref["index"] < 3 else "후열", 11, Color(1, 1, 1, 0.55), HORIZONTAL_ALIGNMENT_CENTER)
+			if ref["index"] % 3 == 0:
+				var header: Label = GameTheme.label(_layer, Rect2(rect.position.x, rect.position.y - 22, rect.size.x, 18),
+					"전열" if ref["index"] < 3 else "후열", 13, Color(1, 1, 1, 0.85), HORIZONTAL_ALIGNMENT_CENTER)
+				header.add_theme_constant_override("outline_size", 4)
+				header.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
 		else:
 			GameTheme.panel(_layer, rect, GameTheme.CARD, GameTheme.PANEL_LINE, 1, 8)
 		if locked:
