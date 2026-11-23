@@ -40,3 +40,30 @@ image_gen(이미지 생성 도구) 사용을 허락해요. 이 작업에서 imag
 ## 완료 조건
 - 졸병 PNG 6개와 배경 PNG 4개가 위 경로와 크기로 있어요. 크기는 `python -c`나 아무 방법으로 확인해서 결과 메모에 적어요.
 - 이 카드 맨 아래에 "결과" 절을 만들고, 만든 파일 목록과 쓴 프롬프트 요약을 적어요.
+
+## 결과
+
+내장 image_gen으로 졸병 6종과 전장 배경 4종을 생성했습니다. 화풍은 저장소의 `assets/dragons/fire_drake.png`와 `assets/dragons/ice_drake.png`를 참조했습니다.
+
+- 졸병 프롬프트는 굵은 외곽선과 각진 명암, 왼쪽을 보는 코볼트 전신, 투명 배경을 공통으로 지정했습니다. 게임용 PNG에서 알파 채널, 가로 가운데 정렬, 아래쪽 10% 안의 발 위치를 확인했습니다.
+- 배경 프롬프트는 부드러운 판타지 화풍, 가로로 긴 측면 구도, 상단의 하늘과 먼 풍경, 가운데와 아래의 단순한 지면을 공통으로 지정했습니다. 글자와 인물, 유닛을 빼고 그렸습니다. 게임용 PNG는 원본의 위아래를 잘라 가로세로 비율을 유지한 채 축소했습니다.
+
+| 원본 PNG | 해상도 · 용량 | 게임용 PNG | 해상도 · 용량 | 개별 프롬프트 요약 |
+|---|---|---|---|---|
+| `art/minions-src/ember_kobold.png` | 1254×1254 · 827,093 B | `assets/minions/ember_kobold.png` | 256×256 · 60,351 B | 주황·빨강 비늘과 불붙은 창 |
+| `art/minions-src/frost_kobold.png` | 1254×1254 · 973,312 B | `assets/minions/frost_kobold.png` | 256×256 · 77,447 B | 하늘색·흰색 비늘과 각진 얼음 방패 |
+| `art/minions-src/spark_kobold.png` | 1254×1254 · 948,776 B | `assets/minions/spark_kobold.png` | 256×256 · 76,416 B | 노란 비늘과 번개 모양 지팡이 |
+| `art/minions-src/bog_kobold.png` | 1254×1254 · 901,447 B | `assets/minions/bog_kobold.png` | 256×256 · 72,588 B | 연두색 비늘, 보라색 장비와 독 단검 |
+| `art/minions-src/iron_kobold.png` | 1254×1254 · 949,609 B | `assets/minions/iron_kobold.png` | 256×256 · 77,732 B | 회색 판금 갑옷과 쇠망치 |
+| `art/minions-src/shade_kobold.png` | 1254×1254 · 916,729 B | `assets/minions/shade_kobold.png` | 256×256 · 75,602 B | 짙은 보라색 비늘, 두건과 낫 |
+| `art/backgrounds-src/plains_ruins.png` | 2243×701 · 1,624,001 B | `assets/backgrounds/plains_ruins.png` | 1600×446 · 678,574 B | 저녁빛이 드는 풀밭과 무너진 돌기둥 |
+| `art/backgrounds-src/ice_canyon.png` | 2172×724 · 1,478,458 B | `assets/backgrounds/ice_canyon.png` | 1600×446 · 564,275 B | 푸른 얼음 절벽과 눈밭. 글자가 잘 보이도록 채도를 낮춘 푸른 저녁빛으로 조정 |
+| `art/backgrounds-src/volcano.png` | 2243×701 · 1,507,209 B | `assets/backgrounds/volcano.png` | 1600×446 · 574,709 B | 붉은 하늘, 검은 화산암과 멀리 흐르는 용암 |
+| `art/backgrounds-src/abyss.png` | 2241×702 · 1,505,713 B | `assets/backgrounds/abyss.png` | 1600×446 · 598,520 B | 별빛 아래 보랏빛 균열과 공중에 떠 있는 바위 |
+
+### 검증
+
+- PNG 20개를 열어 해상도와 용량을 확인했습니다.
+- `npm test -- --no-cache` 통과. 테스트 파일 17개, 테스트 131개.
+- `npm run typecheck` 통과.
+- `npm run godot:test` 종료 코드 1. `godot/tests/run_tests.gd`에서 `TestCase` 형식을 찾지 못해 테스트가 시작되지 않았습니다.
