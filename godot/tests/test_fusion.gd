@@ -160,3 +160,24 @@ func test_skill_needs_point_prerequisite_and_room() -> void:
 	assert_eq(Fusion.skill_rejection(data, inst, "fang"), "skillMaxed")
 	assert_eq(Fusion.skill_rejection(data, inst, "frenzy"), "")
 	assert_eq(Fusion.skill_rejection(data, inst, "nope"), "unknownSkill")
+
+
+func test_recipe_index_follows_added_recipes() -> void:
+	var data: Dictionary = _data()
+	assert_eq(Fusion.find_recipe(data, "palraiyuk", "palraiyuk"), null)
+	data["recipes"].append({"a": "palraiyuk", "b": "palraiyuk", "result": "zhulong"})
+	assert_eq(Fusion.find_recipe(data, "palraiyuk", "palraiyuk"), "zhulong")
+
+
+func test_every_upper_dragon_has_a_recipe_and_tiers_form_a_pyramid() -> void:
+	var data: Dictionary = GameData.load_all()
+	var made: Dictionary = {}
+	for recipe: Dictionary in data["recipes"]:
+		made[recipe["result"]] = true
+	var counts: Dictionary = {}
+	for spec: Dictionary in data["dragons"].values():
+		if spec["tier"] != "base":
+			assert_true(made.has(spec["id"]), spec["id"])
+		if spec["elements"].size() == 1 and spec["elements"][0] == "fire":
+			counts[spec["tier"]] = int(counts.get(spec["tier"], 0)) + 1
+	assert_eq(counts, {"base": 12, "t2": 9, "t1": 6, "apex": 3})

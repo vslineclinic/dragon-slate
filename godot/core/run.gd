@@ -570,6 +570,7 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 	var rules: Dictionary = {} if boss == null else boss.get("rules", {}).duplicate()
 	if relics.has("strongAddPct"):
 		rules["strongAddPct"] = relics["strongAddPct"]
+	rules["critSeed"] = rng.next_int(1000000007)
 	var result: Dictionary = Battle.simulate_battle(data["battle"], allies, enemies, rules)
 	events.append({"t": "battle", "result": result})
 	var won: bool = result["winner"] == "ally"

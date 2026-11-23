@@ -1,4 +1,5 @@
 """art/dragons-src의 원본을 256px 게임용 그림으로 줄인다. 사용: python tools/shrink-art.py <원본 폴더> <id>..."""
+import shutil
 import sys
 from PIL import Image
 
@@ -12,5 +13,5 @@ for name in sys.argv[2:]:
     crop = im.crop(box)
     canvas.alpha_composite(crop, ((canvas.width - crop.width) // 2, (canvas.height - crop.height) // 2))
     canvas.resize((256, 256), Image.LANCZOS).save(f"assets/dragons/{name}.png")
-    im.save(f"art/dragons-src/{name}.png")
+    shutil.copyfile(f"{src}/{name}.png", f"art/dragons-src/{name}.png")
     print("ok", name)

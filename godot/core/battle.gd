@@ -178,6 +178,10 @@ static func simulate_battle(
 	var pos_every: int = int(field["posEveryTicks"])
 	var strong_add: int = int(rules.get("strongAddPct", 0))
 	var ultimate: Dictionary = cfg.get("ultimate", {})
+	## 치명타: 드래곤(아군·적 우두머리)의 보통 공격이 가끔 세게 들어간다. 전투마다 받은 씨앗으로만 굴린다.
+	var crit: Dictionary = cfg.get("crit", {})
+	var crit_pct: int = int(crit.get("pct", 0))
+	var crit_rng: Rng = Rng.new(int(rules.get("critSeed", 0)))
 
 	var events: Array = []
 	var tick: int = 0
@@ -265,6 +269,9 @@ static func simulate_battle(
 					if side == "ally" and mult > 100:
 						mult += strong_add
 					var dmg: int = maxi(1, Rng.fdiv(int(unit["atk"]) * mult * power_pct, 10000))
+					var is_crit: bool = crit_pct > 0 and not is_ult and unit["kind"] == "dragon" and crit_rng.next_int(100) < crit_pct
+					if is_crit:
+						dmg = Rng.fdiv(dmg * int(crit["dmgPct"]), 100)
 					if side == "enemy" and enraged:
 						dmg = Rng.fdiv(dmg * int(enrage["atkPct"]), 100)
 					victim["hp"] -= dmg
@@ -281,6 +288,8 @@ static func simulate_battle(
 						hit["charge"] = unit["charge"]
 					if is_ult:
 						hit["ult"] = true
+					if is_crit:
+						hit["crit"] = true
 					events.append(hit)
 					if victim["hp"] <= 0:
 						_kill(units, victim, tick, "hit", events)

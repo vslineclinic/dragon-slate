@@ -2,11 +2,18 @@ class_name Fusion
 extends RefCounted
 
 
+## 조합표가 수천 줄이라 "a|b" 색인을 만들어 둔다. 조합표 길이가 바뀌면 다시 만든다. 같은 쌍이 여러 번 있으면 앞의 것이 이긴다.
 static func find_recipe(data: Dictionary, a: String, b: String) -> Variant:
-	for recipe: Dictionary in data["recipes"]:
-		if (recipe["a"] == a and recipe["b"] == b) or (recipe["a"] == b and recipe["b"] == a):
-			return recipe["result"]
-	return null
+	var recipes: Array = data["recipes"]
+	if int(data.get("_recipeCount", -1)) != recipes.size():
+		var index: Dictionary = {}
+		for recipe: Dictionary in recipes:
+			for key: String in [recipe["a"] + "|" + recipe["b"], recipe["b"] + "|" + recipe["a"]]:
+				if not index.has(key):
+					index[key] = recipe["result"]
+		data["_recipeIndex"] = index
+		data["_recipeCount"] = recipes.size()
+	return data["_recipeIndex"].get(a + "|" + b)
 
 
 static func level_of(inst: Dictionary) -> int:

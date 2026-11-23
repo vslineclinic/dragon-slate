@@ -9,10 +9,10 @@ const Store = preload("res://godot/ui/store.gd")
 const ROWS: Array[String] = ["apex", "t1", "t2", "base"]
 const ROW_NOTE: Dictionary = {"apex": "용의 황제", "t1": "전설의 용", "t2": "자란 용", "base": "새끼 용"}
 const PANEL_W: float = 1200.0
-const CARD: Vector2 = Vector2(196, 86)
-const BASE_CARD: Vector2 = Vector2(160, 74)
-const ROW_H: float = 102.0
-const BASE_PER_ROW: int = 6
+const TILE: Vector2 = Vector2(80, 104)
+const TILE_GAP: float = 6.0
+const ROW_H: float = 118.0
+const MIXED_PER_ROW: int = 8
 const OWNED: Color = Color("#69db7c")
 
 var _data: Dictionary
@@ -59,7 +59,7 @@ func setup(data: Dictionary, store: Store, state: Dictionary = {}, width: float 
 	_entries = Control.new()
 	_entries.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(_entries)
-	_detail = GameTheme.label(panel, Rect2(24, 574, PANEL_W - 48, 90), "", 14)
+	_detail = GameTheme.label(panel, Rect2(24, 544, PANEL_W - 48, 116), "", 15)
 	GameTheme.wrap(_detail)
 	_show_page(_first_page())
 	close_button.grab_focus()
@@ -99,17 +99,19 @@ func _show_page(page: String) -> void:
 		child.queue_free()
 	var help: String = "드래곤을 누르면 설명과 만드는 법을 볼 수 있어요."
 	if not _owned.is_empty():
-		help += " 초록 테두리는 지금 가진 용, 노란 테두리는 다음에 만들 수 있는 용이에요."
+		help += " 초록 테두리는 지금 가진 용, 노란 테두리는 지금 가진 용 둘로 만들 수 있는 용이에요."
 	_detail.text = GameTheme.keep_words(help)
 	var dragons: Array = _data["dragons"].values()
 	if page == "mixed":
 		var rest: Array = dragons.filter(func(dragon: Dictionary) -> bool: return dragon["tier"] == "dual")
 		rest.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return _element_rank(a) < _element_rank(b))
 		rest.append_array(dragons.filter(func(dragon: Dictionary) -> bool: return dragon["tier"] == "secret"))
+		var big: Vector2 = Vector2(118, 132)
+		var mixed_left: float = (PANEL_W - (MIXED_PER_ROW * big.x + (MIXED_PER_ROW - 1) * 12.0)) / 2.0
 		for i: int in range(rest.size()):
 			@warning_ignore("integer_division")
-			var row: int = i / 5
-			_card(rest[i], Rect2(60 + i % 5 * 218, 66 + row * 122, 210, 114))
+			var row: int = i / MIXED_PER_ROW
+			_card(rest[i], Rect2(mixed_left + i % MIXED_PER_ROW * (big.x + 12), 90 + row * (big.y + 16), big.x, big.y))
 		return
 	var tint: Color = GameTheme.COLOR[page]
 	var needs: Dictionary = _data["battle"].get("level", {}).get("evolveLevel", {})
@@ -118,25 +120,16 @@ func _show_page(page: String) -> void:
 		var row: Array = dragons.filter(func(dragon: Dictionary) -> bool: return dragon["elements"] == [page] and dragon["tier"] == tier)
 		row.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["id"] < b["id"])
 		var y: float = 60.0 + r * ROW_H
-		var base: bool = tier == "base"
-		var card_size: Vector2 = BASE_CARD if base else CARD
-		var per_row: int = BASE_PER_ROW if base else maxi(1, row.size())
-		var lines: int = maxi(1, ceili(float(row.size()) / per_row))
-		var width: float = mini(per_row, row.size()) * card_size.x + maxi(0, mini(per_row, row.size()) - 1) * 10.0
-		var left: float = (PANEL_W - width) / 2.0 + (60.0 if base else 0.0)
-		var block_h: float = lines * (card_size.y + 6) + 10
+		var width: float = row.size() * TILE.x + maxi(0, row.size() - 1) * TILE_GAP
+		var left: float = (PANEL_W - width) / 2.0 + 60.0
 		## 계단 모양 받침: 위로 갈수록 좁아져 피라미드가 된다.
-		GameTheme.panel(_entries, Rect2(left - 20, y + 2, width + 40, block_h), Color(tint, 0.10 + 0.05 * (ROWS.size() - 1 - r)), Color(tint, 0.45), 1, 10)
+		GameTheme.panel(_entries, Rect2(left - 14, y, width + 28, TILE.y + 10), Color(tint, 0.10 + 0.05 * (ROWS.size() - 1 - r)), Color(tint, 0.45), 1, 10)
 		var need: String = "알에서 얻어요" if tier == "base" else "레벨 %d부터 진화" % int(needs.get(tier, 1))
-		GameTheme.label(_entries, Rect2(24, y + 14, 150, 26), GameTheme.TIER_KO[tier], 20, tint.lightened(0.35))
-		GameTheme.label(_entries, Rect2(24, y + 42, 150, 20), ROW_NOTE[tier], 13, GameTheme.DIM)
-		GameTheme.label(_entries, Rect2(24, y + 62, 150, 20), need, 13, GameTheme.DIM)
+		GameTheme.label(_entries, Rect2(24, y + 16, 130, 26), GameTheme.TIER_KO[tier], 20, tint.lightened(0.35))
+		GameTheme.label(_entries, Rect2(24, y + 44, 130, 20), ROW_NOTE[tier], 13, GameTheme.DIM)
+		GameTheme.label(_entries, Rect2(24, y + 64, 130, 20), need, 12, GameTheme.DIM)
 		for i: int in range(row.size()):
-			@warning_ignore("integer_division")
-			var line: int = i / per_row
-			_card(row[i], Rect2(left + (i % per_row) * (card_size.x + 10), y + 8 + line * (card_size.y + 6), card_size.x, card_size.y))
-		if r > 0 and not base:
-			GameTheme.label(_entries, Rect2(PANEL_W - 210, y + 40, 190, 22), "▲ 둘을 합치면 위 계급", 13, GameTheme.DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+			_card(row[i], Rect2(left + i * (TILE.x + TILE_GAP), y + 5, TILE.x, TILE.y))
 
 
 func _element_rank(dragon: Dictionary) -> String:
@@ -187,12 +180,13 @@ static func portrait(parent: Control, rect: Rect2, id: String) -> TextureRect:
 	return sprite
 
 
+## 작은 칸: 위에 그림, 아래에 이름. 가진 용은 초록, 다음에 만들 수 있는 용은 노랑.
 func _card(dragon: Dictionary, rect: Rect2) -> void:
 	var id: String = dragon["id"]
 	var known: bool = _known(dragon)
 	var owned: bool = _owned.has(id)
 	var recipe: Dictionary = _best_recipe(id)
-	var reachable: bool = not owned and not recipe.is_empty() and int(recipe["have"]) > 0
+	var reachable: bool = not owned and not recipe.is_empty() and int(recipe["have"]) >= 2
 	var border: Color = GameTheme.PANEL_LINE
 	var width: int = 1
 	if owned:
@@ -200,34 +194,34 @@ func _card(dragon: Dictionary, rect: Rect2) -> void:
 		width = 3
 	elif reachable:
 		border = GameTheme.RECOMMEND
-		width = 3
+		width = 2
 	elif known:
 		border = GameTheme.COLOR.get(dragon["elements"].front(), GameTheme.PANEL_LINE)
 		width = 2
 	var card: Button = GameTheme.button(_entries, rect, "", _show_detail.bind(dragon), GameTheme.PANEL if known else Color("#171a24"), border, width)
 	var caption: String = dragon["nameKo"] if known else "???"
-	var side: float = rect.size.y - 26.0
+	card.tooltip_text = caption
+	var side: float = rect.size.x - 22.0
 	if dragon["tier"] == "secret" and not known:
-		GameTheme.label(card, Rect2(8, 0, side, rect.size.y), "?", 40, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		GameTheme.label(card, Rect2(0, 6, rect.size.x, side), "?", 36, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 	else:
-		var image: TextureRect = portrait(card, Rect2(8, 8, side, side), id)
+		var image: TextureRect = portrait(card, Rect2(11, 12, side, side), id)
 		if image != null and not known:
 			image.modulate = Color(0, 0, 0, 0.85)
-	var name_x: float = side + 14.0
-	var name_label: Label = GameTheme.label(card, Rect2(name_x, 6, rect.size.x - name_x - 6, 40), caption, 13, GameTheme.TEXT if known else GameTheme.DIM)
+	var name_label: Label = GameTheme.label(card, Rect2(2, side + 12, rect.size.x - 4, rect.size.y - side - 14), caption, 11, GameTheme.TEXT if known else GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 	GameTheme.wrap(name_label)
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	var tag: String = ""
 	var tag_color: Color = GameTheme.DIM
 	if owned:
-		tag = "지금 보유 · Lv.%d" % int(_owned[id])
+		tag = "보유 Lv.%d" % int(_owned[id])
 		tag_color = OWNED
 	elif reachable:
-		tag = "지금 합칠 수 있어요" if int(recipe["have"]) >= 2 else "재료 1 / 2 보유"
+		tag = "합체 가능"
 		tag_color = GameTheme.RECOMMEND
-	elif not known:
-		tag = "아직 못 만난 용"
-	GameTheme.label(card, Rect2(4, rect.size.y - 21, rect.size.x - 8, 18), tag, 11, tag_color, HORIZONTAL_ALIGNMENT_CENTER)
+	if not tag.is_empty():
+		var strip: Panel = GameTheme.panel(card, Rect2(0, 0, rect.size.x, 14), Color(0, 0, 0, 0.55))
+		GameTheme.label(strip, Rect2(0, -1, rect.size.x, 14), tag, 10, tag_color, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _show_detail(dragon: Dictionary) -> void:

@@ -411,3 +411,29 @@ func test_real_ultimate_table_covers_every_tier() -> void:
 			assert_true(int(real["ultimate"][key][tier]) > 0, key + " " + tier)
 	for element: String in ELEMENTS:
 		assert_true(real["ultimate"]["names"].has(element))
+
+
+func test_dragons_crit_at_the_configured_rate_and_minions_never_do() -> void:
+	var cfg: Dictionary = Fixture.mini_data()["battle"]
+	cfg["crit"] = {"pct": 100, "dmgPct": 200}
+	var enemies: Array = [_enemy("minion", "fire", 100000, 7, 10, 0, 300, 5)]
+	var result: Dictionary = Battle.simulate_battle(cfg, _slots([_solo("fire", 100000, 10)]), enemies, {"critSeed": 5})
+	for hit: Dictionary in _of_kind(result, "attack"):
+		if hit["src"] == 0:
+			assert_eq([hit["dmg"], hit.get("crit", false)], [20, true])
+		else:
+			assert_eq([hit["dmg"], hit.get("crit", false)], [7, false])
+	cfg["crit"]["pct"] = 0
+	var calm: Dictionary = Battle.simulate_battle(cfg, _slots([_solo("fire", 100000, 10)]), enemies, {"critSeed": 5})
+	assert_true(_of_kind(calm, "attack").all(func(hit: Dictionary) -> bool: return not hit.has("crit")))
+
+
+func test_crit_rolls_depend_only_on_the_seed() -> void:
+	var cfg: Dictionary = Fixture.mini_data()["battle"]
+	cfg["crit"] = {"pct": 30, "dmgPct": 200}
+	var enemies: Array = [_enemy("dragon", "fire", 3000, 5, 10, 0, 900)]
+	var first: Dictionary = Battle.simulate_battle(cfg, _slots([_solo("fire", 3000, 10)]), enemies, {"critSeed": 9})
+	var again: Dictionary = Battle.simulate_battle(cfg, _slots([_solo("fire", 3000, 10)]), enemies, {"critSeed": 9})
+	assert_eq(first["events"], again["events"])
+	var crits: int = _of_kind(first, "attack").filter(func(hit: Dictionary) -> bool: return hit.get("crit", false)).size()
+	assert_true(crits > 0 and crits < _of_kind(first, "attack").size())

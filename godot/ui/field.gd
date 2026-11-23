@@ -23,6 +23,7 @@ class UnitView:
 	var gauge: Panel
 	var gauge_full: float = 0.0
 	var ult_need: int = 0
+	var title: String = ""
 	var kind: String
 	var side: String
 	var element: String
@@ -159,6 +160,8 @@ func _unit_view(unit: Dictionary) -> UnitView:
 	var view: UnitView = UnitView.new()
 	view.kind = unit["kind"]
 	view.side = unit["side"]
+	if view.kind == "dragon":
+		view.title = str(_data["dragons"].get(unit["ref"], {}).get("nameKo", ""))
 	var elements: Array = unit["elements"]
 	view.element = "fire" if elements.is_empty() else elements[0]
 	view.hp = int(unit["hp"])
@@ -303,7 +306,10 @@ func _apply(event: Dictionary, animate: bool) -> void:
 			if caster == null or not animate:
 				return
 			var tint: Color = GameTheme.COLOR[caster.element]
-			_caption.text = "궁극기! " + str(_data["battle"].get("ultimate", {}).get("names", {}).get(caster.element, ""))
+			var ult_name: String = str(_data["battle"].get("ultimate", {}).get("names", {}).get(caster.element, ""))
+			_caption.text = "궁극기! " + ult_name
+			_callout("%s의 %s!" % [caster.title, ult_name], tint.lightened(0.45), tint.darkened(0.6))
+			_shake(7.0)
 			_flash.color = Color(tint, 0.28)
 			var glow: Tween = _flash.create_tween()
 			glow.tween_property(_flash, "color:a", 0.0, 0.4)
@@ -324,7 +330,12 @@ func _apply(event: Dictionary, animate: bool) -> void:
 			if animate:
 				var strong: bool = int(event["mult"]) > 100
 				if event.get("ult", false):
-					_breath(attacker, defender, true, int(event["dmg"]), 34.0)
+					_breath(attacker, defender, true, int(event["dmg"]), 34.0, 2)
+				elif event.get("crit", false):
+					## 치명타: 누가 쳤는지 이름을 띄우고, 잠깐 멈췄다가 크게 터뜨린다.
+					_name_tag(attacker, attacker.title + " 치명타!", Color("#ffe066") if attacker.side == "ally" else Color("#ff8787"))
+					_pause = maxf(_pause, 0.07)
+					_breath(attacker, defender, true, int(event["dmg"]), 26.0, 1)
 				elif attacker.kind == "dragon":
 					_breath(attacker, defender, strong, int(event["dmg"]))
 				else:
@@ -341,7 +352,61 @@ func _change_hp(view: UnitView, amount: int) -> void:
 		view.bar_back.visible = true
 
 
-func _breath(attacker: UnitView, defender: UnitView, strong: bool, damage: int, orb_size: float = 18.0) -> void:
+## 전장 가운데 위에 크게 뜨는 한 줄(궁극기 이름 등).
+func _callout(text: String, tint: Color, outline: Color) -> void:
+	var banner: Label = GameTheme.label(_fx_layer, Rect2(0, 86, size.x, 50), text, 34, tint, HORIZONTAL_ALIGNMENT_CENTER)
+	banner.add_theme_color_override("font_outline_color", outline)
+	banner.add_theme_constant_override("outline_size", 10)
+	banner.z_index = 70
+	banner.pivot_offset = Vector2(size.x / 2.0, 25)
+	banner.scale = Vector2(1.5, 1.5)
+	var show: Tween = banner.create_tween()
+	show.tween_property(banner, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	show.tween_interval(0.7)
+	show.tween_property(banner, "modulate:a", 0.0, 0.25)
+	show.tween_callback(banner.queue_free)
+
+
+## 유닛 머리 위에 뜨는 이름표(치명타를 낸 용).
+func _name_tag(view: UnitView, text: String, tint: Color) -> void:
+	if _store.speed >= 4:
+		return
+	var tag: Label = GameTheme.label(_fx_layer, Rect2(view.center.x - 140, view.center.y - 104, 280, 30), text, 22, tint, HORIZONTAL_ALIGNMENT_CENTER)
+	tag.add_theme_color_override("font_outline_color", Color.BLACK)
+	tag.add_theme_constant_override("outline_size", 7)
+	tag.z_index = 65
+	tag.pivot_offset = Vector2(140, 15)
+	tag.scale = Vector2(1.4, 1.4)
+	var rise: Tween = tag.create_tween()
+	rise.tween_property(tag, "scale", Vector2.ONE, 0.1)
+	rise.tween_property(tag, "position:y", tag.position.y - 22, 0.6)
+	rise.parallel().tween_property(tag, "modulate:a", 0.0, 0.6).set_ease(Tween.EASE_IN)
+	rise.tween_callback(tag.queue_free)
+
+
+func _shake(amount: float) -> void:
+	var shake: Tween = _units_layer.create_tween()
+	for i: int in range(3):
+		shake.tween_property(_units_layer, "position", Vector2(amount * (1 if i % 2 == 0 else -1), amount * 0.4 * (-1 if i % 2 == 0 else 1)), 0.03)
+		amount *= 0.6
+	shake.tween_property(_units_layer, "position", Vector2.ZERO, 0.04)
+
+
+## 맞은 자리에서 퍼지는 고리. 셀수록 크고 두 겹.
+func _impact(at: Vector2, tint: Color, power: int) -> void:
+	for ring_index: int in range(2 if power > 0 else 1):
+		var reach: float = (46.0 + 30.0 * power) * (1.0 - 0.35 * ring_index)
+		var ring: Panel = GameTheme.panel(_fx_layer, Rect2(at - Vector2(8, 8), Vector2(16, 16)), Color(tint, 0.25), Color.WHITE if ring_index == 0 else tint, 3, 8)
+		ring.z_index = 55
+		ring.pivot_offset = Vector2(8, 8)
+		var seconds: float = 0.2 + 0.06 * power
+		var burst: Tween = ring.create_tween().set_parallel()
+		burst.tween_property(ring, "scale", Vector2.ONE * reach / 8.0, seconds).set_ease(Tween.EASE_OUT)
+		burst.tween_property(ring, "modulate:a", 0.0, seconds)
+		burst.chain().tween_callback(ring.queue_free)
+
+
+func _breath(attacker: UnitView, defender: UnitView, strong: bool, damage: int, orb_size: float = 18.0, power: int = 0) -> void:
 	var half: Vector2 = Vector2(orb_size, orb_size) / 2.0
 	var orb: Panel = GameTheme.panel(_fx_layer, Rect2(attacker.center - half, half * 2.0),
 		GameTheme.COLOR[attacker.element], Color(1, 1, 1, 0.9), 2, int(orb_size / 2.0))
@@ -350,7 +415,7 @@ func _breath(attacker: UnitView, defender: UnitView, strong: bool, damage: int, 
 	var flight: Tween = orb.create_tween()
 	flight.tween_property(orb, "position", defender.center - half, seconds)
 	flight.tween_callback(orb.queue_free)
-	flight.tween_callback(_hit.bind(defender, damage, Color("#ffe066") if strong else Color.WHITE, strong))
+	flight.tween_callback(_hit.bind(defender, damage, Color("#ffe066") if strong else Color.WHITE, strong, power, GameTheme.COLOR[attacker.element]))
 
 
 func _lunge(attacker: UnitView, defender: UnitView) -> void:
@@ -363,16 +428,33 @@ func _lunge(attacker: UnitView, defender: UnitView) -> void:
 	lunge.tween_property(body, "position:x", 0.0, 0.08 / _store.speed)
 
 
-func _hit(view: UnitView, damage: int, color: Color, strong: bool) -> void:
+## power: 0 보통, 1 치명타, 2 궁극기.
+func _hit(view: UnitView, damage: int, color: Color, strong: bool, power: int = 0, tint: Color = Color.WHITE) -> void:
 	if view.dead and view.root.modulate.a <= 0.0:
 		return
+	if view.kind == "dragon" or power > 0:
+		_impact(view.center, tint, power)
+	if not view.dead:
+		## 맞은 쪽이 뒤로 밀렸다가 돌아온다.
+		var push: float = (6.0 + 6.0 * power) * (1.0 if view.side == "enemy" else -1.0)
+		var recoil: Tween = view.body.create_tween()
+		recoil.tween_property(view.body, "position:x", push, 0.04)
+		recoil.tween_property(view.body, "position:x", 0.0, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if power > 0:
+		_shake(4.0 + 3.0 * power)
 	if view.flash != null:
 		view.flash.kill()
 	view.body.modulate = color * 1.6 if color != Color.WHITE else Color(2, 2, 2)
 	view.flash = view.body.create_tween()
 	view.flash.tween_property(view.body, "modulate", Color.WHITE, 0.14)
-	if view.kind == "dragon" and _store.speed < 4:
-		var number: Label = GameTheme.label(_fx_layer, Rect2(view.center.x - 40, view.center.y - 70, 80, 24), str(damage), 22 if strong else 17, color, HORIZONTAL_ALIGNMENT_CENTER)
+	if (view.kind == "dragon" or power > 0) and _store.speed < 4:
+		var number_size: int = 30 if power > 0 else (22 if strong else 17)
+		var number_text: String = str(damage) + ("!" if power > 0 else "")
+		var number: Label = GameTheme.label(_fx_layer, Rect2(view.center.x - 60, view.center.y - 74, 120, 34), number_text, number_size, Color("#ff6b6b") if power == 1 else color, HORIZONTAL_ALIGNMENT_CENTER)
+		number.pivot_offset = Vector2(60, 17)
+		if power > 0:
+			number.scale = Vector2(1.7, 1.7)
+			number.create_tween().tween_property(number, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		number.add_theme_color_override("font_outline_color", Color.BLACK)
 		number.add_theme_constant_override("outline_size", 5)
 		number.z_index = 60
