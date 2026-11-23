@@ -32,3 +32,6 @@
 - 글꼴: Noto Sans KR(OFL, `godot/fonts/`)을 넣었고 굵기 500. 한글은 띄어쓰기에서만 줄을 바꿈(`GameTheme.keep_words`).
 - 내보내기 템플릿 4.7.2(공식 SHA512 확인)은 `%APPDATA%/Godot/export_templates/4.7.2.stable/`에 Windows x86_64·Android만 설치함.
 - G4(모바일) 전에 필요한 것: Android SDK·JDK 설치, 릴리스 서명 키(사용자 보관).
+- G4 1차(Android 테스트 APK): JDK 17(Temurin 17.0.21.1, `C:/claude/tools/jdk`), Android SDK(`C:/claude/tools/android-sdk`: platform-tools, build-tools 35.0.1, android-35, 사용자가 SDK 약관 동의, 사용 기록 수집 끔)를 설치함. Gradle 빌드를 안 쓰니 NDK·CMake는 받지 않음.
+  - `npm run godot:apk` → `release-godot-android/Wyrmslot-debug.apk`(약 39MB, arm64, 가로, targetSdk 36, 디버그 키 서명). 프로젝트 설정에 ETC2/ASTC 텍스처를 켜고 임시 아이콘(yinglong)을 넣음.
+  - 아직 안 한 것: 실제 휴대폰·에뮬레이터 실행 확인, 세로로 긴 화면의 좌우 여백(지금은 1280×720 비율 고정), 스토어용 릴리스 서명 키(사용자가 만들어 보관), Play용 AAB(Gradle 빌드 필요).
