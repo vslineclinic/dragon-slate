@@ -26,3 +26,9 @@
 ## 주의
 - 6원소 데이터(X7) 병합 후 `npm run parity`로 기준 자료를 다시 만들어야 한다.
 - 웹판은 Godot판이 G2를 마칠 때까지 기준판으로 유지.
+
+## 진행 상황 (2026-11-23)
+- G3 완료: `export_presets.cfg`(Windows / Windows Demo), `npm run godot:export` → `release-godot/Wyrmslot.exe`, `release-godot-demo/Wyrmslot Demo.exe`(각 약 120MB, pck 내장). 내보낸 실행 파일로 타이틀 화면이 뜨고 데이터·그림·글꼴을 읽는 것을 확인함.
+- 글꼴: Noto Sans KR(OFL, `godot/fonts/`)을 넣었고 굵기 500. 한글은 띄어쓰기에서만 줄을 바꿈(`GameTheme.keep_words`).
+- 내보내기 템플릿 4.7.2(공식 SHA512 확인)은 `%APPDATA%/Godot/export_templates/4.7.2.stable/`에 Windows x86_64·Android만 설치함.
+- G4(모바일) 전에 필요한 것: Android SDK·JDK 설치, 릴리스 서명 키(사용자 보관).
