@@ -5,6 +5,7 @@ const NEST_SIZE: int = 6
 const BENCH_SIZE: int = 4
 const START_NEST_OPEN: int = 3
 const ARRANGE_PHASES: Array[String] = ["manage", "pick", "spin"]
+const REWARD_CHOICES: int = 3
 
 
 static func create_run(data: Dictionary, seed: int, calamity: int = 0) -> Dictionary:
@@ -31,6 +32,7 @@ static func create_run(data: Dictionary, seed: int, calamity: int = 0) -> Dictio
 		"nextUid": 1,
 		"bonusNudges": 0,
 		"freeSpins": 0,
+		"rewardChoices": [],
 		"discovered": [],
 		"log": [],
 	}
@@ -57,6 +59,10 @@ static func apply_command(data: Dictionary, state: Dictionary, cmd: Dictionary) 
 			reason = _do_release(data, next, cmd["from"], events)
 		"startBattle":
 			reason = _do_battle(data, next, rng, events)
+		"chooseReward":
+			reason = _do_choose_reward(data, next, cmd["index"], rng, events)
+		"skill":
+			reason = _do_skill(data, next, cmd["at"], cmd["node"], events)
 	if not reason.is_empty():
 		return {"state": state, "events": [{"t": "rejected", "reason": reason}]}
 	next["rngState"] = rng.state()
@@ -143,7 +149,9 @@ static func _add_to_bench(state: Dictionary, species: String, via: String, event
 	var index: int = state["bench"].find(null)
 	if index < 0:
 		return false
-	var inst: Dictionary = {"uid": state["nextUid"], "speciesId": species, "traits": [], "bonusPct": 0}
+	var inst: Dictionary = {
+		"uid": state["nextUid"], "speciesId": species, "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": 0,
+	}
 	state["nextUid"] += 1
 	state["bench"][index] = inst
 	events.append({"t": "gained", "inst": inst, "to": {"zone": "bench", "index": index}, "via": via})
@@ -309,7 +317,8 @@ static func _do_release(data: Dictionary, state: Dictionary, from: Dictionary, e
 	return ""
 
 
-static func _grant_reward(data: Dictionary, state: Dictionary, rng: Rng, boss: bool, events: Array) -> void:
+## 보상 후보 3개를 겹치지 않게 뽑는다. 알은 어떤 종인지 미리 정해 카드에 보여 준다.
+static func _roll_reward_choices(data: Dictionary, rng: Rng, boss: bool) -> Array:
 	var pool: Array = []
 	var weights: Array = []
 	var weight_key: String = "bossWeight" if boss else "weight"
@@ -318,20 +327,67 @@ static func _grant_reward(data: Dictionary, state: Dictionary, rng: Rng, boss: b
 		if weight > 0:
 			pool.append(candidate)
 			weights.append(weight)
-	if pool.is_empty():
-		return
-	var reward: Dictionary = rng.pick_weighted(pool, weights)
-	var detail: Variant = null
+	var choices: Array = []
+	while choices.size() < REWARD_CHOICES and not pool.is_empty():
+		var reward: Dictionary = rng.pick_weighted(pool, weights)
+		var at: int = pool.find(reward)
+		pool.remove_at(at)
+		weights.remove_at(at)
+		var detail: Variant = null
+		if reward["kind"] in ["egg", "t2egg"]:
+			var species: Array = _species_of_tier(data, "base" if reward["kind"] == "egg" else "t2")
+			var roll: int = rng.next_int(maxi(1, species.size()))
+			if not species.is_empty():
+				detail = species[roll]
+		choices.append({"reward": reward, "detail": detail})
+	return choices
+
+
+static func _do_choose_reward(data: Dictionary, state: Dictionary, index: Variant, rng: Rng, events: Array) -> String:
+	if state["phase"] != "reward":
+		return "wrongPhase"
+	var choices: Array = state.get("rewardChoices", [])
+	if not _valid_index(index, choices.size()):
+		return "emptySlot"
+	var choice: Dictionary = choices[int(index)]
+	_apply_reward(data, state, rng, choice["reward"], choice["detail"], events)
+	state["rewardChoices"] = []
+	state["nudgesLeft"] += int(state["bonusNudges"])
+	state["bonusNudges"] = 0
+	state["phase"] = "spin"
+	events.append(_wave_start(data, state))
+	return ""
+
+
+static func _do_skill(data: Dictionary, state: Dictionary, at: Dictionary, node: String, events: Array) -> String:
+	if state["phase"] not in ARRANGE_PHASES:
+		return "wrongPhase"
+	var reason: String = _valid_ref(state, at)
+	if not reason.is_empty():
+		return reason
+	var zone: Array = _zone_of(state, at)
+	var inst: Variant = zone[int(at["index"])]
+	if inst == null:
+		return "emptySlot"
+	reason = Fusion.skill_rejection(data, inst, node)
+	if not reason.is_empty():
+		return reason
+	if not inst.has("skills"):
+		inst["skills"] = {}
+	inst["skills"][node] = int(inst["skills"].get(node, 0)) + 1
+	inst["skillPoints"] = int(inst.get("skillPoints", 0)) - 1
+	events.append({"t": "skilled", "at": at.duplicate(true), "node": node, "level": inst["skills"][node]})
+	return ""
+
+
+static func _apply_reward(data: Dictionary, state: Dictionary, rng: Rng, reward: Dictionary, detail: Variant, events: Array) -> void:
 	match reward["kind"]:
 		"mana":
 			_add_mana(state, reward["amount"], "reward", events)
 		"egg", "t2egg":
 			var tier: String = "base" if reward["kind"] == "egg" else "t2"
-			var species: Array = _species_of_tier(data, tier)
-			var roll: int = rng.next_int(maxi(1, species.size()))
-			if not species.is_empty():
-				detail = species[roll]
-				if not _add_to_bench(state, detail, "bonus", events):
+			if detail != null:
+				if not _add_to_bench(state, detail, "reward", events):
 					_add_mana(state, 1 if tier == "base" else 2, "benchFull", events)
 		"trait":
 			detail = _reward_trait(data, state, rng)
@@ -400,8 +456,6 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 	var won: bool = result["winner"] == "ally"
 	if won:
 		_add_mana(state, Rng.fdiv(int(waves["winMana"]) * (100 + int(mods["winManaPct"])), 100), "win", events)
-		if wave < waves["maxWave"]:
-			_grant_reward(data, state, rng, is_boss, events)
 	else:
 		var loss: int = waves["bossLossLife"] if is_boss else waves["lossLife"]
 		state["lives"] = maxi(0, int(state["lives"]) - loss)
@@ -423,6 +477,12 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 	state["spinsThisWave"] = 0
 	state["nudgesLeft"] = int(data["slot"]["nudgesPerWave"]) + int(state["bonusNudges"])
 	state["bonusNudges"] = 0
+	if won:
+		state["rewardChoices"] = _roll_reward_choices(data, rng, is_boss)
+	if won and not state["rewardChoices"].is_empty():
+		state["phase"] = "reward"
+		events.append({"t": "rewardChoices", "choices": state["rewardChoices"]})
+		return ""
 	state["phase"] = "spin"
 	events.append(_wave_start(data, state))
 	return ""

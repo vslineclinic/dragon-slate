@@ -115,14 +115,18 @@
     },
     "squad": {
       "leaderSharePct": 55,
-      "minionBase": 4,
-      "minionMax": 14,
+      "minionBase": 6,
+      "minionMax": 18,
       "leaderX": 860,
       "extraLeaderX": 900,
       "minionX": 700,
       "minionSpacingX": 30,
       "secondLeaderWave": 8,
-      "thirdLeaderWave": 14
+      "thirdLeaderWave": 14,
+      "stagesEarly": 2,
+      "stages": 3,
+      "stagesFromWave": 3,
+      "lateMinionX": 960
     }
   },
   "battle": {
@@ -165,13 +169,14 @@
       ]
     },
     "field": {
-      "frontX": 260,
-      "backX": 140,
+      "frontX": 250,
+      "backX": 90,
       "laneGap": 120,
       "meleeRange": 40,
       "laneChangeRange": 80,
       "laneChangeTicks": 8,
-      "posEveryTicks": 4
+      "posEveryTicks": 4,
+      "stageTicks": 200
     },
     "escort": {
       "count": {
@@ -187,6 +192,13 @@
       "speed": 6,
       "offsetX": 50,
       "spacingX": 12
+    },
+    "absorbPoints": {
+      "base": 1,
+      "t2": 2,
+      "t1": 3,
+      "dual": 3,
+      "secret": 4
     }
   },
   "minions": [
@@ -243,6 +255,74 @@
       "atk": 3,
       "cooldownTicks": 14,
       "speed": 5
+    }
+  ],
+  "skills": [
+    {
+      "id": "fang",
+      "branch": "attack",
+      "nameKo": "날카로운 송곳니",
+      "descKo": "공격력 +12%",
+      "kind": "atkPct",
+      "value": 12,
+      "max": 5,
+      "requires": {}
+    },
+    {
+      "id": "frenzy",
+      "branch": "attack",
+      "nameKo": "광란",
+      "descKo": "공격 속도 +8%",
+      "kind": "hastePct",
+      "value": 8,
+      "max": 3,
+      "requires": {
+        "fang": 2
+      }
+    },
+    {
+      "id": "scale",
+      "branch": "defense",
+      "nameKo": "단단한 비늘",
+      "descKo": "체력 +14%",
+      "kind": "hpPct",
+      "value": 14,
+      "max": 5,
+      "requires": {}
+    },
+    {
+      "id": "leech",
+      "branch": "defense",
+      "nameKo": "피의 갈증",
+      "descKo": "흡혈 +6%",
+      "kind": "lifestealPct",
+      "value": 6,
+      "max": 3,
+      "requires": {
+        "scale": 2
+      }
+    },
+    {
+      "id": "pack",
+      "branch": "pack",
+      "nameKo": "무리 부름",
+      "descKo": "호위 +1마리",
+      "kind": "escortCount",
+      "value": 1,
+      "max": 2,
+      "requires": {}
+    },
+    {
+      "id": "alpha",
+      "branch": "pack",
+      "nameKo": "우두머리의 포효",
+      "descKo": "호위 능력 +25%",
+      "kind": "escortPct",
+      "value": 25,
+      "max": 3,
+      "requires": {
+        "pack": 1
+      }
     }
   ]
 }

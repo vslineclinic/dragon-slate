@@ -1,0 +1,68 @@
+[
+  {
+    "id": "fang",
+    "branch": "attack",
+    "nameKo": "날카로운 송곳니",
+    "descKo": "공격력 +12%",
+    "kind": "atkPct",
+    "value": 12,
+    "max": 5,
+    "requires": {}
+  },
+  {
+    "id": "frenzy",
+    "branch": "attack",
+    "nameKo": "광란",
+    "descKo": "공격 속도 +8%",
+    "kind": "hastePct",
+    "value": 8,
+    "max": 3,
+    "requires": {
+      "fang": 2
+    }
+  },
+  {
+    "id": "scale",
+    "branch": "defense",
+    "nameKo": "단단한 비늘",
+    "descKo": "체력 +14%",
+    "kind": "hpPct",
+    "value": 14,
+    "max": 5,
+    "requires": {}
+  },
+  {
+    "id": "leech",
+    "branch": "defense",
+    "nameKo": "피의 갈증",
+    "descKo": "흡혈 +6%",
+    "kind": "lifestealPct",
+    "value": 6,
+    "max": 3,
+    "requires": {
+      "scale": 2
+    }
+  },
+  {
+    "id": "pack",
+    "branch": "pack",
+    "nameKo": "무리 부름",
+    "descKo": "호위 +1마리",
+    "kind": "escortCount",
+    "value": 1,
+    "max": 2,
+    "requires": {}
+  },
+  {
+    "id": "alpha",
+    "branch": "pack",
+    "nameKo": "우두머리의 포효",
+    "descKo": "호위 능력 +25%",
+    "kind": "escortPct",
+    "value": 25,
+    "max": 3,
+    "requires": {
+      "pack": 1
+    }
+  }
+]

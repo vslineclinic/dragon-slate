@@ -14,8 +14,52 @@ static func choose(data: Dictionary, state: Dictionary) -> Dictionary:
 		"pick":
 			return _choose_pick(data, state, state["grid"])
 		"manage":
-			return _choose_manage(data, state)
+			var spend: Dictionary = _choose_skill(data, state)
+			return spend if not spend.is_empty() else _choose_manage(data, state)
+		"reward":
+			return _choose_reward(data, state)
 	push_error("no bot command for phase " + str(state["phase"]))
+	return {}
+
+
+const REWARD_ORDER: Array = ["t2egg", "trait", "egg", "life", "mana", "freeSpin", "nudge"]
+const SKILL_ORDER: Array = ["fang", "scale", "pack", "alpha", "frenzy", "leech"]
+
+
+static func _choose_reward(data: Dictionary, state: Dictionary) -> Dictionary:
+	var choices: Array = state["rewardChoices"]
+	var bench_full: bool = not state["bench"].has(null)
+	var best: int = 0
+	var best_rank: int = 99
+	for i: int in range(choices.size()):
+		var kind: String = choices[i]["reward"]["kind"]
+		var rank: int = REWARD_ORDER.find(kind)
+		if kind in ["egg", "t2egg"] and bench_full:
+			rank += 10
+		if kind == "life" and state["lives"] >= data["waves"]["startLives"]:
+			rank += 10
+		if rank < best_rank:
+			best_rank = rank
+			best = i
+	return {"type": "chooseReward", "index": best}
+
+
+## 둥지의 드래곤부터, 찍을 수 있는 스킬 중 단계가 가장 낮은 것을 고른다.
+static func _choose_skill(data: Dictionary, state: Dictionary) -> Dictionary:
+	for slot: Dictionary in _occupied(state, "nest") + _occupied(state, "bench"):
+		var inst: Dictionary = slot["inst"]
+		if int(inst.get("skillPoints", 0)) <= 0:
+			continue
+		var pick: String = ""
+		var lowest: int = 99
+		for node: String in SKILL_ORDER:
+			if Fusion.skill_rejection(data, inst, node).is_empty():
+				var level: int = int(inst.get("skills", {}).get(node, 0))
+				if level < lowest:
+					lowest = level
+					pick = node
+		if not pick.is_empty():
+			return {"type": "skill", "at": slot["ref"], "node": pick}
 	return {}
 
 

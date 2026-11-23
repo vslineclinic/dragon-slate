@@ -21,20 +21,40 @@ static func merge(data: Dictionary, main: Dictionary, material: Dictionary, new_
 	var traits: Array = main["traits"].duplicate()
 	if preview["kind"] == "evolve":
 		var evolved: Dictionary = {
-			"uid": new_uid, "speciesId": preview["result"], "traits": traits, "bonusPct": 0,
+			"uid": new_uid, "speciesId": preview["result"], "traits": traits, "bonusPct": int(main["bonusPct"]),
+			"skills": main.get("skills", {}).duplicate(), "skillPoints": int(main.get("skillPoints", 0)),
 		}
 		return {"inst": evolved, "kind": "evolve", "trait": null}
 
 	var spec: Dictionary = data["dragons"].get(material["speciesId"], {})
 	var tier: String = spec.get("tier", "base")
-	var bonus_pct: int = int(main["bonusPct"]) + int(data["battle"]["absorbBonusPct"].get(tier, 0))
+	var bonus_pct: int = int(main["bonusPct"])
+	var points: int = int(main.get("skillPoints", 0)) + int(data["battle"]["absorbPoints"].get(tier, 1))
 	var inherited: Variant = preview["trait"]
 	if inherited != null:
 		traits.append(inherited)
 	var absorbed: Dictionary = {
 		"uid": main["uid"], "speciesId": main["speciesId"], "traits": traits, "bonusPct": bonus_pct,
+		"skills": main.get("skills", {}).duplicate(), "skillPoints": points,
 	}
 	return {"inst": absorbed, "kind": "absorb", "trait": inherited}
+
+
+## 스킬 맵: 찍을 수 있으면 "" 아니면 거부 이유.
+static func skill_rejection(data: Dictionary, inst: Dictionary, node: String) -> String:
+	var skill: Variant = data["skills"].get(node)
+	if skill == null:
+		return "unknownSkill"
+	if int(inst.get("skillPoints", 0)) <= 0:
+		return "noSkillPoint"
+	var learned: Dictionary = inst.get("skills", {})
+	if int(learned.get(node, 0)) >= int(skill["max"]):
+		return "skillMaxed"
+	var needs: Dictionary = skill.get("requires", {})
+	for need: String in needs:
+		if int(learned.get(need, 0)) < int(needs[need]):
+			return "skillLocked"
+	return ""
 
 
 static func _absorbed_trait(data: Dictionary, main: Dictionary, material: Dictionary) -> Variant:

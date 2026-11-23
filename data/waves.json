@@ -1,12 +1,12 @@
 {
   "maxWave": 20,
-  "basePower": 52,
+  "basePower": 90,
   "growthPct": 122,
   "bossPct": {
-    "5": 560,
-    "10": 480,
-    "15": 220,
-    "20": 138
+    "5": 500,
+    "10": 380,
+    "15": 190,
+    "20": 118
   },
   "startLives": 5,
   "lossLife": 1,
@@ -28,17 +28,21 @@
   },
   "squad": {
     "leaderSharePct": 55,
-    "minionBase": 4,
-    "minionMax": 14,
+    "minionBase": 6,
+    "minionMax": 18,
     "leaderX": 860,
     "extraLeaderX": 900,
     "minionX": 700,
     "minionSpacingX": 30,
     "secondLeaderWave": 8,
-    "thirdLeaderWave": 14
+    "thirdLeaderWave": 14,
+    "stagesEarly": 2,
+    "stages": 3,
+    "stagesFromWave": 3,
+    "lateMinionX": 960
   },
   "earlyPct": {
-    "1": 85,
-    "2": 90
+    "1": 52,
+    "2": 75
   }
 }

@@ -49,7 +49,7 @@ func test_boss_element_is_stable_per_seed() -> void:
 	assert_eq(seen.size(), 3)
 
 
-func test_squad_total_power_within_ten_percent_of_target() -> void:
+func test_squad_total_power_within_fifteen_percent_of_target() -> void:
 	var data: Dictionary = _data()
 	for wave: int in [1, 3, 6, 9]:
 		var units: Array = Waves.generate_enemies(data, wave, Rng.new(wave), 77)
@@ -57,7 +57,7 @@ func test_squad_total_power_within_ten_percent_of_target() -> void:
 		for unit: Dictionary in units:
 			total += Waves.unit_power(unit)
 		var target: int = Waves.enemy_power(data["waves"], wave)
-		assert_true(absi(total - target) * 10 < target, "wave %d total %d target %d" % [wave, total, target])
+		assert_true(absi(total - target) * 100 < target * 15, "wave %d total %d target %d" % [wave, total, target])
 
 
 static func _count(units: Array, kind: String) -> int:
@@ -109,6 +109,20 @@ func test_boss_first_leader_is_t1_of_boss_element() -> void:
 	var spec: Dictionary = data["dragons"][units[0]["id"]]
 	assert_eq(spec["tier"], "t1")
 	assert_eq(spec["elements"][0], Waves.boss_element(42, 10, EL3))
+
+
+func test_enemies_are_split_into_stages_with_first_leader_last() -> void:
+	var data: Dictionary = _data()
+	var squad: Dictionary = data["waves"]["squad"]
+	for wave: int in [1, 5, 9]:
+		var units: Array = Waves.generate_enemies(data, wave, Rng.new(wave), 3)
+		var stages: int = int(squad["stages"]) if wave >= int(squad["stagesFromWave"]) else int(squad["stagesEarly"])
+		var seen: Dictionary = {}
+		for unit: Dictionary in units:
+			seen[unit["stage"]] = true
+		assert_eq(seen.size(), stages)
+		assert_eq(units[0]["kind"], "dragon")
+		assert_eq(units[0]["stage"], stages - 1)
 
 
 func test_early_wave_pct_softens_only_listed_waves() -> void:

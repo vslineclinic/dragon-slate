@@ -85,13 +85,23 @@ static func generate_enemies(
 	_scale_to(leaders, leader_budget)
 	_scale_to(minions, target - leader_budget)
 
+	## 작은 무리(stage): 졸병은 무리마다 고르게, 우두머리는 뒤쪽 무리에. 첫 우두머리(보스)는 마지막 무리.
+	var stages: int = int(squad.get("stages", 1)) if wave >= int(squad.get("stagesFromWave", 1)) else int(squad.get("stagesEarly", 1))
+	stages = maxi(1, stages)
 	var leader_lanes: Array = [1, 0, 2]
 	for i: int in range(leaders.size()):
 		leaders[i]["lane"] = leader_lanes[i]
 		leaders[i]["x"] = int(squad["leaderX"]) if i == 0 else int(squad["extraLeaderX"])
+		leaders[i]["stage"] = maxi(0, stages - 1 - (i % 2))
+	var per_stage: Dictionary = {}
 	for i: int in range(minions.size()):
-		minions[i]["lane"] = i % 3
-		minions[i]["x"] = int(squad["minionX"]) + Rng.fdiv(i, 3) * int(squad["minionSpacingX"])
+		var stage: int = i % stages
+		var order: int = per_stage.get(stage, 0)
+		per_stage[stage] = order + 1
+		minions[i]["stage"] = stage
+		minions[i]["lane"] = order % 3
+		var base_x: int = int(squad["minionX"]) if stage == 0 else int(squad.get("lateMinionX", squad["minionX"]))
+		minions[i]["x"] = mini(1000, base_x + Rng.fdiv(order, 3) * int(squad["minionSpacingX"]))
 	return leaders + minions
 
 
@@ -112,7 +122,7 @@ static func _minion_unit(spec: Dictionary) -> Dictionary:
 		"kind": "minion", "id": spec["id"], "elements": [spec["element"]],
 		"hp": int(spec["hp"]), "atk": int(spec["atk"]),
 		"cooldownTicks": int(spec["cooldownTicks"]), "speed": int(spec["speed"]),
-		"lane": 0, "x": 0,
+		"lane": 0, "x": 0, "stage": 0,
 	}
 
 
@@ -124,5 +134,5 @@ static func _spec_unit(spec: Dictionary) -> Dictionary:
 		"hp": int(stats["hp"]),
 		"atk": int(stats["atk"]),
 		"cooldownTicks": int(stats["cooldownTicks"]),
-		"speed": 0, "lane": 0, "x": 0,
+		"speed": 0, "lane": 0, "x": 0, "stage": 0,
 	}

@@ -189,8 +189,50 @@ func test_to_unit_applies_bonus_and_stat_traits() -> void:
 	var inst: Dictionary = {"uid": 1, "speciesId": "fire_drake", "traits": ["tr_hp", "tr_ls"], "bonusPct": 10}
 	assert_eq(Battle.to_unit(data, inst), {
 		"speciesId": "fire_drake", "tier": "base", "elements": ["fire"], "hp": 169, "atk": 9,
-		"cooldownTicks": 20, "lifestealPct": 15,
+		"cooldownTicks": 20, "lifestealPct": 15, "escortBonus": 0, "escortPct": 0,
 	})
+
+
+func test_skills_raise_stats_and_escorts() -> void:
+	var data: Dictionary = Fixture.mini_data()
+	var inst: Dictionary = {
+		"uid": 1, "speciesId": "fire_drake", "traits": [], "bonusPct": 0,
+		"skills": {"fang": 2, "scale": 1, "pack": 1, "alpha": 2}, "skillPoints": 0,
+	}
+	var plain: Dictionary = Battle.to_unit(data, {"uid": 2, "speciesId": "fire_drake", "traits": [], "bonusPct": 0})
+	var unit: Dictionary = Battle.to_unit(data, inst)
+	assert_true(unit["hp"] > plain["hp"])
+	assert_eq([unit["escortBonus"], unit["escortPct"]], [1, 50])
+	var result: Dictionary = Battle.simulate_battle(_cfg, _slots([unit]), [_enemy("dragon", "fire", 1, 1, 1000, 0, 900)])
+	var escorts: Array = result["units"].filter(func(u: Dictionary) -> bool: return u["kind"] == "escort")
+	assert_eq(escorts.size(), 3)
+	assert_eq(escorts[0]["hp"], Rng.fdiv(int(unit["hp"]) * int(_cfg["escort"]["hpPct"]) * 150, 10000))
+	assert_true(plain["atk"] < unit["atk"])
+
+
+func test_later_stage_waits_until_first_group_dies() -> void:
+	var first: Dictionary = _enemy("minion", "fire", 30, 1, 1000, 0, 700, 5)
+	var second: Dictionary = _enemy("dragon", "fire", 60, 1, 1000, 0, 860)
+	second["stage"] = 1
+	var result: Dictionary = Battle.simulate_battle(_cfg, _slots([_solo("fire", 500, 20)]), [first, second])
+	var stage_events: Array = _of_kind(result, "stage")
+	assert_eq(stage_events.size(), 1)
+	var first_death: int = _of_kind(result, "death")[0]["tick"]
+	assert_true(stage_events[0]["tick"] > first_death)
+	for attack: Dictionary in _of_kind(result, "attack"):
+		if attack["dst"] == 2:
+			assert_true(attack["tick"] >= stage_events[0]["tick"])
+	assert_eq(result["winner"], "ally")
+
+
+func test_stage_timer_brings_next_group_even_if_first_survives() -> void:
+	var first: Dictionary = _enemy("dragon", "fire", 100000, 1, 1000, 0, 860)
+	var second: Dictionary = _enemy("dragon", "fire", 100000, 1, 1000, 1, 900)
+	second["stage"] = 1
+	var result: Dictionary = Battle.simulate_battle(_cfg, _slots([_solo("fire", 100000, 1, 1000)]), [first, second])
+	var stage_events: Array = _of_kind(result, "stage")
+	assert_eq(stage_events.size(), 1)
+	assert_eq(stage_events[0]["tick"], int(_cfg["field"]["stageTicks"]))
 
 
 func test_identical_input_produces_identical_events() -> void:

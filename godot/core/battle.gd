@@ -41,6 +41,28 @@ static func to_unit(data: Dictionary, inst: Dictionary) -> Dictionary:
 			_:
 				lifesteal_pct += value
 
+	var escort_bonus: int = 0
+	var escort_pct: int = 0
+	var learned: Dictionary = inst.get("skills", {})
+	for skill_id: String in learned:
+		var skill: Variant = data.get("skills", {}).get(skill_id)
+		if skill == null:
+			continue
+		var amount: int = int(skill["value"]) * int(learned[skill_id])
+		match skill["kind"]:
+			"hpPct":
+				hp_pct += amount
+			"atkPct":
+				atk_pct += amount
+			"hastePct":
+				haste_pct += amount
+			"lifestealPct":
+				lifesteal_pct += amount
+			"escortCount":
+				escort_bonus += amount
+			"escortPct":
+				escort_pct += amount
+
 	var stats: Dictionary = spec["stats"]
 	var bonus_pct: int = int(inst["bonusPct"])
 	return {
@@ -51,6 +73,8 @@ static func to_unit(data: Dictionary, inst: Dictionary) -> Dictionary:
 		"atk": Rng.fdiv(int(stats["atk"]) * (100 + bonus_pct + atk_pct), 100),
 		"cooldownTicks": maxi(5, Rng.fdiv(int(stats["cooldownTicks"]) * (100 - haste_pct), 100)),
 		"lifestealPct": lifesteal_pct,
+		"escortBonus": escort_bonus,
+		"escortPct": escort_pct,
 	}
 
 
@@ -65,8 +89,14 @@ static func simulate_battle(
 		spawn_info.append({
 			"id": unit["id"], "side": unit["side"], "kind": unit["kind"], "ref": unit["ref"],
 			"elements": unit["elements"].duplicate(), "slot": unit["slot"], "owner": unit["owner"],
-			"lane": unit["lane"], "x": unit["x"], "hp": unit["hp"],
+			"lane": unit["lane"], "x": unit["x"], "hp": unit["hp"], "stage": unit["stage"],
 		})
+	var last_stage: int = 0
+	for unit: Dictionary in units:
+		last_stage = maxi(last_stage, int(unit["stage"]))
+	var stage: int = 0
+	var stage_start: int = 0
+	var stage_ticks: int = int(field.get("stageTicks", 0))
 
 	var burn: Variant = rules.get("burn")
 	var row_blast: Variant = rules.get("rowBlast")
@@ -84,6 +114,19 @@ static func simulate_battle(
 	var dirty: Dictionary = {}
 	while winner.is_empty() and tick < cfg["maxTicks"]:
 		tick += 1
+		if stage < last_stage:
+			var cleared: bool = true
+			for unit: Dictionary in units:
+				if unit["side"] == "enemy" and unit["active"] and unit["hp"] > 0:
+					cleared = false
+					break
+			if cleared or (stage_ticks > 0 and tick - stage_start >= stage_ticks):
+				stage += 1
+				stage_start = tick
+				for unit: Dictionary in units:
+					if unit["stage"] == stage:
+						unit["active"] = true
+				events.append({"tick": tick, "kind": "stage", "stage": stage, "total": last_stage + 1})
 		if _hazard_due(burn, tick):
 			var lowest: Variant = null
 			for unit: Dictionary in units:
@@ -113,20 +156,20 @@ static func simulate_battle(
 			break
 
 		for unit: Dictionary in units:
-			if unit["hp"] > 0 and unit["speed"] > 0:
+			if unit["active"] and unit["hp"] > 0 and unit["speed"] > 0:
 				if _step(field, units, unit):
 					dirty[unit["id"]] = true
 
 		for side: String in ["ally", "enemy"]:
 			for unit: Dictionary in units:
-				if unit["side"] != side or unit["hp"] <= 0:
+				if unit["side"] != side or unit["hp"] <= 0 or not unit["active"]:
 					continue
 				unit["timer"] += 1
 				if unit["timer"] < unit["cd"]:
 					continue
 				var target: Variant = _nearest(field, units, unit)
 				if target == null:
-					break
+					continue
 				if not _can_hit(field, unit, target):
 					unit["timer"] = unit["cd"]
 					continue
@@ -167,6 +210,8 @@ static func simulate_battle(
 static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int) -> Array:
 	var field: Dictionary = cfg["field"]
 	var escort: Dictionary = cfg["escort"]
+	## 양쪽 체력을 같은 비율로 키워 전투 길이만 조절한다.
+	var hp_scale: int = int(cfg.get("hpScalePct", 100))
 	var units: Array = []
 	for slot: int in range(allies.size()):
 		var item: Variant = allies[slot]
@@ -174,26 +219,30 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 			continue
 		var unit: Dictionary = item
 		var dragon: Dictionary = _make(units.size(), "ally", "dragon", unit["speciesId"], unit["elements"],
-			int(unit["hp"]), int(unit["atk"]), _slowed(int(unit["cooldownTicks"]), slow_pct), 0,
+			Rng.fdiv(int(unit["hp"]) * hp_scale, 100), int(unit["atk"]), _slowed(int(unit["cooldownTicks"]), slow_pct), 0,
 			slot % LANES, int(field["frontX"]) if slot < 3 else int(field["backX"]))
 		dragon["slot"] = slot
 		dragon["lifesteal"] = int(unit["lifestealPct"])
 		units.append(dragon)
-		var count: int = int(escort["count"].get(unit.get("tier", "base"), 0))
+		var count: int = int(escort["count"].get(unit.get("tier", "base"), 0)) + int(unit.get("escortBonus", 0))
+		var escort_scale: int = 100 + int(unit.get("escortPct", 0))
 		var first: Array = [] if unit["elements"].is_empty() else [unit["elements"][0]]
 		for k: int in range(count):
 			var guard: Dictionary = _make(units.size(), "ally", "escort", unit["speciesId"], first,
-				maxi(1, Rng.fdiv(int(unit["hp"]) * int(escort["hpPct"]), 100)),
-				maxi(1, Rng.fdiv(int(unit["atk"]) * int(escort["atkPct"]), 100)),
+				maxi(1, Rng.fdiv(Rng.fdiv(int(unit["hp"]) * int(escort["hpPct"]) * escort_scale, 10000) * hp_scale, 100)),
+				maxi(1, Rng.fdiv(int(unit["atk"]) * int(escort["atkPct"]) * escort_scale, 10000)),
 				_slowed(int(escort["cooldownTicks"]), slow_pct), int(escort["speed"]),
 				dragon["lane"], dragon["x"] + int(escort["offsetX"]) + k * int(escort["spacingX"]))
 			guard["slot"] = slot
 			guard["owner"] = dragon["id"]
 			units.append(guard)
 	for item: Dictionary in enemies:
-		units.append(_make(units.size(), "enemy", item["kind"], item["id"], item["elements"],
-			int(item["hp"]), int(item["atk"]), int(item["cooldownTicks"]), int(item.get("speed", 0)),
-			int(item["lane"]), int(item["x"])))
+		var foe: Dictionary = _make(units.size(), "enemy", item["kind"], item["id"], item["elements"],
+			maxi(1, Rng.fdiv(int(item["hp"]) * hp_scale, 100)), int(item["atk"]), int(item["cooldownTicks"]), int(item.get("speed", 0)),
+			int(item["lane"]), int(item["x"]))
+		foe["stage"] = int(item.get("stage", 0))
+		foe["active"] = foe["stage"] == 0
+		units.append(foe)
 	return units
 
 
@@ -205,6 +254,7 @@ static func _make(
 		"id": id, "side": side, "kind": kind, "ref": ref, "elements": elements.duplicate(),
 		"hp": hp, "maxHp": hp, "atk": atk, "cd": cd, "timer": 0, "speed": speed,
 		"lane": lane, "x": x, "laneTimer": 0, "slot": -1, "owner": -1, "lifesteal": 0,
+		"stage": 0, "active": true,
 	}
 
 
@@ -221,7 +271,7 @@ static func _nearest(field: Dictionary, units: Array, me: Dictionary) -> Variant
 	var best: Variant = null
 	var best_d: int = 0
 	for other: Dictionary in units:
-		if other["side"] == me["side"] or other["hp"] <= 0:
+		if other["side"] == me["side"] or other["hp"] <= 0 or not other["active"]:
 			continue
 		var d: int = _distance(field, me, other)
 		if best == null or d < best_d or (d == best_d and int(other["lane"]) < int(best["lane"])):

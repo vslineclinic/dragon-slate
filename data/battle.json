@@ -1,6 +1,6 @@
 {
   "ticksPerSecond": 20,
-  "maxTicks": 1200,
+  "maxTicks": 3600,
   "strongPct": 135,
   "weakPct": 75,
   "absorbBonusPct": {
@@ -38,13 +38,14 @@
     ]
   },
   "field": {
-    "frontX": 260,
-    "backX": 140,
+    "frontX": 250,
+    "backX": 90,
     "laneGap": 120,
     "meleeRange": 40,
     "laneChangeRange": 80,
     "laneChangeTicks": 8,
-    "posEveryTicks": 4
+    "posEveryTicks": 4,
+    "stageTicks": 400
   },
   "escort": {
     "count": {
@@ -60,5 +61,13 @@
     "speed": 6,
     "offsetX": 50,
     "spacingX": 12
-  }
+  },
+  "absorbPoints": {
+    "base": 1,
+    "t2": 2,
+    "t1": 3,
+    "dual": 3,
+    "secret": 4
+  },
+  "hpScalePct": 220
 }

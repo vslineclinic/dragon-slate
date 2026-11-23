@@ -33,7 +33,12 @@ static func _data() -> Dictionary:
 
 
 static func _inst(uid: int, species_id: String, traits: Array = [], bonus_pct: int = 0) -> Dictionary:
-	return {"uid": uid, "speciesId": species_id, "traits": traits, "bonusPct": bonus_pct}
+	return {"uid": uid, "speciesId": species_id, "traits": traits, "bonusPct": bonus_pct, "skills": {}, "skillPoints": 0}
+
+
+static func _with_points(inst: Dictionary, points: int) -> Dictionary:
+	inst["skillPoints"] = points
+	return inst
 
 
 func test_same_species_evolves_to_t2() -> void:
@@ -63,7 +68,7 @@ func test_no_recipe_absorbs_trait_and_bonus() -> void:
 	var main: Dictionary = _inst(1, "fafnir")
 	var material: Dictionary = _inst(2, "ice_drake")
 	assert_eq(Fusion.merge(data, main, material, 9), {
-		"inst": _inst(1, "fafnir", ["tr_icy"], 12), "kind": "absorb", "trait": "tr_icy",
+		"inst": _with_points(_inst(1, "fafnir", ["tr_icy"]), 1), "kind": "absorb", "trait": "tr_icy",
 	})
 	assert_eq(Fusion.merge_preview(data, main, material), {"kind": "absorb", "trait": "tr_icy"})
 
@@ -71,14 +76,14 @@ func test_no_recipe_absorbs_trait_and_bonus() -> void:
 func test_absorb_skips_duplicate_trait() -> void:
 	var main: Dictionary = _inst(1, "fafnir", ["tr_icy"], 12)
 	var result: Dictionary = Fusion.merge(_data(), main, _inst(2, "ice_drake"), 9)
-	assert_eq(result["inst"], _inst(1, "fafnir", ["tr_icy"], 24))
+	assert_eq(result["inst"], _with_points(_inst(1, "fafnir", ["tr_icy"], 12), 1))
 	assert_eq(result["trait"], null)
 
 
 func test_absorb_respects_max_traits_but_still_adds_bonus() -> void:
 	var main: Dictionary = _inst(1, "zhulong", ["tr_a", "tr_b"])
 	var result: Dictionary = Fusion.merge(_data(), main, _inst(2, "fafnir"), 9)
-	assert_eq(result["inst"], _inst(1, "zhulong", ["tr_a", "tr_b"], 25))
+	assert_eq(result["inst"], _with_points(_inst(1, "zhulong", ["tr_a", "tr_b"]), 2))
 	assert_eq(result["trait"], null)
 
 
@@ -88,8 +93,24 @@ func test_absorb_does_not_copy_main_species_own_trait() -> void:
 	assert_eq(result["inst"]["traits"], [])
 
 
-func test_evolve_keeps_main_traits_and_resets_bonus() -> void:
-	var main: Dictionary = _inst(1, "fire_drake", ["tr_icy"], 36)
-	var material: Dictionary = _inst(2, "fire_drake", ["tr_x"], 12)
+func test_evolve_keeps_main_traits_skills_and_points() -> void:
+	var main: Dictionary = _with_points(_inst(1, "fire_drake", ["tr_icy"]), 2)
+	main["skills"] = {"fang": 3}
+	var material: Dictionary = _inst(2, "fire_drake", ["tr_x"])
 	var result: Dictionary = Fusion.merge(_data(), main, material, 7)
-	assert_eq(result["inst"], _inst(7, "beowulf_firedrake", ["tr_icy"]))
+	var expected: Dictionary = _with_points(_inst(7, "beowulf_firedrake", ["tr_icy"]), 2)
+	expected["skills"] = {"fang": 3}
+	assert_eq(result["inst"], expected)
+
+
+func test_skill_needs_point_prerequisite_and_room() -> void:
+	var data: Dictionary = _data()
+	var inst: Dictionary = _inst(1, "fafnir")
+	assert_eq(Fusion.skill_rejection(data, inst, "fang"), "noSkillPoint")
+	inst["skillPoints"] = 1
+	assert_eq(Fusion.skill_rejection(data, inst, "fang"), "")
+	assert_eq(Fusion.skill_rejection(data, inst, "frenzy"), "skillLocked")
+	inst["skills"] = {"fang": 5}
+	assert_eq(Fusion.skill_rejection(data, inst, "fang"), "skillMaxed")
+	assert_eq(Fusion.skill_rejection(data, inst, "frenzy"), "")
+	assert_eq(Fusion.skill_rejection(data, inst, "nope"), "unknownSkill")
