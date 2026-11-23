@@ -8,3 +8,4 @@ dist-demo/
 release-demo/
 release-godot/
 release-godot-demo/
+.godot/
