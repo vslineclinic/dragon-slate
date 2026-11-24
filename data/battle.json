@@ -61,13 +61,14 @@
   },
   "escort": {
     "count": {
-      "base": 2,
-      "t2": 3,
-      "t1": 4,
-      "dual": 4,
-      "secret": 4,
-      "apex": 5
+      "base": 0,
+      "t2": 0,
+      "t1": 0,
+      "dual": 0,
+      "secret": 0,
+      "apex": 0
     },
+    "max": 2,
     "hpPct": 25,
     "atkPct": 35,
     "cooldownTicks": 12,

@@ -136,7 +136,7 @@ func _draw_map() -> void:
 	var growth: String = "최고 레벨" if need == 0 else "경험치 %d / %d" % [int(inst.get("xp", 0)), need]
 	GameTheme.heading(_body, Rect2(112, 8, 520, 34), "%s  Lv.%d" % [spec["nameKo"], level], 26)
 	var unit: Dictionary = Battle.to_unit(_ctl.data, inst)
-	var escorts: int = int(_ctl.data["battle"]["escort"]["count"].get(spec["tier"], 0)) + int(unit["escortBonus"])
+	var escorts: int = Battle.escort_count(_ctl.data["battle"], unit)
 	var role: String = spec.get("role", "")
 	var stats_line: Label = GameTheme.label(_body, Rect2(112, 42, 380, 22), "%s · 체력 %d · 공격력 %d · 호위 %d마리" % [GameTheme.ROLE_KO.get(role, ""), unit["hp"], unit["atk"], escorts], 15, GameTheme.TEXT)
 	stats_line.mouse_filter = Control.MOUSE_FILTER_STOP

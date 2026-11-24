@@ -95,7 +95,7 @@
     "id": "pack",
     "branch": "pack",
     "nameKo": "무리 부름",
-    "descKo": "호위 +1마리",
+    "descKo": "호위 +1마리 (용 한 마리에 최대 2마리)",
     "kind": "escortCount",
     "value": 1,
     "max": 2,
@@ -117,9 +117,9 @@
     "id": "brood",
     "branch": "pack",
     "nameKo": "어미 용의 부름",
-    "descKo": "호위 +1마리",
-    "kind": "escortCount",
-    "value": 1,
+    "descKo": "호위 능력 +30%",
+    "kind": "escortPct",
+    "value": 30,
     "max": 1,
     "requires": {
       "alpha": 2

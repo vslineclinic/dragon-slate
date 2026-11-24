@@ -111,6 +111,13 @@ static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary =
 	return unit
 
 
+## 그 용이 데리고 나오는 호위 수: 등급 기본값 + 스킬 · 유물 · 시너지, escort.max를 넘지 않는다.
+static func escort_count(cfg: Dictionary, unit: Dictionary) -> int:
+	var escort: Dictionary = cfg["escort"]
+	var count: int = int(escort["count"].get(unit.get("tier", "base"), 0)) + int(unit.get("escortBonus", 0))
+	return count if not escort.has("max") else mini(count, int(escort["max"]))
+
+
 ## 원소 시너지: 전장에 놓인 드래곤을 원소별로 세어 단계와 효과를 돌려준다(이중 원소는 양쪽에 센다).
 ## 결과는 자료 순서대로, 한 마리 이상 있는 원소만. level 0이면 아직 발동 전.
 static func synergies(data: Dictionary, insts: Array) -> Array:
@@ -424,7 +431,7 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 		dragon["critBonus"] = int(unit.get("critPct", 0))
 		dragon["guard"] = mini(60, int(unit.get("guardPct", 0)) + (stance_pct if dragon["ability"] == "vanguard" and slot < 3 else 0))
 		units.append(dragon)
-		var count: int = int(escort["count"].get(unit.get("tier", "base"), 0)) + int(unit.get("escortBonus", 0))
+		var count: int = escort_count(cfg, unit)
 		var escort_scale: int = 100 + int(unit.get("escortPct", 0))
 		var first: Array = [] if unit["elements"].is_empty() else [unit["elements"][0]]
 		for k: int in range(count):
