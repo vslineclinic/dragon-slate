@@ -22,11 +22,17 @@ static func choose(data: Dictionary, state: Dictionary) -> Dictionary:
 			return _choose_relic(state)
 		"slab":
 			return _choose_rune(data, state)
+		"shop":
+			return _choose_shop(data, state)
 		"fork":
-			var cost: int = int(data["waves"].get("fork", {}).get("merchantCost", 0))
+			## 상인(상점)은 유물 값에 다시 돌릴 여유까지 있을 때만 들른다.
+			var cost: int = 0
+			for item: Dictionary in data["waves"].get("shop", {}).get("stock", []):
+				if item["kind"] == "relic":
+					cost = int(item["cost"])
 			if int(state["lives"]) < int(data["waves"]["startLives"]) - 1:
 				return {"type": "chooseFork", "option": "rest"}
-			if int(state["mana"]) >= cost + 4:
+			if cost > 0 and int(state["mana"]) >= cost + 4:
 				return {"type": "chooseFork", "option": "merchant"}
 			return {"type": "chooseFork", "option": "rest"}
 	push_error("no bot command for phase " + str(state["phase"]))
@@ -36,6 +42,24 @@ static func choose(data: Dictionary, state: Dictionary) -> Dictionary:
 const REWARD_ORDER: Array = ["t2egg", "trait", "egg", "life", "mana", "freeSpin", "nudge"]
 const RELIC_ORDER: Array = ["sword", "shell", "horn", "hawkeye", "banner", "feather", "fang", "seal", "crown", "tome", "scale", "dice", "phoenix", "kiln", "chisel", "philosopher"]
 const SKILL_ORDER: Array = ["fang", "scale", "pack", "alpha", "frenzy", "leech"]
+## 상점에서 사는 순서. 전환의 룬은 봇이 쓸 줄 몰라서 사지 않는다.
+const SHOP_ORDER: Array = ["life", "relic", "rune", "erase"]
+
+
+## 상점: 생명이 모자라면 생명, 다음은 유물, 쓸 데가 있는 룬. 살 것이 없으면 나간다.
+static func _choose_shop(data: Dictionary, state: Dictionary) -> Dictionary:
+	var items: Array = state["shop"]["items"]
+	for kind: String in SHOP_ORDER:
+		for i: int in range(items.size()):
+			if items[i]["kind"] != kind or not Run.shop_rejection(data, state, i).is_empty():
+				continue
+			## 룬은 석판 차례에서 실제로 쓸 때만 산다(안 쓰면 값을 돌려받고 다시 사는 제자리걸음이 된다).
+			if kind == "rune" and (items[i]["detail"] != _favoured(data, state) or _unowned_rune(data, state) < 0):
+				continue
+			if kind == "erase" and _unowned_rune(data, state) < 0:
+				continue
+			return {"type": "buy", "index": i}
+	return {"type": "leaveShop"}
 
 
 static func _choose_reward(data: Dictionary, state: Dictionary) -> Dictionary:
@@ -62,6 +86,10 @@ static func _choose_reward(data: Dictionary, state: Dictionary) -> Dictionary:
 		if rank < best_rank:
 			best_rank = rank
 			best = i
+	## 쓸 만한 보상이 없으면(마력 주머니보다 못하면) 마력을 내고 다시 뽑는다.
+	var reroll: int = Run.reward_reroll_cost(data, state)
+	if best_rank > REWARD_ORDER.find("mana") and reroll >= 0 and int(state["mana"]) >= reroll + 4:
+		return {"type": "rerollRewards"}
 	return {"type": "chooseReward", "index": best}
 
 
@@ -199,7 +227,9 @@ static func _choose_pick(data: Dictionary, state: Dictionary, grid: Dictionary) 
 	var best_nudge: Variant = null
 	var recruiting_nudge: Variant = null
 	var best_count: int = _line_count(lines)
-	if state["nudgesLeft"] > 0:
+	## 무료 밀기가 없어도 마력으로 살 수 있으면 민다(줄이 늘 때만 미니까 값은 한다).
+	var nudge_cost: int = Run.nudge_cost(data, state)
+	if nudge_cost >= 0 and int(state["mana"]) >= nudge_cost:
 		for col: int in COLUMNS:
 			for dir: int in DIRECTIONS:
 				var shifted: Dictionary = Slot.nudge(grid, col, dir)

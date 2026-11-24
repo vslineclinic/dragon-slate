@@ -81,6 +81,11 @@ static func create_run(data: Dictionary, seed: int, calamity: int = 0, start: St
 		"bonusNudges": 0,
 		"freeSpins": 0,
 		"rewardChoices": [],
+		"rewardRerolls": 0,
+		"nudgesBought": 0,
+		"shopPending": false,
+		"shop": null,
+		"shopVisits": 0,
 		"relics": [],
 		"relicChoices": [],
 		"relicPending": false,
@@ -127,7 +132,7 @@ static func apply_command(data: Dictionary, state: Dictionary, cmd: Dictionary) 
 		"spin":
 			reason = _do_spin(data, next, rng, events)
 		"nudge":
-			reason = _do_nudge(next, cmd["col"], cmd["dir"], events)
+			reason = _do_nudge(data, next, cmd["col"], cmd["dir"], events)
 		"pick":
 			reason = _do_pick(data, next, cmd["index"], rng, events)
 		"merge":
@@ -152,6 +157,12 @@ static func apply_command(data: Dictionary, state: Dictionary, cmd: Dictionary) 
 			reason = _do_rune(data, next, cmd["index"], rng, events)
 		"skipRune":
 			reason = _do_rune(data, next, null, rng, events)
+		"rerollRewards":
+			reason = _do_reroll_rewards(data, next, rng, events)
+		"buy":
+			reason = _do_buy(data, next, cmd.get("index"), events)
+		"leaveShop":
+			reason = _do_leave_shop(data, next, rng, events)
 	if not reason.is_empty():
 		return {"state": state, "events": [{"t": "rejected", "reason": reason}]}
 	next["rngState"] = rng.state()
@@ -300,15 +311,33 @@ static func _do_spin(data: Dictionary, state: Dictionary, rng: Rng, events: Arra
 	return ""
 
 
-static func _do_nudge(state: Dictionary, col: int, dir: int, events: Array) -> String:
+## 지금 한 번 미는 값: 0 = 무료 밀기가 남았다, 양수 = 마력을 내고 민다, -1 = 이번 웨이브에는 더 밀 수 없다.
+static func nudge_cost(data: Dictionary, state: Dictionary) -> int:
+	if int(state["nudgesLeft"]) > 0:
+		return 0
+	var buy: Dictionary = data["slot"].get("nudgeBuy", {})
+	if int(state.get("nudgesBought", 0)) >= int(buy.get("perWave", 0)):
+		return -1
+	return maxi(0, int(buy.get("cost", 0)))
+
+
+static func _do_nudge(data: Dictionary, state: Dictionary, col: int, dir: int, events: Array) -> String:
 	if state["phase"] != "pick" or state["grid"] == null:
 		return "wrongPhase"
-	if state["nudgesLeft"] <= 0:
+	var cost: int = nudge_cost(data, state)
+	if cost < 0:
 		return "noNudgeLeft"
+	if int(state["mana"]) < cost:
+		return "notEnoughMana"
 	var grid: Dictionary = Slot.nudge(state["grid"], col, dir)
 	state["grid"] = grid
-	state["nudgesLeft"] -= 1
-	events.append({"t": "nudged", "grid": grid})
+	if int(state["nudgesLeft"]) > 0:
+		state["nudgesLeft"] -= 1
+	else:
+		## 무료 밀기를 다 쓴 뒤: 마력을 내고 민다(웨이브마다 slot.nudgeBuy.perWave번까지).
+		state["nudgesBought"] = int(state.get("nudgesBought", 0)) + 1
+	events.append({"t": "nudged", "grid": grid, "cost": cost})
+	_add_mana(state, -cost, "nudge", events)
 	_append_line_hits(Slot.evaluate_lines(grid), events)
 	return ""
 
@@ -432,13 +461,21 @@ static func _do_release(data: Dictionary, state: Dictionary, from: Dictionary, e
 
 ## 보상 후보 3개를 겹치지 않게 뽑는다. 알은 어떤 종인지 미리 정해 카드에 보여 준다.
 ## with_rune = 내 석판이 있는 판인지. 석판이 없는 옛 저장에는 "룬 한 장"을 내놓지 않는다.
-static func _roll_reward_choices(data: Dictionary, rng: Rng, boss: bool, with_rune: bool = true) -> Array:
+## skip = 내놓지 않을 보상 id(다시 뽑을 때 방금 본 것). 그걸 빼면 석 장을 못 채울 때는 빼지 않는다.
+static func _roll_reward_choices(data: Dictionary, rng: Rng, boss: bool, with_rune: bool = true, skip: Array = []) -> Array:
 	var pool: Array = []
 	var weights: Array = []
 	var weight_key: String = "bossWeight" if boss else "weight"
+	var fresh: int = 0
+	for candidate: Dictionary in data["rewards"]:
+		var usable: bool = int(candidate[weight_key]) > 0 and (with_rune or candidate["kind"] not in ["rune", "erase"])
+		if usable and candidate["id"] not in skip:
+			fresh += 1
 	for candidate: Dictionary in data["rewards"]:
 		var weight: int = candidate[weight_key]
 		if candidate["kind"] in ["rune", "erase"] and not with_rune:
+			continue
+		if fresh >= REWARD_CHOICES and candidate["id"] in skip:
 			continue
 		if weight > 0:
 			pool.append(candidate)
@@ -484,10 +521,41 @@ static func _do_choose_reward(data: Dictionary, state: Dictionary, index: Varian
 	return ""
 
 
+## 보상 다시 뽑기의 값: 양수(또는 0) = 마력, -1 = 이 보상 화면에서는 더 뽑을 수 없다.
+static func reward_reroll_cost(data: Dictionary, state: Dictionary) -> int:
+	var cfg: Dictionary = data["waves"].get("rewardReroll", {})
+	if int(state.get("rewardRerolls", 0)) >= int(cfg.get("perScreen", 0)):
+		return -1
+	return maxi(0, int(cfg.get("cost", 0)))
+
+
+## 보상 다시 뽑기: 마력을 내고 세 장을 새로 뽑는다(방금 본 보상은 빼고). 한 보상 화면에서 perScreen번까지.
+static func _do_reroll_rewards(data: Dictionary, state: Dictionary, rng: Rng, events: Array) -> String:
+	if state["phase"] != "reward" or state.get("rewardChoices", []).is_empty():
+		return "wrongPhase"
+	var cost: int = reward_reroll_cost(data, state)
+	if cost < 0:
+		return "noRerollLeft"
+	if int(state["mana"]) < cost:
+		return "notEnoughMana"
+	var seen: Array = []
+	for choice: Dictionary in state["rewardChoices"]:
+		seen.append(choice["reward"]["id"])
+	var choices: Array = _roll_reward_choices(data, rng, state.get("rewardBoss", false), not state.get("slab", []).is_empty(), seen)
+	if choices.is_empty():
+		return "noRerollLeft"
+	_add_mana(state, -cost, "rewardReroll", events)
+	state["rewardRerolls"] = int(state.get("rewardRerolls", 0)) + 1
+	state["rewardChoices"] = choices
+	events.append({"t": "rewardChoices", "choices": choices, "rerolled": true})
+	return ""
+
+
 ## 보상을 받은 뒤: 보상을 한 번 더 고르거나(정예 사냥) 다음 차례로.
 static func _after_reward(data: Dictionary, state: Dictionary, rng: Rng, events: Array) -> void:
 	if int(state.get("extraRewards", 0)) > 0:
 		state["extraRewards"] = int(state["extraRewards"]) - 1
+		state["rewardRerolls"] = 0
 		state["rewardChoices"] = _roll_reward_choices(data, rng, state.get("rewardBoss", false), not state.get("slab", []).is_empty())
 		if not state["rewardChoices"].is_empty():
 			state["phase"] = "reward"
@@ -501,14 +569,19 @@ static func _do_rune(data: Dictionary, state: Dictionary, index: Variant, rng: R
 	if state["phase"] != "slab" or state.get("runePending") == null:
 		return "wrongPhase"
 	var rune: String = state["runePending"]
+	## 상점에서 산 룬이면 끝난 뒤 상점으로 돌아간다. refund = 아직 쓰지 않아서 무를 수 있는 물건의 번호(없으면 -1).
+	var shop: Variant = state.get("shop")
+	var refund: int = int(shop.get("refund", -1)) if shop is Dictionary else -1
 	if index != null:
 		var slab: Array = state.get("slab", [])
 		if not _valid_index(index, slab.size()):
 			return "emptySlot"
 		if rune == "erase" and slab.size() <= int(data["slot"].get("slab", {}).get("minSize", 0)):
-			## 그사이 묶음이 가장 적은 장수가 됐으면 빼지 않고 마력으로 준다.
-			_add_mana(state, 3, "reward", events)
+			## 그사이 묶음이 가장 적은 장수가 됐으면 빼지 않고 마력으로 준다(상점에서 샀으면 값을 돌려준다).
+			if refund < 0:
+				_add_mana(state, 3, "reward", events)
 		elif rune == "erase":
+			refund = -1
 			## 룬 지우기: 그 룬을 묶음에서 뺀다.
 			events.append({"t": "runeErased", "index": int(index), "from": slab[int(index)]})
 			slab.remove_at(int(index))
@@ -516,20 +589,35 @@ static func _do_rune(data: Dictionary, state: Dictionary, index: Variant, rng: R
 			events.append({"t": "runeReplaced", "index": int(index), "from": slab[int(index)], "to": rune})
 			slab[int(index)] = rune
 			state["runeUses"] = int(state.get("runeUses", 1)) - 1
+			refund = -1
 			if int(state["runeUses"]) > 0:
-				## 아직 더 바꿀 수 있다: 석판 차례에 머문다.
+				## 아직 더 바꿀 수 있다: 석판 차례에 머문다(한 장이라도 바꿨으니 이제 무를 수 없다).
+				if shop is Dictionary:
+					shop["refund"] = -1
 				return ""
 	else:
 		events.append({"t": "runeSkipped", "rune": rune})
 	state["runePending"] = null
 	state["runeUses"] = 0
+	if shop is Dictionary:
+		## 상점에서 산 룬을 쓰지 않고 돌아왔다: 값을 돌려주고 물건을 다시 진열한다.
+		var items: Array = shop.get("items", [])
+		if refund >= 0 and refund < items.size():
+			items[refund]["sold"] = false
+			_add_mana(state, int(items[refund]["cost"]), "refund", events)
+			events.append({"t": "refunded", "index": refund, "item": items[refund].duplicate(true)})
+		shop["refund"] = -1
+		state["phase"] = "shop"
+		return ""
 	_after_reward(data, state, rng, events)
 	return ""
 
 
-## 보상 뒤의 차례: 유물 → 갈림길 → 다음 웨이브.
+## 보상 뒤의 차례: 유물 → 상점 → 갈림길 → 다음 웨이브.
 static func _proceed(data: Dictionary, state: Dictionary, rng: Rng, events: Array) -> void:
 	if _offer_relics(data, state, rng, events):
+		return
+	if _open_shop(data, state, events):
 		return
 	if state.get("forkPending", false):
 		state["forkPending"] = false
@@ -541,7 +629,7 @@ static func _proceed(data: Dictionary, state: Dictionary, rng: Rng, events: Arra
 	events.append(_wave_start(data, state))
 
 
-## 갈림길: 정예 사냥(다음 적이 강해지고 보상을 한 번 더) · 쉼터(생명과 경험치) · 상인(마력으로 유물).
+## 갈림길: 정예 사냥(다음 적이 강해지고 보상을 한 번 더) · 쉼터(생명과 경험치) · 상인(상점을 한 번 더 연다) · 저주의 계약.
 static func _do_choose_fork(data: Dictionary, state: Dictionary, option: Variant, rng: Rng, events: Array) -> String:
 	if state["phase"] != "fork":
 		return "wrongPhase"
@@ -561,11 +649,8 @@ static func _do_choose_fork(data: Dictionary, state: Dictionary, option: Variant
 					if inst != null and Fusion.add_xp(data, inst, int(fork.get("restXp", 0))) > 0:
 						events.append({"t": "leveled", "at": {"zone": zone, "index": i}, "level": inst["level"]})
 		"merchant":
-			var cost: int = int(fork.get("merchantCost", 0))
-			if int(state["mana"]) < cost:
-				return "notEnoughMana"
-			_add_mana(state, -cost, "merchant", events)
-			state["relicPending"] = true
+			## 떠돌이 상인: 들어가는 값은 없다. 상점이 한 번 더 열린다.
+			state["shopPending"] = true
 		"pact":
 			## 저주: 판이 끝날 때까지 적이 세지는 대신 유물을 바로 하나 고른다.
 			state["cursePct"] = int(state.get("cursePct", 0)) + int(fork.get("pactPowerPct", 0))
@@ -613,9 +698,15 @@ static func _do_choose_relic(data: Dictionary, state: Dictionary, index: Variant
 	var choices: Array = state.get("relicChoices", [])
 	if not _valid_index(index, choices.size()):
 		return "emptySlot"
-	var id: String = choices[int(index)]
-	state["relics"].append(id)
 	state["relicChoices"] = []
+	_grant_relic(data, state, choices[int(index)], events)
+	_proceed(data, state, rng, events)
+	return ""
+
+
+## 유물 하나를 갖는다(받는 즉시 드는 효과 포함).
+static func _grant_relic(data: Dictionary, state: Dictionary, id: String, events: Array) -> void:
+	state["relics"].append(id)
 	for relic: Dictionary in data.get("relics", []):
 		if relic["id"] != id:
 			continue
@@ -628,6 +719,115 @@ static func _do_choose_relic(data: Dictionary, state: Dictionary, index: Variant
 			## 현자의 돌: 전환의 룬 하나와 함께 온다.
 			_add_item(state, "transmute", int(relic["value"]), events)
 	events.append({"t": "relic", "id": id})
+
+
+## 상점을 연다(심판 보스를 이긴 뒤 · 갈림길의 상인). 열었으면 true.
+## 진열(어떤 룬 · 어떤 유물)은 판 씨앗 · 웨이브 · 들른 횟수로 정한다: 판의 난수 흐름을 건드리지 않는다.
+static func _open_shop(data: Dictionary, state: Dictionary, events: Array) -> bool:
+	if not state.get("shopPending", false):
+		return false
+	state["shopPending"] = false
+	var visits: int = int(state.get("shopVisits", 0))
+	var rng: Rng = Rng.new(((int(state["seed"]) ^ 0x2545f491) + int(state["wave"]) * 0x9e3779b1 + visits * 0x85ebca6b) & Rng.M32)
+	var runes: Array = data["slot"].get("slab", {}).get("offer", [])
+	var has_slab: bool = not state.get("slab", []).is_empty()
+	var unowned: Array = []
+	for relic: Dictionary in data.get("relics", []):
+		if relic["id"] not in state["relics"]:
+			unowned.append(relic["id"])
+	var items: Array = []
+	for spec: Dictionary in data["waves"].get("shop", {}).get("stock", []):
+		var item: Dictionary = spec.duplicate(true)
+		item["detail"] = null
+		item["sold"] = false
+		match spec["kind"]:
+			"rune":
+				if not has_slab or runes.is_empty():
+					continue
+				item["detail"] = runes[rng.next_int(runes.size())]
+			"erase":
+				if not has_slab:
+					continue
+			"relic":
+				if unowned.is_empty():
+					continue
+				item["detail"] = unowned[rng.next_int(unowned.size())]
+		items.append(item)
+	if items.is_empty():
+		return false
+	state["shopVisits"] = visits + 1
+	state["shop"] = {"items": items, "refund": -1}
+	state["phase"] = "shop"
+	events.append({"t": "shop", "items": items.duplicate(true)})
+	return true
+
+
+## 상점의 index번째 물건을 지금 살 수 없는 까닭. 살 수 있으면 "".
+static func shop_rejection(data: Dictionary, state: Dictionary, index: Variant) -> String:
+	var shop: Variant = state.get("shop")
+	if state["phase"] != "shop" or not shop is Dictionary:
+		return "wrongPhase"
+	var items: Array = shop.get("items", [])
+	if not _valid_index(index, items.size()):
+		return "emptySlot"
+	var item: Dictionary = items[int(index)]
+	if item.get("sold", false):
+		return "soldOut"
+	match item["kind"]:
+		"life":
+			if int(state["lives"]) >= int(data["waves"]["startLives"]):
+				return "livesFull"
+		"erase":
+			if state.get("slab", []).size() <= int(data["slot"].get("slab", {}).get("minSize", 0)):
+				return "slabMin"
+		"rune":
+			if state.get("slab", []).is_empty() or not item.get("detail") is String:
+				return "emptySlot"
+		"relic":
+			if not item.get("detail") is String or item["detail"] in state["relics"]:
+				return "soldOut"
+	if int(state["mana"]) < int(item["cost"]):
+		return "notEnoughMana"
+	return ""
+
+
+## 상점에서 사기: 한 물건은 한 번만. 룬 한 장 · 룬 지우기는 석판 차례로 갔다가 상점으로 돌아온다.
+static func _do_buy(data: Dictionary, state: Dictionary, index: Variant, events: Array) -> String:
+	var reason: String = shop_rejection(data, state, index)
+	if not reason.is_empty():
+		return reason
+	var at: int = int(index)
+	var item: Dictionary = state["shop"]["items"][at]
+	_add_mana(state, -int(item["cost"]), "shop", events)
+	item["sold"] = true
+	events.append({"t": "bought", "index": at, "item": item.duplicate(true)})
+	match item["kind"]:
+		"rune":
+			state["runePending"] = item["detail"]
+			state["runeUses"] = int(item.get("amount", 1)) + int(relic_bonus(data, state).get("runeEdits", 0))
+			state["shop"]["refund"] = at
+			state["phase"] = "slab"
+			events.append({"t": "runeOffer", "rune": item["detail"]})
+		"erase":
+			state["runePending"] = "erase"
+			state["shop"]["refund"] = at
+			state["phase"] = "slab"
+			events.append({"t": "runeOffer", "rune": "erase"})
+		"transmute":
+			_add_item(state, "transmute", int(item.get("amount", 1)), events)
+		"life":
+			state["lives"] = mini(int(data["waves"]["startLives"]), int(state["lives"]) + int(item.get("amount", 1)))
+			events.append({"t": "lives", "lives": state["lives"]})
+		"relic":
+			_grant_relic(data, state, item["detail"], events)
+	return ""
+
+
+static func _do_leave_shop(data: Dictionary, state: Dictionary, rng: Rng, events: Array) -> String:
+	if state["phase"] != "shop":
+		return "wrongPhase"
+	state["shop"] = null
+	events.append({"t": "shopClosed"})
 	_proceed(data, state, rng, events)
 	return ""
 
@@ -906,7 +1106,11 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 	state["spinsThisWave"] = 0
 	state["nudgesLeft"] = int(data["slot"]["nudgesPerWave"]) + int(state["bonusNudges"]) + int(relics.get("nudge", 0))
 	state["bonusNudges"] = 0
+	state["nudgesBought"] = 0
+	state["rewardRerolls"] = 0
 	state["relicPending"] = won and is_boss
+	## 심판 보스를 이기면 유물 다음에 상점이 열린다.
+	state["shopPending"] = won and is_boss
 	state["forkPending"] = wave in waves.get("fork", {}).get("after", []) and int(state["wave"]) > wave
 	state["extraRewards"] = int(wave_mod.get("extraRewards", 0)) if won else 0
 	state["rewardBoss"] = strong_wave

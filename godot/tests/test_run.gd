@@ -42,10 +42,13 @@ func test_reroll_rejected_without_mana() -> void:
 
 
 func test_nudge_only_once_per_wave() -> void:
-	var state: Dictionary = _apply(_fresh(), {"type": "spin"})["state"]
-	var nudged: Dictionary = _apply(state, {"type": "nudge", "col": 1, "dir": 1})["state"]
+	## 밀기 추가 구매가 없는 자료: 무료 밀기 한 번뿐이다(구매 규칙은 test_shop.gd).
+	var data: Dictionary = _data.duplicate(true)
+	data["slot"].erase("nudgeBuy")
+	var state: Dictionary = RunRules.apply_command(data, _fresh(), {"type": "spin"})["state"]
+	var nudged: Dictionary = RunRules.apply_command(data, state, {"type": "nudge", "col": 1, "dir": 1})["state"]
 	assert_eq(nudged["grid"]["offsets"], [0, 1, 0])
-	_assert_rejected(nudged, {"type": "nudge", "col": 0, "dir": 1}, "noNudgeLeft")
+	assert_eq(RunRules.apply_command(data, nudged, {"type": "nudge", "col": 0, "dir": 1})["events"], [{"t": "rejected", "reason": "noNudgeLeft"}])
 
 
 func test_bonus_eggs_convert_to_mana_when_bench_is_full() -> void:
@@ -178,9 +181,12 @@ func test_boss_win_offers_three_relics_and_choice_applies() -> void:
 	_assert_rejected(state, {"type": "spin"}, "wrongPhase")
 	var picked: String = state["relicChoices"][1]
 	var after: Dictionary = _apply(state, {"type": "chooseRelic", "index": 1})
-	_assert_fields(after["state"], {"phase": "spin", "relics": [picked], "relicChoices": []})
+	## 유물 다음에는 상점이 열리고, 나가면 다음 웨이브다.
+	_assert_fields(after["state"], {"phase": "shop", "relics": [picked], "relicChoices": []})
 	assert_true({"t": "relic", "id": picked} in after["events"])
-	assert_true(_wave_start(state["seed"], 6) in after["events"])
+	var left: Dictionary = _apply(after["state"], {"type": "leaveShop"})
+	_assert_fields(left["state"], {"phase": "spin", "relics": [picked]})
+	assert_true(_wave_start(state["seed"], 6) in left["events"])
 
 
 func test_normal_win_offers_no_relic() -> void:
@@ -384,6 +390,8 @@ func test_win_offers_three_rewards_then_relic_after_boss() -> void:
 		picked = RunRules.apply_command(data, picked, {"type": "skipRune"})["state"]
 	_assert_fields(picked, {"phase": "relic", "rewardChoices": [], "relicPending": false})
 	var done: Dictionary = RunRules.apply_command(data, picked, {"type": "chooseRelic", "index": 2})["state"]
+	_assert_fields(done, {"phase": "shop", "wave": 6})
+	done = RunRules.apply_command(data, done, {"type": "leaveShop"})["state"]
 	_assert_fields(done, {"phase": "spin", "wave": 6})
 	assert_eq(done["relics"].size(), 1)
 
@@ -403,15 +411,13 @@ func test_rest_never_raises_lives_above_the_start() -> void:
 	assert_eq(_apply(state, {"type": "chooseFork", "option": "rest"})["state"]["lives"], 5)
 
 
-func test_merchant_costs_mana_and_offers_relics() -> void:
-	var cost: int = _data["waves"]["fork"]["merchantCost"]
-	var poor: Dictionary = _fresh({"phase": "fork", "forkChoices": ["elite", "rest", "merchant"], "mana": cost - 1})
-	_assert_rejected(poor, {"type": "chooseFork", "option": "merchant"}, "notEnoughMana")
-	var rich: Dictionary = _fresh({"phase": "fork", "forkChoices": ["elite", "rest", "merchant"], "mana": cost + 2})
-	var bought: Dictionary = _apply(rich, {"type": "chooseFork", "option": "merchant"})["state"]
-	_assert_fields(bought, {"phase": "relic", "mana": 2})
-	assert_eq(bought["relicChoices"].size(), 3)
-	_assert_fields(_apply(bought, {"type": "chooseRelic", "index": 0})["state"], {"phase": "spin"})
+func test_merchant_opens_the_shop_without_an_entry_fee() -> void:
+	## 떠돌이 상인은 상점을 한 번 더 여는 길이다(물건 사기는 test_shop.gd).
+	var poor: Dictionary = _fresh({"phase": "fork", "forkChoices": ["elite", "rest", "merchant"], "mana": 0})
+	var opened: Dictionary = _apply(poor, {"type": "chooseFork", "option": "merchant"})["state"]
+	_assert_fields(opened, {"phase": "shop", "mana": 0, "relicChoices": []})
+	assert_true(not opened["shop"]["items"].is_empty())
+	_assert_fields(_apply(opened, {"type": "leaveShop"})["state"], {"phase": "spin", "shop": null})
 
 
 func test_elite_hunt_strengthens_next_wave_and_gives_a_second_reward() -> void:

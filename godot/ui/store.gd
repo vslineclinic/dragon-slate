@@ -6,7 +6,7 @@ const RUN_PATH: String = "user://run.json"
 ## 데모판은 저장을 따로 둔다(정식판과 같은 폴더를 쓰므로 서로 덮어쓰지 않게).
 const DEMO_RUN_PATH: String = "user://run_demo.json"
 const RUN_VERSION: int = 2
-const RUN_PHASES: Array[String] = ["spin", "pick", "manage", "reward", "relic", "fork", "slab"]
+const RUN_PHASES: Array[String] = ["spin", "pick", "manage", "reward", "relic", "fork", "slab", "shop"]
 
 ## 화면 캡처 · 메모리 측정 같은 도구가 켠다: 하던 판 저장 파일을 쓰지도 지우지도 않는다(사용자의 저장을 지킨다).
 static var autosave_off: bool = false
@@ -184,6 +184,17 @@ static func _run_is_playable(state: Dictionary, data: Dictionary) -> bool:
 				return false
 		"slab":
 			if not state.get("runePending") is String or not state.get("slab") is Array:
+				return false
+		"shop":
+			if not state.get("shop") is Dictionary:
+				return false
+	## 상점(열려 있거나, 상점에서 산 룬으로 석판을 고치는 중): 진열이 온전해야 한다.
+	var shop: Variant = state.get("shop")
+	if shop != null:
+		if not shop is Dictionary or not shop.get("items") is Array or shop["items"].is_empty():
+			return false
+		for item: Variant in shop["items"]:
+			if not item is Dictionary or not item.get("kind") is String or not (item.get("cost") is int or item.get("cost") is float):
 				return false
 	for key: String in ["items", "waveMod"]:
 		if state.has(key) and not state[key] is Dictionary:

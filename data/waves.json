@@ -204,7 +204,19 @@
     "elitePowerPct": 40,
     "restLives": 1,
     "restXp": 4,
-    "merchantCost": 12,
     "pactPowerPct": 15
+  },
+  "shop": {
+    "stock": [
+      { "id": "rune", "kind": "rune", "nameKo": "룬 한 장", "cost": 4, "amount": 1 },
+      { "id": "erase", "kind": "erase", "nameKo": "룬 지우기", "cost": 4, "amount": 1 },
+      { "id": "transmute", "kind": "transmute", "nameKo": "전환의 룬", "cost": 6, "amount": 1 },
+      { "id": "life", "kind": "life", "nameKo": "생명의 비늘", "cost": 8, "amount": 1 },
+      { "id": "relic", "kind": "relic", "nameKo": "유물", "cost": 12, "amount": 1 }
+    ]
+  },
+  "rewardReroll": {
+    "cost": 2,
+    "perScreen": 1
   }
 }

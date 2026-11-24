@@ -26,6 +26,10 @@
   },
   "pityThreshold": 4,
   "nudgesPerWave": 1,
+  "nudgeBuy": {
+    "cost": 2,
+    "perWave": 3
+  },
   "rerollCosts": [
     0,
     2,
