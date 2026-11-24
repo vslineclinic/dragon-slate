@@ -57,7 +57,7 @@ func _init() -> void:
 			scene.call("_render", [], ctl.state)
 			for i in 20:
 				await process_frame
-		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "lineage", "slab", "erase", "live", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
+		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "lineage", "slab", "erase", "live", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -103,7 +103,7 @@ func _init() -> void:
 			scene.call("_render", [], ctl.state)
 			for i in 10:
 				await process_frame
-		if mode in ["dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
+		if mode in ["dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear"]:
 			var team: Array = [["fafnir", 7, 3], ["fire_whelp", 4, 1], ["zhulong", 11, 0]]
 			for slot in range(3):
 				ctl.state["nest"][slot] = {"uid": 900 + slot, "speciesId": team[slot][0], "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": team[slot][2], "level": team[slot][1], "xp": 3}
@@ -115,9 +115,14 @@ func _init() -> void:
 				ctl.state["phase"] = "fork"
 				ctl.state["forkChoices"] = ["elite", "rest", "merchant"]
 			scene.call("_render", [], ctl.state)
-			if mode == "result":
+			if mode in ["result", "stageclear"]:
 				ctl.state["discovered"] = ["fafnir", "zhulong", "fire_whelp"]
 				ctl.state["phase"] = "victory"
+				if mode == "stageclear":
+					## 지역을 깬 화면: 별과 데려갈 용 고르기.
+					scene.set("run_length", "stage:0")
+					ctl.state["livesLost"] = 1
+					ctl.state["bench"][0] = {"uid": 990, "speciesId": "ice_wyvern", "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": 0, "level": 6, "xp": 0}
 				scene.call("_show_result", ctl.state)
 			if mode in ["dex", "dexpick", "dexmixed"]:
 				scene.call("_open_dex")

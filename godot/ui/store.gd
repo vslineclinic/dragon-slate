@@ -238,6 +238,9 @@ func clear_run(path: String = "") -> void:
 
 
 func _save() -> void:
+	## 도구(캡처 · 메모리 측정)가 켠 동안에는 사용자의 설정 · 진행 기록도 디스크에 쓰지 않는다.
+	if autosave_off:
+		return
 	var error: Error = _config.save(PATH)
 	if error != OK:
 		push_warning("설정을 저장하지 못했어요 (%s)" % error_string(error))
