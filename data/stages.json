@@ -1,0 +1,42 @@
+[
+  {
+    "id": "plains",
+    "nameKo": "잊힌 평원",
+    "scene": "plains_ruins",
+    "ambience": "pollen",
+    "ruleKo": "지역 규칙 없음. 석판과 줄을 익히는 곳이에요.",
+    "bosses": [5, 10, 15, 20],
+    "waves": {},
+    "battleRules": {}
+  },
+  {
+    "id": "ice",
+    "nameKo": "얼음 협곡",
+    "scene": "ice_canyon",
+    "ambience": "snow",
+    "ruleKo": "눈보라: 줄 하나는 적이 미리 보이지 않아요.",
+    "bosses": [15, 25, 30, 35],
+    "waves": {"fogLanes": 1},
+    "battleRules": {}
+  },
+  {
+    "id": "volcano",
+    "nameKo": "불의 산",
+    "scene": "volcano",
+    "ambience": "embers",
+    "ruleKo": "화산재: 전열과 후열이 번갈아 화상을 입어요.",
+    "bosses": [10, 5, 25, 35],
+    "waves": {},
+    "battleRules": {"rowBlast": {"everyTicks": 160, "pct": 4}}
+  },
+  {
+    "id": "abyss",
+    "nameKo": "심연의 문",
+    "scene": "abyss",
+    "ambience": "motes",
+    "ruleKo": "심연의 메아리: 적 우두머리도 궁극기를 써요.",
+    "bosses": [20, 30, 35, 40],
+    "waves": {},
+    "battleRules": {"enemyUlt": true}
+  }
+]

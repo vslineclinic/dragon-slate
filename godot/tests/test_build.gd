@@ -64,3 +64,57 @@ func test_changing_the_standard_run_does_not_leak_into_the_original() -> void:
 	standard["waves"]["bossPct"]["5"] = 999
 	standard["waves"]["nestUnlockAfter"].append(99)
 	assert_eq(data, original)
+
+
+func test_there_are_four_regions_and_each_is_a_twenty_wave_run_with_its_own_bosses() -> void:
+	var data: Dictionary = GameData.load_all()
+	var original: Dictionary = data.duplicate(true)
+	assert_eq(data["stages"].size(), 4)
+	var boss_sets: Dictionary = {}
+	for index: int in range(4):
+		var stage: Dictionary = Build.for_stage(data, index)
+		var waves: Dictionary = stage["waves"]
+		assert_eq([waves["maxWave"], waves["stage"]], [20, index])
+		assert_true(not str(waves["stageName"]).is_empty() and not str(waves["stageRule"]).is_empty())
+		assert_true(ResourceLoader.exists("res://assets/backgrounds/%s.png" % waves["scene"]), str(waves["scene"]))
+		var names: Array = []
+		for wave: int in [5, 10, 15, 20]:
+			var boss: Variant = Run._boss_spec(stage, wave)
+			assert_true(boss != null, "지역 %d의 %d웨이브 보스" % [index, wave])
+			if boss != null:
+				names.append(boss["id"] if boss.has("id") else boss["nameKo"])
+		assert_eq(stage["bosses"].size(), 4)
+		boss_sets[str(names)] = true
+	assert_eq(boss_sets.size(), 4, "지역마다 보스 구성이 다르다")
+	assert_true(Build.for_stage(data, 3)["waves"]["battleRules"].get("enemyUlt", false))
+	assert_eq(int(Build.for_stage(data, 1)["waves"].get("fogLanes", 0)), 1)
+	assert_eq(data, original, "원래 자료는 그대로")
+	assert_eq(Build.for_stage(data, 9)["waves"]["maxWave"], 20, "없는 지역이면 기본 원정")
+	assert_eq(Build.for_mode(data, "stage:2")["waves"]["stage"], 2)
+	assert_eq(Build.for_mode(data, "long")["waves"]["maxWave"], 40)
+
+
+func test_region_rules_reach_the_battle() -> void:
+	var data: Dictionary = Build.for_stage(GameData.load_all(), 3)
+	var state: Dictionary = Run.create_run(data, 4)["state"]
+	state["phase"] = "manage"
+	state["nest"][0] = {"uid": 1, "speciesId": "fire_drake", "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": 0, "level": 1, "xp": 0}
+	assert_true(Run.battle_setup(data, state)["rules"].get("enemyUlt", false))
+	var volcano: Dictionary = Build.for_stage(GameData.load_all(), 2)
+	assert_true(Run.battle_setup(volcano, state)["rules"].has("rowBlast"))
+
+
+func test_every_region_can_be_played_to_the_end_by_the_bot_with_a_carried_dragon() -> void:
+	var Bot: GDScript = load("res://godot/tools/bot.gd")
+	for index: int in range(4):
+		var data: Dictionary = Build.for_stage(GameData.load_all(), index)
+		var carry: Dictionary = {} if index == 0 else {"speciesId": "fire_god", "traits": []}
+		var state: Dictionary = Run.create_run(data, 90 + index, 0, Run.start_options(data, 90 + index)[0]["id"], carry)["state"]
+		for step: int in range(3000):
+			if state["phase"] in ["gameOver", "victory"]:
+				break
+			var result: Dictionary = Run.apply_command(data, state, Bot.choose(data, state))
+			assert_true(result["events"].is_empty() or result["events"][0]["t"] != "rejected", "지역 %d 거절된 명령: %s" % [index, str(result["events"])])
+			state = result["state"]
+			state["log"].clear()
+		assert_true(state["phase"] in ["gameOver", "victory"], "지역 %d" % index)

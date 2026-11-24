@@ -114,3 +114,10 @@ func test_saving_leaves_no_draft_file_behind() -> void:
 	store.save_run(_played(27, 20), "standard", PATH)
 	assert_true(not store.load_run(_data, PATH).is_empty(), "덮어써도 읽힌다")
 	store.clear_run(PATH)
+
+
+func test_stars_follow_the_lives_lost() -> void:
+	assert_eq(Store.stars_for({"phase": "gameOver", "livesLost": 0}), 0)
+	assert_eq(Store.stars_for({"phase": "victory", "livesLost": 0}), 3)
+	assert_eq(Store.stars_for({"phase": "victory", "livesLost": 1}), 2)
+	assert_eq(Store.stars_for({"phase": "victory", "livesLost": 4}), 1)

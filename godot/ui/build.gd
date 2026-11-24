@@ -41,6 +41,48 @@ static func for_length(data: Dictionary, length: String) -> Dictionary:
 	return result
 
 
+## 지역(스테이지) index번째의 자료: 기본 원정(20웨이브)에 그 지역의 배경 · 규칙 · 보스 · 수치를 덮어쓴다.
+## 없는 번호면 기본 원정 그대로.
+static func for_stage(data: Dictionary, index: int) -> Dictionary:
+	var base: Dictionary = for_length(data, "standard")
+	var stages: Array = data.get("stages", [])
+	if index < 0 or index >= stages.size():
+		return base
+	var result: Dictionary = base.duplicate(true)
+	var stage: Dictionary = result["stages"][index]
+	var waves: Dictionary = result["waves"]
+	waves["stage"] = index
+	waves["stageName"] = stage.get("nameKo", "")
+	waves["stageRule"] = stage.get("ruleKo", "")
+	waves["scene"] = stage.get("scene", "")
+	waves["ambience"] = stage.get("ambience", "")
+	waves["battleRules"] = stage.get("battleRules", {})
+	for key: String in stage.get("waves", {}):
+		waves[key] = stage["waves"][key]
+	for key: String in stage.get("squad", {}):
+		waves["squad"][key] = stage["squad"][key]
+	## 보스: 그 지역이 고른 보스 넷을 5 · 10 · 15 · 20웨이브에 세운다.
+	var picked: Array = []
+	var from: Array = stage.get("bosses", [])
+	for k: int in range(from.size()):
+		for boss: Dictionary in result["bosses"]:
+			if int(boss["wave"]) == int(from[k]):
+				var copy: Dictionary = boss.duplicate(true)
+				copy["wave"] = 5 * (k + 1)
+				picked.append(copy)
+				break
+	if not picked.is_empty():
+		result["bosses"] = picked
+	return result
+
+
+## 저장 글에 적는 원정 이름("stage:2" · "long" · "standard")에 맞는 자료.
+static func for_mode(data: Dictionary, mode: String) -> Dictionary:
+	if mode.begins_with("stage:"):
+		return for_stage(data, int(mode.substr(6)))
+	return for_length(data, mode)
+
+
 static func max_calamity(data: Dictionary) -> int:
 	var highest: int = 0
 	for calamity: Dictionary in data["calamity"]:

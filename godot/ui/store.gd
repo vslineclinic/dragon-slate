@@ -5,7 +5,7 @@ const PATH: String = "user://wyrmslot.cfg"
 const RUN_PATH: String = "user://run.json"
 ## 데모판은 저장을 따로 둔다(정식판과 같은 폴더를 쓰므로 서로 덮어쓰지 않게).
 const DEMO_RUN_PATH: String = "user://run_demo.json"
-const RUN_VERSION: int = 1
+const RUN_VERSION: int = 2
 const RUN_PHASES: Array[String] = ["spin", "pick", "manage", "reward", "relic", "fork", "slab"]
 
 ## 화면 캡처 · 메모리 측정 같은 도구가 켠다: 하던 판 저장 파일을 쓰지도 지우지도 않는다(사용자의 저장을 지킨다).
@@ -31,6 +31,60 @@ var run_length: String:
 		if value in ["standard", "long"]:
 			_config.set_value("settings", "run_length", value)
 			_save()
+
+
+## 깬 지역 수(0이면 첫 지역만 열려 있다).
+func stages_cleared() -> int:
+	return maxi(0, int(_config.get_value("stages", "cleared", 0)))
+
+
+## 그 지역에서 받은 별(0~3).
+func stage_stars(index: int) -> int:
+	return clampi(int(_config.get_value("stages", "stars%d" % index, 0)), 0, 3)
+
+
+## 지역을 깼다: 다음 지역을 열고 별 기록을 올린다.
+func record_stage(index: int, stars: int) -> void:
+	_config.set_value("stages", "cleared", maxi(stages_cleared(), index + 1))
+	_config.set_value("stages", "stars%d" % index, maxi(stage_stars(index), clampi(stars, 0, 3)))
+	_save()
+
+
+## index번째 지역으로 데려갈 용({"speciesId", "traits"}). 없으면 {}.
+func carry_for(index: int) -> Dictionary:
+	var found: Variant = _config.get_value("stages", "carry%d" % index, {})
+	return found if found is Dictionary else {}
+
+
+func set_carry(index: int, dragon: Dictionary) -> void:
+	_config.set_value("stages", "carry%d" % index, {"speciesId": dragon.get("speciesId", ""), "traits": dragon.get("traits", []).duplicate()})
+	_save()
+
+
+## 타이틀에서 마지막으로 고른 지역. 긴 원정은 지역 수와 같은 번호.
+var stage_pick: int:
+	get:
+		return maxi(0, int(_config.get_value("settings", "stage_pick", 0)))
+	set(value):
+		_config.set_value("settings", "stage_pick", maxi(0, value))
+		_save()
+
+
+## 궁극기를 자동으로 쓸지(끄면 전투 중에 직접 단추를 누른다).
+var ult_auto: bool:
+	get:
+		return bool(_config.get_value("settings", "ult_auto", true))
+	set(value):
+		_config.set_value("settings", "ult_auto", value)
+		_save()
+
+
+## 판을 마친 성적으로 별 수를 매긴다: 깨면 1, 잃은 생명이 1 이하면 2, 하나도 안 잃으면 3.
+static func stars_for(state: Dictionary) -> int:
+	if state.get("phase") != "victory":
+		return 0
+	var lost: int = int(state.get("livesLost", 0))
+	return 3 if lost == 0 else (2 if lost <= 1 else 1)
 
 
 func _init() -> void:

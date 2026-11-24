@@ -17,6 +17,13 @@ func _init() -> void:
 	## --standard: 기본 원정(20웨이브) 값으로 잰다.
 	if args.has("--standard") and not demo:
 		data = Build.for_length(data, "standard")
+	## --stage N: N번째 지역(1부터). --carry 종id: 앞 지역에서 데려온 용.
+	var stage_arg: int = int(_arg(args, "--stage", "0"))
+	if stage_arg > 0 and not demo:
+		data = Build.for_stage(data, stage_arg - 1)
+	var carry: Dictionary = {}
+	if not _arg(args, "--carry", "").is_empty():
+		carry = {"speciesId": _arg(args, "--carry", ""), "traits": []}
 	## --set waves.basePower=190 처럼 자료 값을 바꿔 가며 잰다(여러 번 쓸 수 있다). 배열 칸은 숫자로: battle.field.crossLanePct.1=80
 	for i: int in range(args.size() - 1):
 		if args[i] == "--set":
@@ -49,7 +56,7 @@ func _init() -> void:
 			var options: Array = Run.start_options(data, first_seed + i)
 			var pick: int = int(_arg(args, "--start-index", "0"))
 			start = "" if options.is_empty() else options[pick % options.size()]["id"]
-		var state: Dictionary = Run.create_run(data, first_seed + i, calamity, start)["state"]
+		var state: Dictionary = Run.create_run(data, first_seed + i, calamity, start, carry)["state"]
 		var seen_waves: Dictionary = {}
 		for step: int in range(COMMAND_LIMIT):
 			if state["phase"] in ["victory", "gameOver"]:
