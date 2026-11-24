@@ -35,6 +35,7 @@
 - 코덱스 호출: `C:\claude\ai-team\Invoke-Worker.ps1 -Worker codex -Mode build -WorkDir C:\claude\dragon-game-codex` (맡기기 전 작업본 커밋, 묶음 사이 커밋).
 
 ## Godot 전환 (2026-11-23, 설계 문서 8.2)
+- 렌더러는 PC·모바일 모두 Compatibility(OpenGL)(2026-11-24): Intel 내장 그래픽에서 Vulkan·D3D12는 드라이버가 약 570MB를 더 잡았다. 메모리 측정은 `godot --audio-driver Dummy --path . --position -4000,-4000 --script res://godot/tests/memprobe.gd -- <웨이브 수>`.
 - Godot 4.7.2 + GDScript, 실행 파일 `C:\claude\tools\godot\Godot_v4.7.2-stable_win64_console.exe`.
 - `project.godot`는 저장소 맨 위. 규칙 이식은 `godot/core/`, 테스트는 `godot/tests/` (실행: `godot --headless --path . --script res://godot/tests/run_tests.gd`).
 - **2026-11-23부터 Godot판만 개발**(사용자 결정). 웹판(packages/*, apps/web, tools/sim, tools/parity)은 고치지 않음. run 일치 검사는 은퇴, rng·slot 일치 기준 자료(`godot/tests/fixtures/`)는 유지.
