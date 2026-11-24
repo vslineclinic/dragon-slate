@@ -18,7 +18,8 @@
     "parity": "node tools/parity/gen.ts",
     "godot:test": "C:/claude/tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://godot/tests/run_tests.gd",
     "godot:export": "node tools/godot-export.cjs",
-    "godot:apk": "node tools/godot-export.cjs android"
+    "godot:apk": "node tools/godot-export.cjs android",
+    "godot:web": "node tools/godot-export.cjs web"
   },
   "license": "UNLICENSED",
   "type": "module",

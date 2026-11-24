@@ -10,4 +10,5 @@ release-godot/
 release-godot-demo/
 .godot/
 release-godot-android/
+release-godot-web/
 art/music-src/
