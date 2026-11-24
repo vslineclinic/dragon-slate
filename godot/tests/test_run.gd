@@ -371,6 +371,9 @@ func test_win_offers_three_rewards_then_relic_after_boss() -> void:
 	assert_eq(ids.size(), 3)
 	assert_true(ids[0] != ids[1] and ids[1] != ids[2] and ids[0] != ids[2])
 	var picked: Dictionary = RunRules.apply_command(data, won, {"type": "chooseReward", "index": 0})["state"]
+	## 고른 보상이 룬 한 장이면 석판을 고치는 차례가 먼저 온다.
+	if picked["phase"] == "slab":
+		picked = RunRules.apply_command(data, picked, {"type": "skipRune"})["state"]
 	_assert_fields(picked, {"phase": "relic", "rewardChoices": [], "relicPending": false})
 	var done: Dictionary = RunRules.apply_command(data, picked, {"type": "chooseRelic", "index": 2})["state"]
 	_assert_fields(done, {"phase": "spin", "wave": 6})

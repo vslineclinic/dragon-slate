@@ -30,7 +30,7 @@ func _init() -> void:
 		ctl.dispatch({"type": "spin"})
 		for i in (12 if mode == "spinmid" else 90):
 			await process_frame
-		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
+		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "slab", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -90,6 +90,13 @@ func _init() -> void:
 				if mode == "dexmixed":
 					dex.call("_show_page", "mixed")
 			for i in 30:
+				await process_frame
+		if mode == "slab":
+			ctl.state["phase"] = "slab"
+			ctl.state["runePending"] = "fire"
+			ctl.state["slab"][2] = "fire"
+			scene.call("_render", [], ctl.state)
+			for i in 40:
 				await process_frame
 		if mode == "transmute":
 			ctl.state["items"] = {"transmute": 2}

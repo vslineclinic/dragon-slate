@@ -82,8 +82,13 @@ var _page: String = ""
 var _picked: String = ""
 
 
+## 판 안에서 열면 내 석판 기준으로 알 확률을 보여 준다.
+var _slab: Array = []
+
+
 func setup(data: Dictionary, store: Store, state: Dictionary = {}, width: float = 1280.0) -> void:
 	_data = data
+	_slab = state.get("slab", [])
 	_found = store.discovered()
 	for inst: Variant in state.get("nest", []) + state.get("bench", []):
 		if inst != null:
@@ -461,7 +466,7 @@ func _show_detail(dragon: Dictionary) -> void:
 	if tier == "base":
 		var rarity: Array = GameTheme.rarity(Slot.species_weight(_data, id))
 		GameTheme.heading(_detail, Rect2(24, y, w - 48, 24), "얻는 법", 16, GameTheme.GOLD)
-		GameTheme.label(_detail, Rect2(24, y + 26, w - 48, 20), "룬 석판의 알 · %s · 칸마다 %s" % [rarity[0], GameTheme.percent(Slot.species_odds(_data, id))], 14, rarity[1])
+		GameTheme.label(_detail, Rect2(24, y + 26, w - 48, 20), "룬 석판의 알 · %s · 칸마다 %s" % [rarity[0], GameTheme.percent(Slot.species_odds(_data, id, _slab))], 14, rarity[1])
 		y += 56.0
 	elif not recipe.is_empty() and (known or int(recipe["have"]) > 0):
 		GameTheme.heading(_detail, Rect2(24, y, w - 48, 24), "만드는 법", 16, GameTheme.GOLD)

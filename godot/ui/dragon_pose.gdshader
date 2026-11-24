@@ -33,11 +33,11 @@ void fragment() {
 	// 머리: 왼쪽 위 덩어리가 앞으로 뻗거나(thrust) 뒤로 젖혀진다(rear). 목은 부드럽게 늘어난다.
 	vec2 move = thrust * vec2(-0.13, 0.035) + rear * vec2(0.055, -0.06) + vec2(0.0, breath * 0.008);
 	vec2 head = vec2(0.27, 0.30) + move * 0.5;
-	float head_mask = smoothstep(0.44, 0.10, distance(uv, head));
+	float head_mask = 1.0 - smoothstep(0.10, 0.44, distance(uv, head));
 	uv -= move * head_mask;
 
 	// 날개: 머리를 뺀 위쪽이 몸통 가운데에서 바깥으로 벌어진다.
-	float wing_mask = smoothstep(0.64, 0.22, uv.y) * (1.0 - head_mask);
+	float wing_mask = (1.0 - smoothstep(0.22, 0.64, uv.y)) * (1.0 - head_mask);
 	float spread = (wings * 0.27 + breath * 0.018 + abs(step_wave) * 0.03) * wing_mask;
 	vec2 root = vec2(0.55, 0.52);
 	uv = root + (uv - root) / (1.0 + spread);

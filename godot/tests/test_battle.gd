@@ -595,3 +595,28 @@ func test_real_battle_data_turns_the_lane_rules_on() -> void:
 	assert_eq(field["crossLanePct"].size(), 3)
 	assert_eq(int(field["crossLanePct"][0]), 100)
 	assert_true(int(field["crossLanePct"][2]) < int(field["crossLanePct"][1]))
+
+
+func test_dragon_shoots_what_it_can_reach_while_walking_to_a_farther_target() -> void:
+	var cfg: Dictionary = _lane_cfg()
+	## 제 줄(0)은 비었고, 옆줄 적은 멀고(x 530), 건너편 줄 적은 닿는다(x 500).
+	var enemies: Array = [_enemy("minion", "fire", 100000, 1, 1000, 1, 530), _enemy("minion", "fire", 100000, 1, 1000, 2, 500)]
+	var result: Dictionary = Battle.simulate_battle(cfg, _slots([_solo("fire", 100000, 100)]), enemies)
+	var hit: Dictionary = _first_attack_from(result, 0)
+	assert_eq(int(hit.get("tick", 0)), 10, "닿는 적이 있으면 쉬지 않고 친다")
+	assert_eq(int(hit.get("dst", -1)), 2)
+	assert_eq(int(hit.get("dmg", 0)), 50)
+
+
+func test_dragon_keeps_shooting_other_lanes_while_its_own_lane_target_is_far() -> void:
+	var cfg: Dictionary = _lane_cfg()
+	var enemies: Array = [_enemy("minion", "fire", 100000, 1, 1000, 0, 990), _enemy("minion", "fire", 100000, 1, 1000, 1, 300)]
+	var result: Dictionary = Battle.simulate_battle(cfg, _slots([_solo("fire", 100000, 100)]), enemies)
+	var hit: Dictionary = _first_attack_from(result, 0)
+	assert_eq(int(hit.get("dst", -1)), 2, "제 줄 적에게 걸어가는 동안 닿는 옆줄 적을 친다")
+	assert_eq(int(hit.get("dmg", 0)), 70)
+	var last_x: int = 250
+	for event: Dictionary in _of_kind(result, "pos"):
+		if event["xs"].has(0):
+			last_x = int(event["xs"][0])
+	assert_eq(last_x, 990 - 260, "그러면서도 제 줄 적 쪽으로 걸어간다")

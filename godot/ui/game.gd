@@ -175,6 +175,12 @@ func _on_change(events: Array, state: Dictionary) -> void:
 					flash("경험치를 받았어요.")
 			"leveled":
 				leveled += 1
+			"runeReplaced":
+				var slab: Array = state.get("slab", [])
+				flash("석판의 %s 룬을 %s 룬으로 바꿨어요.\n이제 %s 룬이 %d칸 중 %d칸이에요." % [
+					GameTheme.SYMBOL_LABEL.get(event["from"], event["from"]), GameTheme.SYMBOL_LABEL.get(event["to"], event["to"]),
+					GameTheme.SYMBOL_LABEL.get(event["to"], event["to"]), slab.size(), slab.count(event["to"]),
+				])
 			"item":
 				if event["id"] == "transmute" and int(event["delta"]) > 0:
 					flash("전환의 룬을 얻었어요!\n드래곤을 눌러 다른 원소의 같은 용으로 바꿀 수 있어요.")
@@ -235,6 +241,8 @@ func _render(events: Array, state: Dictionary) -> void:
 	_clear_reward()
 	if state["phase"] == "reward":
 		_show_reward_choices(state)
+	elif state["phase"] == "slab":
+		_show_slab_edit(state)
 	elif state["phase"] == "relic":
 		_show_relic_choices(state)
 	elif state["phase"] == "fork":
@@ -334,15 +342,20 @@ func _show_reward_choices(state: Dictionary) -> void:
 		var choice: Dictionary = choices[i]
 		var reward: Dictionary = choice["reward"]
 		var is_egg: bool = choice["detail"] != null and reward["kind"] in ["egg", "t2egg"]
+		var is_rune: bool = choice["detail"] != null and reward["kind"] == "rune"
 		var tint: Color = tints.get(reward["kind"], GameTheme.GOLD)
 		if is_egg:
 			tint = GameTheme.COLOR.get(controller.data["dragons"][choice["detail"]]["elements"][0], tint)
+		if is_rune:
+			tint = GameTheme.COLOR.get(choice["detail"], tint)
 		var card: Button = _choice_card(i, choices.size(), field, {"type": "chooseReward", "index": i}, tint, reward["nameKo"], _reward_preview(reward, choice["detail"]), 280.0)
 		var card_w: float = card.size.x
 		var art: TextureRect = null
 		if is_egg:
 			art = GameTheme.dragon(card, Rect2((card_w - 116) / 2.0, 18, 116, 116), choice["detail"])
-		if art == null:
+		if is_rune:
+			GameTheme.place(card, Marks.new(choice["detail"]), Rect2((card_w - 88) / 2.0, 32, 88, 88))
+		elif art == null:
 			GameTheme.place(card, Icons.new(reward["kind"], tint), Rect2((card_w - 104) / 2.0, 24, 104, 104))
 		var chance: String = "이 보상이 나올 확률 %d%%" % roundi(odds.get(reward["id"], 0.0) * 100.0)
 		var chance_color: Color = GameTheme.DIM
@@ -421,6 +434,48 @@ func _show_fork_choices(state: Dictionary) -> void:
 			GameTheme.label(card, Rect2(8, 236, card.size.x - 16, 20), "마력이 모자라요 (지금 %d)" % int(state["mana"]), 13, Color("#ff8787"), HORIZONTAL_ALIGNMENT_CENTER)
 
 
+## 내 석판 고치기: 받은 룬을 묶음의 어느 룬과 바꿀지 고른다(같은 무늬끼리 모아서 보여 준다).
+func _show_slab_edit(state: Dictionary) -> void:
+	var rune: String = str(state.get("runePending", ""))
+	var slab: Array = state.get("slab", [])
+	var tint: Color = GameTheme.COLOR.get(rune, GameTheme.GOLD)
+	var rune_name: String = GameTheme.SYMBOL_LABEL.get(rune, rune)
+	var field: Rect2 = _open_choice("%s 룬을 석판에 넣어요" % rune_name, "대신 뺄 룬을 하나 누르세요. 석판의 칸은 모두 이 묶음에서 뽑혀요.", tint.lightened(0.35))
+	var mid: float = field.size.x / 2.0
+	GameTheme.glow(_reward_overlay, Vector2(mid, 232), 80.0, Color(tint, 0.5))
+	GameTheme.place(_reward_overlay, Marks.new(rune), Rect2(mid - 34, 198, 68, 68))
+	var have: int = slab.count(rune)
+	var odds: String = "지금 %s 룬 %d칸 → 넣으면 %d칸 (칸마다 %d%%)" % [rune_name, have, have + 1, roundi((have + 1) * 100.0 / maxf(1.0, slab.size()))]
+	GameTheme.heading(_reward_overlay, Rect2(0, 274, field.size.x, 28), odds, 18, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER, 600)
+	var order: Array = GameData.active_elements(controller.data) + ["gold", "wild"]
+	var cells: Array = range(slab.size())
+	cells.sort_custom(func(a: int, b: int) -> bool:
+		var ra: int = order.find(slab[a])
+		var rb: int = order.find(slab[b])
+		return ra < rb if ra != rb else a < b)
+	var per_row: int = 8
+	var tile: float = 62.0
+	var stride: float = 72.0
+	var left: float = mid - (per_row * stride - (stride - tile)) / 2.0
+	var top: float = 322.0
+	for k: int in range(cells.size()):
+		var index: int = cells[k]
+		var symbol: String = slab[index]
+		var rect: Rect2 = Rect2(left + (k % per_row) * stride, top + (k / per_row) * 86.0, tile, tile)
+		var button: Button = GameTheme.button(_reward_overlay, rect, "", controller.dispatch.bind({"type": "replaceRune", "index": index}),
+			Color("#1a1822"), GameTheme.COLOR.get(symbol, GameTheme.GOLD), 2)
+		GameTheme.place(button, Marks.new(symbol), Rect2(9, 9, tile - 18, tile - 18))
+		var symbol_name: String = GameTheme.SYMBOL_LABEL.get(symbol, symbol)
+		button.tooltip_text = "%s 룬을 빼고 %s 룬을 넣어요" % [symbol_name, rune_name]
+		if symbol == rune:
+			button.disabled = true
+			button.modulate = Color(0.42, 0.42, 0.42)
+			button.tooltip_text = "이미 %s 룬이에요" % rune_name
+		GameTheme.label(_reward_overlay, Rect2(rect.position.x - 5, rect.position.y + tile + 1, tile + 10, 18), symbol_name, 12, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	var rows: int = (cells.size() + per_row - 1) / per_row
+	GameTheme.cta(_reward_overlay, Rect2(mid - 120, top + rows * 86.0 + 10, 240, 46), "그대로 두기", controller.dispatch.bind({"type": "skipRune"}), "mystic", 18)
+
+
 ## 보상 · 유물 · 갈림길이 함께 쓰는 선택 화면 바탕과 제목.
 func _open_choice(heading: String, note: String, tint: Color) -> Rect2:
 	var field: Rect2 = _areas["field"]
@@ -476,6 +531,7 @@ func _reward_preview(reward: Dictionary, detail: Variant) -> String:
 		"nudge": return "다음 웨이브에 밀기 +%d" % amount
 		"freeSpin": return "다시 돌리기 %d회 무료" % amount
 		"transmute": return "드래곤 하나를 다른 원소의 같은 용으로 바꿔요 (성공 %d%%)" % int(controller.data["waves"].get("transmute", {}).get("successPct", 100))
+		"rune": return "내 석판의 룬 하나를 %s 룬으로 바꿔요" % GameTheme.SYMBOL_LABEL.get(detail, "새") if detail != null else "마력 +3"
 		_: return "생명 +%d (가득 차 있으면 마력 +3)" % amount
 
 
@@ -506,6 +562,7 @@ func _reward_detail(reward: Dictionary, detail: Variant) -> String:
 		"nudge": return "다음 웨이브 밀기 +%d" % amount
 		"freeSpin": return "다시 돌리기 %d회 무료" % amount
 		"transmute": return "전환의 룬 +%d · 드래곤을 눌러서 써요" % amount
+		"rune": return "%s 룬 · 석판의 어느 룬과 바꿀지 골라요" % GameTheme.SYMBOL_LABEL.get(detail, "새") if detail != null else "마력 +3"
 		_: return "생명 +%d (가득 차 있으면 마력 +3)" % amount
 
 

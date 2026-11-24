@@ -14,7 +14,11 @@ const LINES: Array = [
 ]
 
 
-static func spin_grid(data: Dictionary, rng: Rng, force_line: bool) -> Dictionary:
+## slab = 내 석판의 룬 묶음(무늬 이름 배열). 비어 있지 않으면 칸마다 그 묶음에서 고르게 하나를 뽑는다.
+## 비어 있으면 예전처럼 slot.weights로 뽑는다(옛 저장 · 기준 자료 시험).
+static func spin_grid(data: Dictionary, rng: Rng, force_line: bool, slab: Array = []) -> Dictionary:
+	if not slab.is_empty():
+		return _spin_from_slab(data, rng, force_line, slab)
 	var elements: Array = GameData.active_elements(data)
 	var symbols: Array = elements + ["gold", "wild"]
 	var weights: Array = []
@@ -43,6 +47,30 @@ static func spin_grid(data: Dictionary, rng: Rng, force_line: bool) -> Dictionar
 		for col: int in range(3):
 			reels[col][2] = _roll_cell(data, rng, element)
 	return {"reels": reels, "offsets": [0, 0, 0]}
+
+
+static func _spin_from_slab(data: Dictionary, rng: Rng, force_line: bool, slab: Array) -> Dictionary:
+	var reels: Array = []
+	for col: int in range(3):
+		var reel: Array = []
+		for i: int in range(5):
+			reel.append(_roll_cell(data, rng, slab[rng.next_int(slab.size())]))
+		reels.append(reel)
+	if force_line:
+		## 줄 보정: 석판에 있는 원소 룬 가운데 하나로 가운데 줄을 맞춘다(많이 넣은 원소일수록 잘 나온다).
+		var elements: Array = slab.filter(func(symbol: Variant) -> bool: return symbol != "gold" and symbol != "wild")
+		## 원소 룬을 모두 뺐으면 묶음에 남은 무늬(금·여의주)로 맞춘다. 뺀 원소가 되살아나지 않는다.
+		if elements.is_empty():
+			elements = slab
+		var element: Variant = elements[rng.next_int(elements.size())]
+		for col: int in range(3):
+			reels[col][2] = _roll_cell(data, rng, element)
+	return {"reels": reels, "offsets": [0, 0, 0]}
+
+
+## 석판 묶음에서 그 무늬가 차지하는 칸 수.
+static func slab_count(slab: Array, symbol: String) -> int:
+	return slab.count(symbol)
 
 
 static func visible(grid: Dictionary, col: int, row: int) -> Dictionary:
@@ -111,12 +139,16 @@ static func pick_species(data: Dictionary, rng: Rng, pool: Array) -> String:
 	return rng.pick_weighted(pool, weights)
 
 
-## 석판 한 칸에 그 종의 알이 나올 확률(만분율).
-static func species_odds(data: Dictionary, id: String) -> int:
+## 석판 한 칸에 그 종의 알이 나올 확률(만분율). slab을 주면 내 석판 기준.
+static func species_odds(data: Dictionary, id: String, slab: Array = []) -> int:
 	var spec: Dictionary = data["dragons"][id]
 	if spec["tier"] != "base" or spec["elements"].is_empty():
 		return 0
 	var weights: Dictionary = data["slot"]["weights"]
+	if not slab.is_empty():
+		weights = {}
+		for symbol: Variant in slab:
+			weights[symbol] = int(weights.get(symbol, 0)) + 1
 	var total: int = 0
 	for key: String in weights:
 		total += int(weights[key])

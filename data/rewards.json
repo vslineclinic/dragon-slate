@@ -6,5 +6,6 @@
   { "id": "nudge", "nameKo": "밀기 +1", "kind": "nudge", "amount": 1, "weight": 12, "bossWeight": 5 },
   { "id": "freeSpin", "nameKo": "무료 다시 돌리기", "kind": "freeSpin", "amount": 1, "weight": 10, "bossWeight": 5 },
   { "id": "life", "nameKo": "생명의 비늘", "kind": "life", "amount": 1, "weight": 2, "bossWeight": 15 },
-  { "id": "transmute", "nameKo": "전환의 룬", "kind": "transmute", "amount": 1, "weight": 4, "bossWeight": 12 }
+  { "id": "transmute", "nameKo": "전환의 룬", "kind": "transmute", "amount": 1, "weight": 4, "bossWeight": 12 },
+  { "id": "rune", "nameKo": "룬 한 장", "kind": "rune", "amount": 1, "weight": 22, "bossWeight": 20 }
 ]

@@ -12,8 +12,11 @@ func test_spin_pick_move_battle() -> void:
 	assert_eq(ctl.dispatch({"type": "startBattle"}), [{"t": "rejected", "reason": "wrongPhase"}])
 	ctl.dispatch({"type": "spin"})
 	assert_eq(ctl.state["phase"], "pick")
-	assert_eq(ctl.dispatch({"type": "pick", "index": 0}), [{"t": "rejected", "reason": "needDragon"}])
 	var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
+	## 드래곤이 한 마리도 없을 때 마력 칸을 고르면 거절된다(첫 석판에 마력 칸이 있을 때만 확인).
+	var mana: int = offers.find_custom(func(offer: Dictionary) -> bool: return offer["kind"] == "mana")
+	if mana >= 0:
+		assert_eq(ctl.dispatch({"type": "pick", "index": mana}), [{"t": "rejected", "reason": "needDragon"}])
 	var egg: int = offers.find_custom(func(offer: Dictionary) -> bool: return offer["kind"] == "egg")
 	assert_true(egg >= 0, "시드 42의 첫 석판에 알이 있어야 해요")
 	if egg < 0:

@@ -114,6 +114,9 @@ func test_rejections_cost_nothing() -> void:
 	assert_eq(_rejected(_state("fire_drake"), _cmd("fire")), "sameElement")
 	assert_eq(_rejected(_state("fire_drake"), _cmd("water")), "cannotTransmute")
 	assert_eq(_rejected(_state("fire_drake"), _cmd("ice", 1)), "emptySlot")
+	var bogus: Dictionary = _state("fire_drake")
+	bogus["bench"][0] = bogus["nest"][0].duplicate(true)
+	assert_eq(_rejected(bogus, {"type": "transmute", "at": {"zone": "bogus", "index": 0}, "element": "ice"}), "emptySlot")
 	var battle: Dictionary = _state("fire_drake")
 	battle["phase"] = "reward"
 	assert_eq(_rejected(battle, _cmd("ice")), "wrongPhase")

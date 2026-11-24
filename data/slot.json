@@ -9,6 +9,15 @@
     "gold": 12,
     "wild": 16
   },
+  "slab": {
+    "start": [
+      "fire", "fire", "ice", "ice", "lightning", "lightning", "poison", "poison",
+      "steel", "steel", "abyss", "abyss", "gold", "gold", "wild", "wild", "wild"
+    ],
+    "offer": [
+      "fire", "ice", "lightning", "poison", "steel", "abyss", "gold", "wild"
+    ]
+  },
   "pityThreshold": 4,
   "nudgesPerWave": 1,
   "rerollCosts": [

@@ -44,6 +44,8 @@ static func create_run(data: Dictionary, seed: int, calamity: int = 0) -> Dictio
 		"discovered": [],
 		"items": {},
 		"transmuteFails": 0,
+		"slab": data["slot"].get("slab", {}).get("start", []).duplicate(),
+		"runePending": null,
 		"log": [],
 	}
 	return {"state": state, "events": [_wave_start(data, state)]}
@@ -79,6 +81,10 @@ static func apply_command(data: Dictionary, state: Dictionary, cmd: Dictionary) 
 			reason = _do_choose_fork(data, next, cmd["option"], rng, events)
 		"transmute":
 			reason = _do_transmute(data, next, cmd["at"], cmd["element"], rng, events)
+		"replaceRune":
+			reason = _do_rune(data, next, cmd["index"], rng, events)
+		"skipRune":
+			reason = _do_rune(data, next, null, rng, events)
 	if not reason.is_empty():
 		return {"state": state, "events": [{"t": "rejected", "reason": reason}]}
 	next["rngState"] = rng.state()
@@ -127,6 +133,8 @@ static func _valid_index(index: Variant, size: int) -> bool:
 
 
 static func _valid_ref(state: Dictionary, ref: Dictionary) -> String:
+	if ref.get("zone") not in ["nest", "bench"]:
+		return "emptySlot"
 	var nest: bool = ref["zone"] == "nest"
 	var index: Variant = ref["index"]
 	if not _valid_index(index, NEST_SIZE if nest else BENCH_SIZE):
@@ -203,7 +211,7 @@ static func _do_spin(data: Dictionary, state: Dictionary, rng: Rng, events: Arra
 	if state["mana"] < cost:
 		return "notEnoughMana"
 	state["mana"] -= cost
-	var grid: Dictionary = Slot.spin_grid(data, rng, state["pity"] >= data["slot"]["pityThreshold"])
+	var grid: Dictionary = Slot.spin_grid(data, rng, state["pity"] >= data["slot"]["pityThreshold"], state.get("slab", []))
 	var groups: Array = Slot.evaluate_lines(grid)
 	state["pity"] = state["pity"] + 1 if groups.is_empty() else 0
 	state["spinsThisWave"] += 1
@@ -338,12 +346,15 @@ static func _do_release(data: Dictionary, state: Dictionary, from: Dictionary, e
 
 
 ## 보상 후보 3개를 겹치지 않게 뽑는다. 알은 어떤 종인지 미리 정해 카드에 보여 준다.
-static func _roll_reward_choices(data: Dictionary, rng: Rng, boss: bool) -> Array:
+## with_rune = 내 석판이 있는 판인지. 석판이 없는 옛 저장에는 "룬 한 장"을 내놓지 않는다.
+static func _roll_reward_choices(data: Dictionary, rng: Rng, boss: bool, with_rune: bool = true) -> Array:
 	var pool: Array = []
 	var weights: Array = []
 	var weight_key: String = "bossWeight" if boss else "weight"
 	for candidate: Dictionary in data["rewards"]:
 		var weight: int = candidate[weight_key]
+		if candidate["kind"] == "rune" and not with_rune:
+			continue
 		if weight > 0:
 			pool.append(candidate)
 			weights.append(weight)
@@ -360,6 +371,10 @@ static func _roll_reward_choices(data: Dictionary, rng: Rng, boss: bool) -> Arra
 				rng.next_int(1)
 			else:
 				detail = Slot.pick_species(data, rng, species)
+		elif reward["kind"] == "rune":
+			## 어떤 룬인지 미리 정해 카드에 보여 준다.
+			var runes: Array = data["slot"].get("slab", {}).get("offer", [])
+			detail = null if runes.is_empty() else runes[rng.next_int(runes.size())]
 		choices.append({"reward": reward, "detail": detail})
 	return choices
 
@@ -375,13 +390,42 @@ static func _do_choose_reward(data: Dictionary, state: Dictionary, index: Varian
 	state["rewardChoices"] = []
 	state["nudgesLeft"] += int(state["bonusNudges"])
 	state["bonusNudges"] = 0
+	if state.get("runePending") != null:
+		## 룬 한 장: 석판의 어느 룬과 바꿀지 고를 때까지 멈춘다.
+		state["phase"] = "slab"
+		events.append({"t": "runeOffer", "rune": state["runePending"]})
+		return ""
+	_after_reward(data, state, rng, events)
+	return ""
+
+
+## 보상을 받은 뒤: 보상을 한 번 더 고르거나(정예 사냥) 다음 차례로.
+static func _after_reward(data: Dictionary, state: Dictionary, rng: Rng, events: Array) -> void:
 	if int(state.get("extraRewards", 0)) > 0:
 		state["extraRewards"] = int(state["extraRewards"]) - 1
-		state["rewardChoices"] = _roll_reward_choices(data, rng, state.get("rewardBoss", false))
+		state["rewardChoices"] = _roll_reward_choices(data, rng, state.get("rewardBoss", false), not state.get("slab", []).is_empty())
 		if not state["rewardChoices"].is_empty():
+			state["phase"] = "reward"
 			events.append({"t": "rewardChoices", "choices": state["rewardChoices"]})
-			return ""
+			return
 	_proceed(data, state, rng, events)
+
+
+## 내 석판 고치기: index 칸의 룬을 받은 룬으로 바꾼다. index가 null이면 넘긴다.
+static func _do_rune(data: Dictionary, state: Dictionary, index: Variant, rng: Rng, events: Array) -> String:
+	if state["phase"] != "slab" or state.get("runePending") == null:
+		return "wrongPhase"
+	var rune: String = state["runePending"]
+	if index != null:
+		var slab: Array = state.get("slab", [])
+		if not _valid_index(index, slab.size()):
+			return "emptySlot"
+		events.append({"t": "runeReplaced", "index": int(index), "from": slab[int(index)], "to": rune})
+		slab[int(index)] = rune
+	else:
+		events.append({"t": "runeSkipped", "rune": rune})
+	state["runePending"] = null
+	_after_reward(data, state, rng, events)
 	return ""
 
 
@@ -589,6 +633,11 @@ static func _apply_reward(data: Dictionary, state: Dictionary, rng: Rng, reward:
 			state["freeSpins"] += reward["amount"]
 		"transmute":
 			_add_item(state, "transmute", int(reward["amount"]), events)
+		"rune":
+			if detail != null and not state.get("slab", []).is_empty():
+				state["runePending"] = detail
+			else:
+				_add_mana(state, 3, "reward", events)
 		"life":
 			var max_lives: int = data["waves"]["startLives"]
 			if state["lives"] < max_lives:
@@ -682,7 +731,7 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 	state["extraRewards"] = int(wave_mod.get("extraRewards", 0)) if won else 0
 	state["rewardBoss"] = strong_wave
 	if won:
-		state["rewardChoices"] = _roll_reward_choices(data, rng, strong_wave)
+		state["rewardChoices"] = _roll_reward_choices(data, rng, strong_wave, not state.get("slab", []).is_empty())
 	if won and not state["rewardChoices"].is_empty():
 		state["phase"] = "reward"
 		events.append({"t": "rewardChoices", "choices": state["rewardChoices"]})

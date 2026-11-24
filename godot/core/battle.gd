@@ -253,7 +253,7 @@ static func simulate_battle(
 				unit["timer"] += 1
 				if unit["timer"] < unit["cd"]:
 					continue
-				var target: Variant = _target(field, units, unit)
+				var target: Variant = _strike_target(field, units, unit)
 				if target == null:
 					continue
 				if not _can_hit(field, unit, target):
@@ -436,20 +436,43 @@ static func _nearest_many(field: Dictionary, units: Array, me: Dictionary, count
 	return found.slice(0, maxi(1, count))
 
 
-## 누구를 칠지. 사거리가 있는 드래곤은 제 줄의 적을 먼저 보고(가까운 순, 같으면 id), 제 줄이 비면 가장 가까운 적.
+## 누구에게 다가갈지. 사거리가 있는 드래곤은 제 줄의 적을 먼저 보고(가까운 순, 같으면 id),
+## 제 줄이 비면 가로로 가장 가까운 적(같으면 가까운 줄, 그다음 id).
 static func _target(field: Dictionary, units: Array, me: Dictionary) -> Variant:
 	if me["kind"] != "dragon" or int(me["range"]) <= 0:
 		return _nearest(field, units, me)
 	var best: Variant = null
-	var best_d: int = 0
+	var best_key: int = 0
 	for other: Dictionary in units:
-		if other["side"] == me["side"] or other["hp"] <= 0 or not other["active"] or other["lane"] != me["lane"]:
+		if other["side"] == me["side"] or other["hp"] <= 0 or not other["active"]:
 			continue
-		var d: int = absi(int(me["x"]) - int(other["x"]))
-		if best == null or d < best_d:
+		var gap: int = absi(int(me["lane"]) - int(other["lane"]))
+		## 제 줄이 늘 먼저, 그다음 가로 거리, 그다음 줄 거리.
+		var key: int = (0 if gap == 0 else 1000000) + absi(int(me["x"]) - int(other["x"])) * 10 + gap
+		if best == null or key < best_key:
 			best = other
-			best_d = d
-	return best if best != null else _nearest(field, units, me)
+			best_key = key
+	return best
+
+
+## 지금 누구를 칠지. 사거리가 있는 드래곤은 닿는 적 가운데 제 줄 → 가까운 줄 → 가까운 순으로 고른다.
+## 닿는 적이 없으면 다가가는 대상을 돌려준다(아직 못 친다).
+static func _strike_target(field: Dictionary, units: Array, me: Dictionary) -> Variant:
+	if me["kind"] != "dragon" or int(me["range"]) <= 0:
+		return _nearest(field, units, me)
+	var best: Variant = null
+	var best_key: int = 0
+	for other: Dictionary in units:
+		if other["side"] == me["side"] or other["hp"] <= 0 or not other["active"]:
+			continue
+		var dx: int = absi(int(me["x"]) - int(other["x"]))
+		if dx > int(me["range"]):
+			continue
+		var key: int = absi(int(me["lane"]) - int(other["lane"])) * 100000 + dx
+		if best == null or key < best_key:
+			best = other
+			best_key = key
+	return best if best != null else _target(field, units, me)
 
 
 ## 줄 거리(0·1·2)에 따른 피해 비율. 자료가 없으면 100.

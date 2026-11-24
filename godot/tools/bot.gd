@@ -20,6 +20,8 @@ static func choose(data: Dictionary, state: Dictionary) -> Dictionary:
 			return _choose_reward(data, state)
 		"relic":
 			return _choose_relic(state)
+		"slab":
+			return _choose_rune(data, state)
 		"fork":
 			var cost: int = int(data["waves"].get("fork", {}).get("merchantCost", 0))
 			if int(state["lives"]) < int(data["waves"]["startLives"]) - 1:
@@ -44,6 +46,9 @@ static func _choose_reward(data: Dictionary, state: Dictionary) -> Dictionary:
 	for i: int in range(choices.size()):
 		var kind: String = choices[i]["reward"]["kind"]
 		var rank: int = REWARD_ORDER.find(kind)
+		## 룬 한 장은 내가 가장 많이 가진 원소일 때만 알 다음으로 친다.
+		if kind == "rune" and choices[i]["detail"] == _favoured(data, state):
+			rank = 3
 		## 봇이 쓸 줄 모르는 보상(전환의 룬 등)은 맨 뒤로.
 		if rank < 0:
 			rank = 50
@@ -55,6 +60,46 @@ static func _choose_reward(data: Dictionary, state: Dictionary) -> Dictionary:
 			best_rank = rank
 			best = i
 	return {"type": "chooseReward", "index": best}
+
+
+## 가진 용의 원소별 수(이중 원소는 첫 원소만).
+static func _owned_elements(data: Dictionary, state: Dictionary) -> Dictionary:
+	var counts: Dictionary = {}
+	for inst: Variant in state["nest"] + state["bench"]:
+		if inst == null:
+			continue
+		var elements: Array = data["dragons"][inst["speciesId"]]["elements"]
+		if not elements.is_empty():
+			counts[elements[0]] = int(counts.get(elements[0], 0)) + 1
+	return counts
+
+
+## 가장 많이 가진 원소(같으면 원소 순서). 없으면 "".
+static func _favoured(data: Dictionary, state: Dictionary) -> String:
+	var counts: Dictionary = _owned_elements(data, state)
+	var best: String = ""
+	for element: String in GameData.active_elements(data):
+		if int(counts.get(element, 0)) > int(counts.get(best, 0)):
+			best = element
+	return best
+
+
+## 내 석판: 받은 룬이 주력 원소면, 한 마리도 없는 원소의 룬과 바꾼다. 아니면 넘긴다.
+static func _choose_rune(data: Dictionary, state: Dictionary) -> Dictionary:
+	var rune: Variant = state.get("runePending")
+	if rune != null and rune == _favoured(data, state):
+		var counts: Dictionary = _owned_elements(data, state)
+		var slab: Array = state.get("slab", [])
+		var worst: int = -1
+		for i: int in range(slab.size()):
+			var symbol: String = slab[i]
+			if symbol in ["gold", "wild"] or symbol == rune:
+				continue
+			if worst < 0 or int(counts.get(symbol, 0)) < int(counts.get(slab[worst], 0)):
+				worst = i
+		if worst >= 0 and int(counts.get(slab[worst], 0)) == 0:
+			return {"type": "replaceRune", "index": worst}
+	return {"type": "skipRune"}
 
 
 static func _choose_relic(state: Dictionary) -> Dictionary:

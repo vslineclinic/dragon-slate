@@ -85,6 +85,7 @@ func render(state: Dictionary, events: Array) -> void:
 				_cell_egg(_layer, _cell(col, row), "")
 	else:
 		_draw_grid(state, grid, recommendation, spun)
+	_draw_slab_strip(state)
 	_draw_offers(state)
 	var cost: int = RunRules.spin_cost(_ctl.data, state)
 	var costs: Array = _ctl.data["slot"]["rerollCosts"]
@@ -105,6 +106,23 @@ func render(state: Dictionary, events: Array) -> void:
 	_hint.text = GameTheme.keep_words(_hint.text)
 	_reward.position.y = _hint.position.y + _hint.get_minimum_size().y + 2.0
 	_reward.text = GameTheme.keep_words(_reward_text(state, recommendation))
+
+
+## 내 석판의 룬 묶음: 무늬마다 몇 칸인지 석판 위에 한 줄로 보여 준다.
+func _draw_slab_strip(state: Dictionary) -> void:
+	var slab: Array = state.get("slab", [])
+	if slab.is_empty():
+		return
+	var x: float = SLAB_X + 6.0
+	for symbol: String in GameData.active_elements(_ctl.data) + ["gold", "wild"]:
+		var count: int = slab.count(symbol)
+		var mark: Marks = Marks.new(symbol)
+		mark.modulate.a = 1.0 if count > 0 else 0.3
+		mark.mouse_filter = Control.MOUSE_FILTER_PASS
+		mark.tooltip_text = "내 석판: %s 룬 %d칸 (모두 %d칸). 칸마다 이 묶음에서 하나가 나와요." % [GameTheme.SYMBOL_LABEL.get(symbol, symbol), count, slab.size()]
+		GameTheme.place(_layer, mark, Rect2(x, SLAB_Y - 27, 15, 15))
+		GameTheme.label(_layer, Rect2(x + 16, SLAB_Y - 30, 12, 20), str(count), 12, GameTheme.TEXT if count > 0 else GameTheme.DIM)
+		x += 25.0
 
 
 func _draw_grid(state: Dictionary, grid: Dictionary, recommendation: Variant, animate: bool) -> void:
@@ -242,7 +260,7 @@ func _draw_offers(state: Dictionary) -> void:
 				GameTheme.place(card, Marks.new(element, true), Rect2(8, 9, 48, 48))
 			var title: Label = GameTheme.label(card, Rect2(62, 5, text_w, 22), spec["nameKo"] + " 알", 14)
 			title.clip_text = true
-			var odds: int = SlotRules.species_odds(_ctl.data, id)
+			var odds: int = SlotRules.species_odds(_ctl.data, id, state.get("slab", []))
 			var rarity: Array = GameTheme.rarity(SlotRules.species_weight(_ctl.data, id))
 			GameTheme.label(card, Rect2(62, 26, text_w, 16), "%s · 등장 %s" % [rarity[0], GameTheme.percent(odds)], 11, rarity[1])
 			if not _store.discovered().has(id):
