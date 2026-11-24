@@ -26,6 +26,8 @@ var _press_point: Vector2
 signal inspect(ref: Dictionary)
 ## 합치면 진화하는데 갈래가 둘이다: 어느 쪽으로 갈지 물어야 한다.
 signal lineage(command: Dictionary)
+## "전투 시작"을 눌렀다(자동 · 수동 궁극기에 따라 게임 화면이 전투를 연다).
+signal battle_requested
 var _last_state: Dictionary = {}
 var _team_bonus: Dictionary = {}
 
@@ -345,4 +347,4 @@ func _key(ref: Dictionary) -> String:
 
 
 func _start_battle() -> void:
-	_ctl.dispatch({"type": "startBattle"})
+	battle_requested.emit()

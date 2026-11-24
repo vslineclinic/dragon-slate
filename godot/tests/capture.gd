@@ -57,7 +57,7 @@ func _init() -> void:
 			scene.call("_render", [], ctl.state)
 			for i in 20:
 				await process_frame
-		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "lineage", "slab", "erase", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
+		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "lineage", "slab", "erase", "live", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -72,6 +72,16 @@ func _init() -> void:
 				if ctl.state["bench"][b] != null:
 					ctl.dispatch({"type": "move", "from": {"zone": "bench", "index": b}, "to": {"zone": "nest", "index": b % 3}})
 			for i in 20:
+				await process_frame
+		if mode == "live":
+			## 수동 궁극기 전투: 설정을 잠깐 수동으로 바꿨다가 되돌린다.
+			var keep_auto: bool = scene.get("store").ult_auto
+			scene.get("store").ult_auto = false
+			for tier in ctl.data["battle"]["ultimate"]["chargeHits"]:
+				ctl.data["battle"]["ultimate"]["chargeHits"][tier] = 2
+			scene.call("_begin_battle")
+			scene.get("store").ult_auto = keep_auto
+			for i in (int(args[4]) if args.size() > 4 else 150):
 				await process_frame
 		if mode in ["battle", "battle-late", "crit", "ult", "reward"]:
 			if mode == "crit":

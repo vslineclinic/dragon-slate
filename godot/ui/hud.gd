@@ -16,6 +16,8 @@ var _wave_bar: Panel
 var _boss: Button
 var _speeds: Dictionary = {}
 var _preview: Dictionary = {}
+## 지역 이름(있으면 웨이브 앞에 붙인다).
+var stage_name: String = ""
 
 
 func setup(store: Store, width: float = 1280.0) -> void:
@@ -58,6 +60,8 @@ func set_boss_preview(wave: int, element: Variant, spec: Variant) -> void:
 
 func render(state: Dictionary, max_wave: int) -> void:
 	_wave.text = "웨이브 %d / %d" % [state["wave"], max_wave]
+	_wave.tooltip_text = stage_name
+	_wave.mouse_filter = Control.MOUSE_FILTER_STOP
 	_wave_bar.size.x = 140.0 * clampf(float(state["wave"]) / maxf(1.0, max_wave), 0.0, 1.0)
 	var lives: int = maxi(0, state["lives"])
 	_lives.text = "♥".repeat(lives) if lives <= 6 else "♥ ×%d" % lives

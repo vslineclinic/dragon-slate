@@ -37,6 +37,7 @@ const FORK_DONE_KO: Dictionary = {
 	"elite": "정예 사냥! 다음 적이 강해져요.\n이기면 보상을 한 번 더 골라요.",
 	"rest": "쉼터에서 쉬었어요.",
 	"merchant": "상인에게 마력을 냈어요.",
+	"pact": "저주의 계약을 맺었어요.\n이 판이 끝날 때까지 적이 더 강해요.",
 }
 const BONUS_REASONS: Array[String] = ["line", "goldLine", "wildLine", "goldCells", "benchFull"]
 
@@ -71,6 +72,11 @@ var _boss_fight: bool = false
 ## 새 판을 막 시작해서 시작 묶음을 아직 고르지 않았는지.
 var _start_open: bool = false
 var _defeat_note: String = ""
+## 수동 궁극기 전투가 화면에서 도는 중인지 / 방금 끝나 core에 결과를 다시 계산시키는 중인지.
+var _live_battle: bool = false
+var _live_done: bool = false
+var _ult_button: Button
+var _ult_toggle: Button
 
 
 func _ready() -> void:
@@ -124,6 +130,21 @@ func _build_panels() -> void:
 	_board.setup(controller, _areas)
 	_board.inspect.connect(_open_skills)
 	_board.lineage.connect(_show_lineage)
+	_board.battle_requested.connect(_begin_battle)
+	_battle.ult_ready.connect(_on_ult_ready)
+	_hud.stage_name = str(controller.data["waves"].get("stageName", ""))
+	## 수동 궁극기 단추: 전투 시작 단추 자리에, 수동 전투 때만.
+	if is_instance_valid(_ult_button):
+		_ult_button.queue_free()
+	_ult_button = GameTheme.cta(self, _areas["spin"], "궁극기 충전 중", _fire_ults, "mystic", 22)
+	_ult_button.tooltip_text = "게이지가 찬 용이 모두 궁극기를 써요 (스페이스 키)"
+	_ult_button.visible = _live_battle
+	if is_instance_valid(_ult_toggle):
+		_ult_toggle.queue_free()
+	var field_rect: Rect2 = _areas["field"]
+	_ult_toggle = GameTheme.button(self, Rect2(field_rect.position.x + 12, field_rect.position.y + 10, 168, 34), "", _toggle_ult_auto, Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
+	_ult_toggle.tooltip_text = "자동: 게이지가 차면 바로 써요. 수동: 전투 중에 궁극기 단추를 눌러 원하는 때 써요."
+	_show_ult_mode()
 	_battle.finished.connect(_battle_finished)
 	_hud.boss_info.connect(flash)
 	_dex_button = GameTheme.button(_hud, Rect2(width - 328, 0, 80, 44), "도감", _open_dex)
@@ -151,6 +172,13 @@ func _on_resize() -> void:
 	_tutorial.setup(store, _areas)
 	_tutorial._step = -1
 	_render([], controller.state)
+
+
+func _input(event: InputEvent) -> void:
+	## 수동 궁극기: 스페이스 키.
+	if _live_battle and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE:
+		_fire_ults()
+		get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -232,6 +260,12 @@ func _on_change(events: Array, state: Dictionary) -> void:
 	controller.busy = true
 	_tutorial.hide()
 	_pending = {"events": events, "state": state, "won": fight["winner"] == "ally"}
+	if _live_done:
+		## 수동 전투는 이미 화면에서 다 봤다: 다시 재생하지 않고 결과로 넘어간다.
+		_live_done = false
+		_battle_finished()
+		return
+	_ult_toggle.hide()
 	var boss: bool = Waves.is_boss(controller.data["waves"], _wave_before)
 	var elite: bool = Waves.is_elite(controller.data["waves"], _wave_before)
 	_boss_fight = boss or elite
@@ -257,6 +291,8 @@ func _render(events: Array, state: Dictionary) -> void:
 	_board.set_fighting(false)
 	_board.render(state)
 	_battle.show_idle(state)
+	_ult_toggle.visible = state["phase"] in ["spin", "pick", "manage"]
+	_ult_button.hide()
 	_clear_reward()
 	## 시작 묶음은 길잡이를 마친 사람에게만 묻는다(첫 판은 기본 묶음으로 단순하게).
 	if _start_open and (not store.tutorial_done() or state["phase"] != "spin" or int(state["wave"]) != 1 or int(state["spinsThisWave"]) != 0):
@@ -292,7 +328,65 @@ func _on_reinforced() -> void:
 		Music.get_for(get_tree()).play("battle_rush")
 
 
+## "전투 시작": 자동이면 core가 한 번에 계산해 재생하고, 수동이면 화면이 직접 돌리며 궁극기 단추를 받는다.
+func _begin_battle() -> void:
+	if controller.busy:
+		return
+	var setup: Dictionary = {} if store.ult_auto or controller.state["phase"] != "manage" else Run.battle_setup(controller.data, controller.state, true)
+	if setup.is_empty():
+		controller.dispatch({"type": "startBattle"})
+		return
+	controller.busy = true
+	_tutorial.hide()
+	_clear_reward()
+	_live_battle = true
+	var wave: int = int(controller.state["wave"])
+	var boss: bool = Waves.is_boss(controller.data["waves"], wave)
+	var elite: bool = Waves.is_elite(controller.data["waves"], wave)
+	_boss_fight = boss or elite
+	var final: bool = wave >= int(controller.data["waves"]["maxWave"])
+	Music.get_for(get_tree()).play(("final_boss" if final else "boss") if _boss_fight else "battle_calm")
+	_board.set_fighting(true)
+	_slot.modulate = Color(0.55, 0.55, 0.62)
+	_ult_toggle.hide()
+	_ult_button.show()
+	_on_ult_ready(0)
+	_battle.play_live(setup, boss, wave, elite)
+
+
+func _fire_ults() -> void:
+	if _live_battle:
+		_battle.fire_ults()
+
+
+func _on_ult_ready(count: int) -> void:
+	if not is_instance_valid(_ult_button):
+		return
+	_ult_button.disabled = count == 0
+	_ult_button.text = "궁극기! (%d마리)" % count if count > 0 else "궁극기 충전 중"
+	_ult_button.modulate = Color.WHITE if count > 0 else Color(1, 1, 1, 0.6)
+
+
+func _toggle_ult_auto() -> void:
+	store.ult_auto = not store.ult_auto
+	_show_ult_mode()
+	flash("궁극기: 자동\n게이지가 차면 바로 써요." if store.ult_auto else "궁극기: 수동\n전투 중에 궁극기 단추(스페이스 키)를 눌러 원하는 때 써요.")
+
+
+func _show_ult_mode() -> void:
+	if is_instance_valid(_ult_toggle):
+		_ult_toggle.text = "궁극기: 자동" if store.ult_auto else "궁극기: 수동"
+
+
 func _battle_finished() -> void:
+	if _live_battle:
+		## 수동 전투가 끝났다: 쏜 기록을 core에 넘겨 같은 전투를 다시 계산하게 한다(결과는 같다).
+		_live_battle = false
+		_live_done = true
+		_ult_button.hide()
+		controller.busy = false
+		controller.dispatch({"type": "startBattle", "manual": true, "ults": _battle.ult_record()})
+		return
 	if _pending.is_empty():
 		return
 	var result: String = "승리!" if _pending["won"] else "패배"
@@ -351,10 +445,14 @@ func _show_result(state: Dictionary) -> void:
 		return
 	_tutorial.finish()
 	store.record_run(state, Build.max_calamity(controller.data))
+	## 지역을 깼으면 다음 지역을 열고 별을 적는다.
+	var stage_index: int = int(run_length.substr(6)) if run_length.begins_with("stage:") else -1
+	if stage_index >= 0 and state["phase"] == "victory":
+		store.record_stage(stage_index, Store.stars_for(state))
 	_set_modal(true)
 	_result = ResultOverlay.new()
 	add_child(_result)
-	_result.setup(controller.data, state, _start_new_run, _return_to_title)
+	_result.setup(controller.data, state, _start_new_run, _return_to_title, store, stage_index)
 
 
 func _set_modal(active: bool) -> void:
@@ -469,6 +567,7 @@ func _show_fork_choices(state: Dictionary) -> void:
 		"elite": ["정예 사냥", "다음 웨이브의 적이 %d%% 강해져요. 이기면 보상을 한 번 더 골라요." % int(fork.get("elitePowerPct", 0)), Color("#e8573a")],
 		"rest": ["쉼터", "생명 +%d(가득 차 있으면 그대로), 모든 드래곤 경험치 +%d." % [int(fork.get("restLives", 0)), int(fork.get("restXp", 0))], Color("#6fcf7a")],
 		"merchant": ["떠돌이 상인", "마력 %d을 내고 유물 3개 가운데 하나를 골라요." % cost, GameTheme.GOLD],
+		"pact": ["저주의 계약", "유물을 바로 하나 골라요. 대신 이 판이 끝날 때까지 적이 %d%% 강해져요." % int(fork.get("pactPowerPct", 0)), GameTheme.MYSTIC.lightened(0.25)],
 	}
 	var field: Rect2 = _open_choice("갈림길이에요. 어느 길로 갈까요?", "", GameTheme.GOLD_HI)
 	var choices: Array = state["forkChoices"]
@@ -658,8 +757,9 @@ func _open_choice(heading: String, note: String, tint: Color) -> Rect2:
 ## 선택 카드 한 장: 위에 그림 자리, 가운데 이름, 아래 설명. 돌려주는 값은 카드(그림은 호출한 쪽이 얹는다).
 ## action을 주면 명령을 보내는 대신 그 함수를 부른다.
 func _choice_card(index: int, count: int, field: Rect2, command: Dictionary, tint: Color, title: String, body: String, height: float = 262.0, action: Callable = Callable()) -> Button:
-	var card_w: float = 232.0
-	var gap: float = 22.0
+	## 카드가 넷이면 전장 폭에 맞게 조금 좁힌다.
+	var gap: float = 22.0 if count <= 3 else 14.0
+	var card_w: float = minf(232.0, (field.size.x - 40.0 - (count - 1) * gap) / count)
 	var total: float = count * card_w + (count - 1) * gap
 	var rect: Rect2 = Rect2((field.size.x - total) / 2.0 + index * (card_w + gap), 198, card_w, height)
 	var card: Button = GameTheme.button(_reward_overlay, rect, "", action if action.is_valid() else controller.dispatch.bind(command), Color("#1a1822"), tint, 2)

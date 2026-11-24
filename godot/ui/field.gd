@@ -6,6 +6,7 @@ const Store = preload("res://godot/ui/store.gd")
 const Ambience = preload("res://godot/ui/ambience.gd")
 const DragonSprite = preload("res://godot/ui/dragon_sprite.gd")
 const BreathFx = preload("res://godot/ui/breath_fx.gd")
+const Icons = preload("res://godot/ui/icons.gd")
 const HAZARD_KO: Dictionary = {
 	"burn": "화염 낙인! 가장 약한 드래곤이 타요",
 	"rowBlast": "용암탄! 한 줄 전체가 피해를 입어요",
@@ -22,6 +23,8 @@ const CRIT_CUT_GAP_MS: int = 900
 const GLANCE: Color = Color("#a9b4c9")
 
 signal finished
+## 수동 궁극기 전투: 지금 쏠 수 있는 용의 수가 바뀌었다.
+signal ult_ready(count: int)
 ## 전투 도중 적 무리가 더 나타났다(음악을 급박하게 바꿀 때 쓴다).
 signal reinforced
 
@@ -70,6 +73,14 @@ var _next_event: int
 var _clock: float
 var _pause: float
 var _pos_every: int = 4
+## 수동 궁극기 전투: 화면이 전투를 한 틱씩 직접 돌린다.
+var _sim: Dictionary = {}
+var _live: bool = false
+var _ults: Dictionary = {}
+var _queued: bool = false
+var _ready_count: int = 0
+var _over_wait: float = 0.0
+const MINION_KIND: Dictionary = {"guard": ["shell", 1.22], "runner": ["feather", 0.84], "archer": ["fang", 0.94]}
 
 
 func setup(data: Dictionary, store: Store, width: float) -> void:
@@ -143,6 +154,10 @@ func show_idle(state: Dictionary) -> void:
 ## 전투 전: 줄마다 적이 얼마나 오는지 오른쪽에 미리 보여 준다. 가장 많이 몰리는 줄은 금빛.
 func _show_lane_preview(state: Dictionary) -> void:
 	var preview: Array = Waves.lane_preview(_data, state["seed"], state["wave"])
+	## 지역 규칙 "눈보라": 줄 하나는 미리 보이지 않는다(어느 줄인지는 웨이브마다 다르다).
+	var hidden: int = -1
+	if int(_data["waves"].get("fogLanes", 0)) > 0:
+		hidden = Rng.new((int(state["seed"]) ^ Rng.imul(int(state["wave"]), 2654435761)) & Rng.M32).next_int(3)
 	var most: int = 0
 	for row: Dictionary in preview:
 		most = maxi(most, int(row["minions"]) + 3 * int(row["leaders"]))
@@ -151,10 +166,27 @@ func _show_lane_preview(state: Dictionary) -> void:
 		var threat: int = int(row["minions"]) + 3 * int(row["leaders"])
 		var heavy: bool = threat == most and threat > 0
 		var at: Vector2 = _point(880, lane)
-		var chip: Panel = GameTheme.panel(_units_layer, Rect2(at.x - 78, at.y - 34, 156, 68), Color("#0b0b10d9"),
+		if lane == hidden:
+			var fog: Panel = GameTheme.panel(_units_layer, Rect2(at.x - 78, at.y - 42, 156, 84), Color("#0b0b10d9"), Color(GameTheme.PANEL_LINE, 0.9), 1, 10, "flat")
+			fog.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			GameTheme.label(fog, Rect2(0, 8, 156, 18), "눈보라", 12, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+			GameTheme.heading(fog, Rect2(0, 28, 156, 36), "보이지 않아요", 17, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER, 600)
+			continue
+		if hidden >= 0:
+			heavy = false
+		var chip: Panel = GameTheme.panel(_units_layer, Rect2(at.x - 78, at.y - 42, 156, 84), Color("#0b0b10d9"),
 			Color(GameTheme.GOLD, 0.9) if heavy else Color(GameTheme.PANEL_LINE, 0.9), 2 if heavy else 1, 10, "flat")
 		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var title: String = "적이 몰려와요" if heavy else ("적이 적어요" if threat * 2 <= most else "적이 와요")
+		if hidden >= 0:
+			title = "적이 와요"
+		## 졸병 종류(방패병 · 돌격병 · 궁병)를 한 줄로.
+		var kinds: PackedStringArray = PackedStringArray()
+		for row_kind: Dictionary in _data["waves"]["squad"].get("minionTypes", []):
+			var how_many: int = int(row["types"].get(row_kind["id"], 0))
+			if how_many > 0:
+				kinds.append("%s %d" % [str(row_kind["nameKo"]).substr(0, 2), how_many])
+		GameTheme.label(chip, Rect2(0, 60, 156, 18), " · ".join(kinds), 12, Color("#ffd8a8"), HORIZONTAL_ALIGNMENT_CENTER)
 		GameTheme.label(chip, Rect2(0, 5, 156, 18), title, 12, GameTheme.GOLD_HI if heavy else GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 		var parts: PackedStringArray = PackedStringArray()
 		if int(row["leaders"]) > 0:
@@ -182,26 +214,69 @@ func _show_lane_preview(state: Dictionary) -> void:
 
 
 func play(result: Dictionary, boss: bool, wave: int, elite: bool = false) -> void:
+	_live = false
+	_open_battle(result["units"], boss, wave, elite)
+	_result = result
+	_events = result["events"]
+	_next_event = 0
+
+
+## 수동 궁극기 전투: 편성(Run.battle_setup)을 받아 화면이 직접 한 틱씩 돌린다. 끝나면 finished, 쏜 기록은 ult_record().
+func play_live(setup: Dictionary, boss: bool, wave: int, elite: bool = false) -> void:
+	_sim = Battle.begin_battle(_data["battle"], setup["allies"], setup["enemies"], setup["rules"])
+	_live = true
+	_ults = {}
+	_queued = false
+	_ready_count = 0
+	_over_wait = 0.0
+	_result = {}
+	_events = []
+	_open_battle(_sim["spawnInfo"], boss, wave, elite)
+	ult_ready.emit(0)
+
+
+func _open_battle(units: Array, boss: bool, wave: int, elite: bool) -> void:
 	_set_background(wave)
 	_clear_units()
-	for unit: Dictionary in result["units"]:
+	for unit: Dictionary in units:
 		var view: UnitView = _unit_view(unit)
 		view.stage = int(unit.get("stage", 0))
 		if view.stage > 0:
 			view.root.hide()
 		_views[unit["id"]] = view
 	_say("심판 보스 전투!" if boss else ("중간 보스 등장!" if elite else "전투 중"))
-	_result = result
-	_events = result["events"]
-	_next_event = 0
 	_clock = 0.0
 	_pause = 0.4
 	_skip.show()
 	set_process(true)
 
 
+## 게이지가 찬 용 모두에게 궁극기를 쏘라고 한다(다음 틱에 나간다).
+func fire_ults() -> void:
+	if _live:
+		_queued = true
+
+
+## 수동 전투에서 궁극기를 쏜 기록: {틱: [용 id]}. startBattle 명령에 그대로 실어 보낸다.
+func ult_record() -> Dictionary:
+	return _ults
+
+
+func _live_step(animate: bool) -> void:
+	var arm: Array = []
+	if _queued or not animate:
+		arm = Battle.ready_ults(_sim)
+		_queued = false
+		if not arm.is_empty():
+			_ults[int(_sim["tick"]) + 1] = arm
+	for event: Dictionary in Battle.step_battle(_sim, arm):
+		_apply(event, animate)
+
+
 func _set_background(wave: int) -> void:
-	var path: String = GameTheme.background_for(wave)
+	## 지역이 정한 배경이 있으면 그것을, 없으면(긴 원정) 웨이브 구간에 따라.
+	var scene: String = str(_data["waves"].get("scene", ""))
+	var path: String = "res://assets/backgrounds/%s.png" % scene if not scene.is_empty() else GameTheme.background_for(wave)
 	if path == _background_path:
 		return
 	_background_path = path
@@ -209,7 +284,8 @@ func _set_background(wave: int) -> void:
 	for child: Node in _air.get_children():
 		_air.remove_child(child)
 		child.queue_free()
-	Ambience.particles(_air, Rect2(Vector2.ZERO, size), GameTheme.ambience_for(wave))
+	var air: String = str(_data["waves"].get("ambience", ""))
+	Ambience.particles(_air, Rect2(Vector2.ZERO, size), air if not air.is_empty() else GameTheme.ambience_for(wave))
 
 
 ## 위쪽 명판에 한두 줄을 띄운다. 빈 글이면 명판도 숨긴다.
@@ -256,7 +332,9 @@ func _unit_view(unit: Dictionary) -> UnitView:
 		var id: int = int(unit["id"])
 		view.offset = Vector2((id % 2) * 16.0 - 8.0, (id * 7 % 3 - 1) * 34.0)
 	view.center = _point(unit["x"], unit["lane"]) + view.offset
-	var edge: float = SIZE_BY_KIND.get(view.kind, 56.0) * (1.4 if unit.get("elite", false) else 1.0)
+	## 졸병 종류: 방패병은 크고, 돌격병은 작다.
+	var kind_look: Array = MINION_KIND.get(str(unit.get("type", "")), [])
+	var edge: float = SIZE_BY_KIND.get(view.kind, 56.0) * (1.4 if unit.get("elite", false) else 1.0) * (float(kind_look[1]) if not kind_look.is_empty() else 1.0)
 	view.root = Control.new()
 	view.root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	view.root.size = Vector2(edge, edge)
@@ -293,6 +371,10 @@ func _unit_view(unit: Dictionary) -> UnitView:
 		view.gauge_full = bar_w
 		GameTheme.panel(view.root, Rect2((edge - bar_w) / 2.0, -1, bar_w, 4), Color(0, 0, 0, 0.6))
 		view.gauge = GameTheme.panel(view.root, Rect2((edge - bar_w) / 2.0, -1, 0, 4), Color("#ffd43b"))
+	if not kind_look.is_empty():
+		## 종류 표지: 머리 위 작은 그림(방패 · 깃털 · 송곳니).
+		var badge: Control = Icons.new(str(kind_look[0]), Color("#ffe9c4"), true)
+		GameTheme.place(view.root, badge, Rect2(edge / 2.0 - 10, -26, 20, 20))
 	var always: bool = view.kind == "dragon"
 	view.bar.visible = always
 	view.bar_back.visible = always
@@ -302,6 +384,24 @@ func _unit_view(unit: Dictionary) -> UnitView:
 func _process(delta: float) -> void:
 	if _pause > 0.0:
 		_pause = maxf(0.0, _pause - delta)
+		return
+	if _live:
+		_clock += delta * _store.speed / TICK_SECONDS
+		var steps: int = 0
+		while int(_sim["tick"]) < floori(_clock) and not Battle.battle_over(_sim) and steps < 40 and _pause == 0.0:
+			steps += 1
+			_live_step(true)
+		## 컷인으로 잠깐 멈췄거나 밀렸으면 그만큼 한꺼번에 따라잡지 않는다.
+		if _pause > 0.0 or steps >= 40:
+			_clock = float(_sim["tick"])
+		var ready: int = Battle.ready_ults(_sim).size()
+		if ready != _ready_count:
+			_ready_count = ready
+			ult_ready.emit(ready)
+		if Battle.battle_over(_sim):
+			_over_wait += delta
+			if _over_wait >= 8.0 * TICK_SECONDS / _store.speed:
+				_end()
 		return
 	_clock += delta * _store.speed / TICK_SECONDS
 	_apply_through(mini(floori(_clock), _result["ticks"]), true)
@@ -317,6 +417,14 @@ func _apply_through(tick: int, animate: bool) -> void:
 
 
 func _skip_playback() -> void:
+	if _live:
+		## 건너뛰면 남은 전투를 한꺼번에 돌린다. 그동안 찬 궁극기는 바로바로 쏜다.
+		var guard: int = 0
+		while not Battle.battle_over(_sim) and guard < 100000:
+			guard += 1
+			_live_step(false)
+		_end()
+		return
 	if not _result.is_empty():
 		_apply_through(_result["ticks"], false)
 		_end()
@@ -324,6 +432,7 @@ func _skip_playback() -> void:
 
 func _end() -> void:
 	set_process(false)
+	_live = false
 	_result = {}
 	_events = []
 	_skip.hide()
@@ -429,6 +538,8 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				_number(attacker, "+%d" % int(event["heal"]), 15, Color("#8ce99a"), 0)
 			if attacker.gauge != null and event.has("charge"):
 				attacker.gauge.size.x = attacker.gauge_full * int(event["charge"]) / attacker.ult_need
+				## 가득 찬 게이지는 밝게(수동 모드에서 쏠 수 있다는 표시).
+				attacker.gauge.modulate = Color(1.7, 1.7, 1.4) if int(event["charge"]) >= attacker.ult_need else Color.WHITE
 			if animate:
 				var strong: bool = int(event["mult"]) > 100
 				var glancing: bool = event.has("lane")

@@ -62,11 +62,12 @@ func _ready() -> void:
 		subtitle += " · 무료 데모"
 	GameTheme.divider(stage, Rect2(390, 236, 500, 10))
 	GameTheme.heading(stage, Rect2(240, 248, 800, 40), subtitle, 24, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER, 600)
-	_intro = GameTheme.label(stage, Rect2(240, 290, 800, 30), "", 16, Color("#e9dcc4"), HORIZONTAL_ALIGNMENT_CENTER)
+	_intro = GameTheme.label(stage, Rect2(240, 290, 800, 78), "", 16, Color("#e9dcc4"), HORIZONTAL_ALIGNMENT_CENTER)
+	_intro.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	GameTheme.outline(_intro, 4, Color(0, 0, 0, 0.6))
 	## 원정 길이: 기본(20웨이브) ↔ 긴 원정(40웨이브). 데모판은 길이가 하나라 묻지 않는다.
 	_length_button = GameTheme.button(stage, Rect2(500, 488, 280, 42), "", _toggle_length, Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
-	_length_button.tooltip_text = "누르면 원정 길이를 바꿔요"
+	_length_button.tooltip_text = "누르면 지역을 바꿔요. 지역을 깨면 다음 지역이 열려요."
 	_length_button.visible = not OS.has_feature("demo") and _data["waves"].has("standard")
 	_show_length()
 	_continue_button = GameTheme.cta(stage, Rect2(500, 424, 280, 52), "", _continue, "ember", 20)
@@ -113,8 +114,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func _show_continue() -> void:
 	_saved = {}
 	## 저장은 그 판의 원정 길이로 풀어야 웨이브 수가 맞는다.
-	for length: String in ["standard", "long"]:
-		var found: Dictionary = _store.load_run(_data if OS.has_feature("demo") else Build.for_length(_data, length))
+	var modes: Array = ["long", "standard"]
+	for index: int in range(_data.get("stages", []).size()):
+		modes.append("stage:%d" % index)
+	for length: String in modes:
+		var found: Dictionary = _store.load_run(_data if OS.has_feature("demo") else Build.for_mode(_data, length))
 		if not found.is_empty() and (found["length"] == length or OS.has_feature("demo")):
 			_saved = found
 			break
@@ -127,7 +131,7 @@ func _continue() -> void:
 	if _saved.is_empty():
 		return
 	var length: String = _saved["length"]
-	var data: Dictionary = _data if OS.has_feature("demo") else Build.for_length(_data, length)
+	var data: Dictionary = _data if OS.has_feature("demo") else Build.for_mode(_data, length)
 	_game = GameScene.instantiate() as Game
 	_game.controller = Controller.new(data, int(_saved["state"]["seed"]))
 	_game.controller.state = _saved["state"]
@@ -140,19 +144,50 @@ func _continue() -> void:
 	add_child(_game)
 
 
+## 고를 수 있는 원정: 열린 지역들("stage:0" …), 첫 지역을 깬 뒤에는 긴 원정("long")도.
+func _modes() -> Array:
+	var count: int = _data.get("stages", []).size()
+	if count == 0:
+		return ["standard", "long"]
+	var cleared: int = _store.stages_cleared()
+	var modes: Array = []
+	for index: int in range(mini(cleared, count - 1) + 1):
+		modes.append("stage:%d" % index)
+	if cleared >= 1:
+		modes.append("long")
+	return modes
+
+
+func _mode() -> String:
+	var modes: Array = _modes()
+	return modes[clampi(_store.stage_pick, 0, modes.size() - 1)]
+
+
 func _run_data() -> Dictionary:
-	return _data if OS.has_feature("demo") else Build.for_length(_data, _store.run_length)
+	return _data if OS.has_feature("demo") else Build.for_mode(_data, _mode())
 
 
 func _toggle_length() -> void:
-	_store.run_length = "long" if _store.run_length == "standard" else "standard"
+	_store.stage_pick = (clampi(_store.stage_pick, 0, _modes().size() - 1) + 1) % _modes().size()
 	_show_length()
 
 
 func _show_length() -> void:
-	var waves: int = int(_run_data()["waves"]["maxWave"])
-	_length_button.text = ("기본 원정 · %d웨이브  ⇄" if _store.run_length == "standard" else "긴 원정 · %d웨이브  ⇄") % waves
-	_intro.text = "석판을 돌려 알을 얻고 · 드래곤 둘을 합쳐 신화룡을 깨우고 · %d웨이브를 버텨요" % waves
+	var data: Dictionary = _run_data()
+	var waves: int = int(data["waves"]["maxWave"])
+	var mode: String = _mode()
+	var intro: String = "석판을 돌려 알을 얻고 · 드래곤 둘을 합쳐 신화룡을 깨우고 · %d웨이브를 버텨요" % waves
+	if mode.begins_with("stage:") and not OS.has_feature("demo"):
+		var index: int = int(mode.substr(6))
+		var stars: int = _store.stage_stars(index)
+		_length_button.text = "%d지역 · %s  %s  ⇄" % [index + 1, data["waves"]["stageName"], "★".repeat(stars) + "☆".repeat(3 - stars)]
+		intro += "\n" + str(data["waves"]["stageRule"])
+		var carry: Dictionary = _store.carry_for(index)
+		if _data["dragons"].has(carry.get("speciesId", "")):
+			intro += "\n데려가는 용: " + str(_data["dragons"][carry["speciesId"]]["nameKo"])
+	else:
+		_length_button.text = "긴 원정 · %d웨이브  ⇄" % waves
+	_intro.text = intro
 
 
 func _select_level(delta: int) -> void:
@@ -193,7 +228,10 @@ func _start() -> void:
 	_game.controller = Controller.new(_run_data(), seed_value)
 	_game.store = _store
 	_game.calamity = _level
-	_game.run_length = _store.run_length
+	_game.run_length = "long" if OS.has_feature("demo") else _mode()
+	## 둘째 지역부터는 앞 지역에서 고른 용 한 마리를 데려간다.
+	if _game.run_length.begins_with("stage:"):
+		_game.controller.carry = _store.carry_for(int(_game.run_length.substr(6)))
 	_game.title_requested.connect(_return_to_title)
 	_menu.hide()
 	add_child(_game)
@@ -205,5 +243,6 @@ func _return_to_title() -> void:
 	_game = null
 	_select_level(0)
 	_show_continue()
+	_show_length()
 	_menu.show()
 	_start_button.grab_focus()
