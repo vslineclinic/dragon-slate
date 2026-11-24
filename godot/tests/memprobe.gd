@@ -55,6 +55,10 @@ func _init() -> void:
 	if tut != null:
 		tut.call("finish")
 	var ctl: Variant = game.get("controller")
+	## 시작 묶음 화면을 닫고 기본 묶음으로 둔다.
+	game.set("_start_open", false)
+	game.call("_clear_reward")
+	ctl.busy = false
 	game.get("store").speed = 4
 	_sample("5 게임 시작")
 	_base_objects = int(Performance.get_monitor(Performance.OBJECT_COUNT))

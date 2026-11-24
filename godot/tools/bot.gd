@@ -46,6 +46,9 @@ static func _choose_reward(data: Dictionary, state: Dictionary) -> Dictionary:
 	for i: int in range(choices.size()):
 		var kind: String = choices[i]["reward"]["kind"]
 		var rank: int = REWARD_ORDER.find(kind)
+		## 룬 지우기는 한 마리도 없는 원소의 룬이 묶음에 있을 때만 쓸모가 있다.
+		if kind == "erase" and _unowned_rune(data, state) >= 0:
+			rank = 4
 		## 룬 한 장은 내가 가장 많이 가진 원소일 때만 알 다음으로 친다.
 		if kind == "rune" and choices[i]["detail"] == _favoured(data, state):
 			rank = 3
@@ -84,21 +87,25 @@ static func _favoured(data: Dictionary, state: Dictionary) -> String:
 	return best
 
 
-## 내 석판: 받은 룬이 주력 원소면, 한 마리도 없는 원소의 룬과 바꾼다. 아니면 넘긴다.
+## 묶음에서 한 마리도 없는 원소의 룬이 있는 칸(주력 원소·금·여의주 제외). 없으면 -1.
+static func _unowned_rune(data: Dictionary, state: Dictionary) -> int:
+	var counts: Dictionary = _owned_elements(data, state)
+	var favoured: String = _favoured(data, state)
+	var slab: Array = state.get("slab", [])
+	for i: int in range(slab.size()):
+		var symbol: String = slab[i]
+		if symbol not in ["gold", "wild"] and symbol != favoured and int(counts.get(symbol, 0)) == 0:
+			return i
+	return -1
+
+
+## 내 석판: 받은 룬이 주력 원소면(또는 룬 지우기면) 한 마리도 없는 원소의 룬을 고른다. 아니면 넘긴다.
 static func _choose_rune(data: Dictionary, state: Dictionary) -> Dictionary:
 	var rune: Variant = state.get("runePending")
-	if rune != null and rune == _favoured(data, state):
-		var counts: Dictionary = _owned_elements(data, state)
-		var slab: Array = state.get("slab", [])
-		var worst: int = -1
-		for i: int in range(slab.size()):
-			var symbol: String = slab[i]
-			if symbol in ["gold", "wild"] or symbol == rune:
-				continue
-			if worst < 0 or int(counts.get(symbol, 0)) < int(counts.get(slab[worst], 0)):
-				worst = i
-		if worst >= 0 and int(counts.get(slab[worst], 0)) == 0:
-			return {"type": "replaceRune", "index": worst}
+	if rune != null and (rune == "erase" or rune == _favoured(data, state)):
+		var index: int = _unowned_rune(data, state)
+		if index >= 0:
+			return {"type": "replaceRune", "index": index}
 	return {"type": "skipRune"}
 
 

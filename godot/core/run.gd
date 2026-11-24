@@ -8,8 +8,55 @@ const ARRANGE_PHASES: Array[String] = ["manage", "pick", "spin"]
 const REWARD_CHOICES: int = 3
 
 
-static func create_run(data: Dictionary, seed: int, calamity: int = 0) -> Dictionary:
+## 시작 묶음: 한 원소에 힘을 실은 룬 묶음. 그 원소 룬이 focus.own장, 그 원소가 이기는 원소는 focus.beaten장, 나머지는 기본 그대로.
+static func start_bundle(data: Dictionary, element: String) -> Array:
+	var cfg: Dictionary = data["slot"].get("slab", {})
+	var focus: Dictionary = cfg.get("focus", {})
+	var beaten: Array = data["battle"]["beats"].get(element, [])
+	var runes: Array = []
+	var placed: Dictionary = {}
+	for symbol: String in cfg.get("start", []):
+		var limit: int = -1
+		if symbol == element:
+			limit = int(focus.get("own", 2))
+		elif symbol in beaten:
+			limit = int(focus.get("beaten", 2))
+		if limit >= 0:
+			if int(placed.get(symbol, 0)) >= limit:
+				continue
+			placed[symbol] = int(placed.get(symbol, 0)) + 1
+		runes.append(symbol)
+	## 모자란 주력 룬을 주력 원소 자리 바로 뒤에 채워 넣는다(같은 무늬가 모여 있게).
+	var at: int = runes.rfind(element) + 1
+	while runes.count(element) < int(focus.get("own", 2)):
+		runes.insert(at, element)
+	return runes
+
+
+## 판을 시작할 때 고를 수 있는 묶음(판 씨앗으로 정해진다): {"id": 원소, "runes": 묶음, "speciesId": 함께 오는 용}.
+static func start_options(data: Dictionary, seed: int) -> Array:
+	var cfg: Dictionary = data["slot"].get("slab", {})
+	var elements: Array = GameData.active_elements(data).duplicate()
+	var rng: Rng = Rng.new(((seed & Rng.M32) ^ 0x5bd1e995) & Rng.M32)
+	var options: Array = []
+	while options.size() < int(cfg.get("choices", 0)) and not elements.is_empty():
+		var element: String = elements[rng.next_int(elements.size())]
+		elements.erase(element)
+		var pool: Array = Slot.base_pool(data, element)
+		options.append({
+			"id": element, "runes": start_bundle(data, element),
+			"speciesId": "" if pool.is_empty() else Slot.pick_species(data, rng, pool),
+		})
+	return options
+
+
+## start = 시작 묶음의 원소. 이번 판에 내놓은 묶음이 아니면(빈 글 포함) 기본 묶음으로, 용 없이 시작한다.
+static func create_run(data: Dictionary, seed: int, calamity: int = 0, start: String = "") -> Dictionary:
 	var mods: Dictionary = Calamity.mods(data, calamity)
+	var chosen: Dictionary = {}
+	for option: Dictionary in start_options(data, seed):
+		if option["id"] == start:
+			chosen = option
 	var nest: Array = []
 	nest.resize(NEST_SIZE)
 	var bench: Array = []
@@ -46,9 +93,17 @@ static func create_run(data: Dictionary, seed: int, calamity: int = 0) -> Dictio
 		"transmuteFails": 0,
 		"slab": data["slot"].get("slab", {}).get("start", []).duplicate(),
 		"runePending": null,
+		"start": "",
 		"log": [],
 	}
-	return {"state": state, "events": [_wave_start(data, state)]}
+	var events: Array = []
+	if not chosen.is_empty():
+		state["slab"] = chosen["runes"].duplicate()
+		state["start"] = chosen["id"]
+		if not chosen["speciesId"].is_empty():
+			_add_to_bench(state, chosen["speciesId"], "start", events)
+	events.append(_wave_start(data, state))
+	return {"state": state, "events": events}
 
 
 static func apply_command(data: Dictionary, state: Dictionary, cmd: Dictionary) -> Dictionary:
@@ -353,7 +408,7 @@ static func _roll_reward_choices(data: Dictionary, rng: Rng, boss: bool, with_ru
 	var weight_key: String = "bossWeight" if boss else "weight"
 	for candidate: Dictionary in data["rewards"]:
 		var weight: int = candidate[weight_key]
-		if candidate["kind"] == "rune" and not with_rune:
+		if candidate["kind"] in ["rune", "erase"] and not with_rune:
 			continue
 		if weight > 0:
 			pool.append(candidate)
@@ -420,8 +475,16 @@ static func _do_rune(data: Dictionary, state: Dictionary, index: Variant, rng: R
 		var slab: Array = state.get("slab", [])
 		if not _valid_index(index, slab.size()):
 			return "emptySlot"
-		events.append({"t": "runeReplaced", "index": int(index), "from": slab[int(index)], "to": rune})
-		slab[int(index)] = rune
+		if rune == "erase" and slab.size() <= int(data["slot"].get("slab", {}).get("minSize", 0)):
+			## 그사이 묶음이 가장 적은 장수가 됐으면 빼지 않고 마력으로 준다.
+			_add_mana(state, 3, "reward", events)
+		elif rune == "erase":
+			## 룬 지우기: 그 룬을 묶음에서 뺀다.
+			events.append({"t": "runeErased", "index": int(index), "from": slab[int(index)]})
+			slab.remove_at(int(index))
+		else:
+			events.append({"t": "runeReplaced", "index": int(index), "from": slab[int(index)], "to": rune})
+			slab[int(index)] = rune
 	else:
 		events.append({"t": "runeSkipped", "rune": rune})
 	state["runePending"] = null
@@ -636,6 +699,11 @@ static func _apply_reward(data: Dictionary, state: Dictionary, rng: Rng, reward:
 		"rune":
 			if detail != null and not state.get("slab", []).is_empty():
 				state["runePending"] = detail
+			else:
+				_add_mana(state, 3, "reward", events)
+		"erase":
+			if state.get("slab", []).size() > int(data["slot"].get("slab", {}).get("minSize", 0)):
+				state["runePending"] = "erase"
 			else:
 				_add_mana(state, 3, "reward", events)
 		"life":

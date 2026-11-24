@@ -40,7 +40,11 @@ func _init() -> void:
 	var margin_n: Dictionary = {}
 	var want_margin: bool = args.has("--margin")
 	for i: int in range(runs):
-		var state: Dictionary = Run.create_run(data, first_seed + i, calamity)["state"]
+		var start: String = ""
+		if args.has("--start"):
+			var options: Array = Run.start_options(data, first_seed + i)
+			start = "" if options.is_empty() else options[0]["id"]
+		var state: Dictionary = Run.create_run(data, first_seed + i, calamity, start)["state"]
 		var seen_waves: Dictionary = {}
 		for step: int in range(COMMAND_LIMIT):
 			if state["phase"] in ["victory", "gameOver"]:

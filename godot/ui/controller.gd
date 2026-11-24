@@ -25,9 +25,10 @@ func dispatch(cmd: Dictionary) -> Array:
 	return events
 
 
-func restart(seed: int, calamity: int = -1) -> void:
+## start = 시작 묶음의 원소(빈 글이면 기본 묶음).
+func restart(seed: int, calamity: int = -1, start: String = "") -> void:
 	var level: int = state["calamity"] if calamity == -1 else calamity
-	var result: Dictionary = RunRules.create_run(data, seed, level)
+	var result: Dictionary = RunRules.create_run(data, seed, level, start)
 	state = result["state"]
 	busy = false
 	changed.emit(result["events"], state)

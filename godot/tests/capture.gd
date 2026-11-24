@@ -24,13 +24,25 @@ func _init() -> void:
 		if tut != null and tut.has_method("finish"):
 			tut.call("finish")
 		var ctl = scene.get("controller")
+		## 시작 묶음 화면은 "start" 모드에서만 본다. 다른 모드는 기본 묶음으로 바로 시작.
+		scene.set("_start_open", false)
 		ctl.restart(12, 0)
+		ctl.busy = false
 		for i in 10:
 			await process_frame
+		if mode == "start":
+			scene.set("_start_open", true)
+			scene.call("_render", [], ctl.state)
+			for i in 50:
+				await process_frame
+			root.get_viewport().get_texture().get_image().save_png(out)
+			print("saved ", out)
+			quit()
+			return
 		ctl.dispatch({"type": "spin"})
 		for i in (12 if mode == "spinmid" else 90):
 			await process_frame
-		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "slab", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
+		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "slab", "erase", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -91,9 +103,9 @@ func _init() -> void:
 					dex.call("_show_page", "mixed")
 			for i in 30:
 				await process_frame
-		if mode == "slab":
+		if mode in ["slab", "erase"]:
 			ctl.state["phase"] = "slab"
-			ctl.state["runePending"] = "fire"
+			ctl.state["runePending"] = "fire" if mode == "slab" else "erase"
 			ctl.state["slab"][2] = "fire"
 			scene.call("_render", [], ctl.state)
 			for i in 40:

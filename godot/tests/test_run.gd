@@ -417,6 +417,12 @@ func test_elite_hunt_strengthens_next_wave_and_gives_a_second_reward() -> void:
 	var won: Dictionary = RunRules.apply_command(data, hunting, {"type": "startBattle"})["state"]
 	_assert_fields(won, {"phase": "reward", "extraRewards": 1, "waveMod": {}})
 	var first: Dictionary = RunRules.apply_command(data, won, {"type": "chooseReward", "index": 0})["state"]
+	## 고른 보상이 석판 보상(룬 한 장 · 룬 지우기)이면 석판 차례를 먼저 넘긴다.
+	if first["phase"] == "slab":
+		first = RunRules.apply_command(data, first, {"type": "skipRune"})["state"]
 	_assert_fields(first, {"phase": "reward", "extraRewards": 0})
 	assert_eq(first["rewardChoices"].size(), 3)
-	_assert_fields(RunRules.apply_command(data, first, {"type": "chooseReward", "index": 0})["state"], {"phase": "spin"})
+	var second: Dictionary = RunRules.apply_command(data, first, {"type": "chooseReward", "index": 0})["state"]
+	if second["phase"] == "slab":
+		second = RunRules.apply_command(data, second, {"type": "skipRune"})["state"]
+	_assert_fields(second, {"phase": "spin"})

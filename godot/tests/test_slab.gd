@@ -158,3 +158,140 @@ func test_old_save_without_a_slab_is_never_offered_a_rune() -> void:
 	for seed: int in range(1, 80):
 		for choice: Dictionary in RunRules._roll_reward_choices(_data, Rng.new(seed), false, false):
 			assert_true(choice["reward"]["kind"] != "rune")
+
+
+## ── 시작 묶음 ──
+
+const Bot = preload("res://godot/tools/bot.gd")
+
+
+func test_start_options_offer_three_different_elements_fixed_by_the_seed() -> void:
+	var seen: Dictionary = {}
+	for seed: int in range(1, 30):
+		var options: Array = RunRules.start_options(_data, seed)
+		assert_eq(options, RunRules.start_options(_data, seed))
+		assert_eq(options.size(), int(_data["slot"]["slab"]["choices"]))
+		var ids: Dictionary = {}
+		for option: Dictionary in options:
+			ids[option["id"]] = true
+			assert_true(option["id"] in GameData.active_elements(_data))
+			seen[option["id"]] = true
+		assert_eq(ids.size(), options.size())
+	assert_eq(seen.size(), 6, "판마다 다른 묶음이 나온다")
+
+
+func test_focus_bundle_has_four_of_its_element_and_one_of_each_it_beats() -> void:
+	var slab_cfg: Dictionary = _data["slot"]["slab"]
+	for element: String in GameData.active_elements(_data):
+		var runes: Array = RunRules.start_bundle(_data, element)
+		assert_eq(runes.size(), slab_cfg["start"].size(), element)
+		assert_eq(runes.count(element), int(slab_cfg["focus"]["own"]))
+		for weak: String in _data["battle"]["beats"][element]:
+			assert_eq(runes.count(weak), int(slab_cfg["focus"]["beaten"]), element + " → " + weak)
+		assert_eq(runes.count("gold"), slab_cfg["start"].count("gold"))
+		assert_eq(runes.count("wild"), slab_cfg["start"].count("wild"))
+
+
+func test_run_started_with_a_bundle_gets_its_slab_and_a_dragon_of_that_element() -> void:
+	var option: Dictionary = RunRules.start_options(_data, 31)[1]
+	var state: Dictionary = RunRules.create_run(_data, 31, 0, option["id"])["state"]
+	assert_eq(state["slab"], option["runes"])
+	assert_eq(state["start"], option["id"])
+	assert_eq(state["phase"], "spin")
+	var hatchling: Variant = state["bench"][0]
+	assert_true(hatchling != null)
+	if hatchling != null:
+		assert_eq(hatchling["speciesId"], option["speciesId"])
+		var spec: Dictionary = _data["dragons"][hatchling["speciesId"]]
+		assert_eq([spec["tier"], spec["elements"][0]], ["base", option["id"]])
+		assert_eq(int(state["nextUid"]), int(hatchling["uid"]) + 1)
+
+
+func test_run_without_a_bundle_or_with_an_unknown_one_starts_balanced_and_empty() -> void:
+	for start: String in ["", "water"]:
+		var state: Dictionary = RunRules.create_run(_data, 31, 0, start)["state"]
+		assert_eq(state["slab"], _data["slot"]["slab"]["start"])
+		assert_eq(state["bench"], [null, null, null, null])
+		assert_eq(state["start"], "")
+
+
+func test_same_seed_grows_a_different_roost_depending_on_the_bundle() -> void:
+	## 같은 씨앗에서 내놓은 묶음 둘(A, B)로 5웨이브까지: 고른 원소의 알이 더 많이 들어온다.
+	var own: int = 0
+	var other: int = 0
+	for seed: int in [11, 12, 13, 14, 15, 16]:
+		var options: Array = RunRules.start_options(_data, seed)
+		var pair: Array = [options[0]["id"], options[1]["id"]]
+		for mine: int in range(2):
+			var state: Dictionary = RunRules.create_run(_data, seed, 0, pair[mine])["state"]
+			assert_eq(state["start"], pair[mine])
+			for step: int in range(600):
+				if int(state["wave"]) > 5 or state["phase"] in ["gameOver", "victory"]:
+					break
+				var result: Dictionary = RunRules.apply_command(_data, state, Bot.choose(_data, state))
+				state = result["state"]
+				for event: Dictionary in result["events"]:
+					if event["t"] != "gained":
+						continue
+					var element: String = _data["dragons"][event["inst"]["speciesId"]]["elements"][0]
+					if element == pair[mine]:
+						own += 1
+					elif element == pair[1 - mine]:
+						other += 1
+	assert_true(own > other * 2, "고른 원소 %d마리, 고르지 않은 원소 %d마리" % [own, other])
+
+
+## ── 룬 지우기 ──
+
+func _erase_state(seed: int = 4) -> Dictionary:
+	var state: Dictionary = _reward_state("fire", seed)
+	for row: Dictionary in _data["rewards"]:
+		if row["kind"] == "erase":
+			state["rewardChoices"] = [{"reward": row, "detail": null}]
+	return state
+
+
+func test_erase_reward_removes_the_chosen_rune() -> void:
+	var state: Dictionary = _erase_state()
+	assert_eq(state["rewardChoices"][0]["reward"]["kind"], "erase")
+	var chosen: Dictionary = RunRules.apply_command(_data, state, {"type": "chooseReward", "index": 0})["state"]
+	assert_eq([chosen["phase"], chosen["runePending"]], ["slab", "erase"])
+	var gone: String = chosen["slab"][5]
+	var done: Dictionary = RunRules.apply_command(_data, chosen, {"type": "replaceRune", "index": 5})
+	assert_eq(done["state"]["slab"].size(), state["slab"].size() - 1)
+	assert_eq(done["state"]["slab"].count(gone), state["slab"].count(gone) - 1)
+	assert_eq([done["state"]["phase"], done["state"]["runePending"]], ["spin", null])
+	assert_true(done["events"].any(func(event: Dictionary) -> bool: return event["t"] == "runeErased" and event["from"] == gone))
+
+
+func test_erase_can_be_skipped() -> void:
+	var chosen: Dictionary = RunRules.apply_command(_data, _erase_state(), {"type": "chooseReward", "index": 0})["state"]
+	var done: Dictionary = RunRules.apply_command(_data, chosen, {"type": "skipRune"})["state"]
+	assert_eq(done["slab"].size(), _data["slot"]["slab"]["start"].size())
+	assert_eq(done["phase"], "spin")
+
+
+func test_slab_never_shrinks_below_the_minimum() -> void:
+	var state: Dictionary = _erase_state()
+	var least: int = int(_data["slot"]["slab"]["minSize"])
+	state["slab"] = state["slab"].slice(0, least)
+	var chosen: Dictionary = RunRules.apply_command(_data, state, {"type": "chooseReward", "index": 0})
+	assert_eq(chosen["state"]["phase"], "spin", "더 못 줄이면 마력으로 바뀐다")
+	assert_eq(chosen["state"]["slab"].size(), least)
+	assert_eq(int(chosen["state"]["mana"]), int(state["mana"]) + 3)
+
+
+func test_old_save_without_a_slab_is_never_offered_an_erase() -> void:
+	for seed: int in range(1, 80):
+		for choice: Dictionary in RunRules._roll_reward_choices(_data, Rng.new(seed), true, false):
+			assert_true(choice["reward"]["kind"] not in ["rune", "erase"])
+
+
+func test_erase_rechecks_the_minimum_when_the_rune_is_chosen() -> void:
+	var chosen: Dictionary = RunRules.apply_command(_data, _erase_state(), {"type": "chooseReward", "index": 0})["state"]
+	var least: int = int(_data["slot"]["slab"]["minSize"])
+	chosen["slab"] = chosen["slab"].slice(0, least)
+	var done: Dictionary = RunRules.apply_command(_data, chosen, {"type": "replaceRune", "index": 0})["state"]
+	assert_eq(done["slab"].size(), least)
+	assert_eq(int(done["mana"]), int(chosen["mana"]) + 3)
+	assert_eq([done["phase"], done["runePending"]], ["spin", null])

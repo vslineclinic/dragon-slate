@@ -16,7 +16,13 @@
     ],
     "offer": [
       "fire", "ice", "lightning", "poison", "steel", "abyss", "gold", "wild"
-    ]
+    ],
+    "choices": 3,
+    "focus": {
+      "own": 4,
+      "beaten": 1
+    },
+    "minSize": 9
   },
   "pityThreshold": 4,
   "nudgesPerWave": 1,
