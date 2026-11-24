@@ -20,6 +20,23 @@
       20
     ]
   },
+  "long": {
+    "waves": {
+      "nestUnlockAfter": [3, 7, 12],
+      "growthBands": [
+        {"from": 2, "pct": 125},
+        {"from": 9, "pct": 117},
+        {"from": 15, "pct": 111},
+        {"from": 21, "pct": 108},
+        {"from": 31, "pct": 106}
+      ]
+    },
+    "level": {
+      "winXp": 3,
+      "lossXp": 2,
+      "evolveLevel": {"t2": 4, "t1": 8, "apex": 12, "dual": 8, "secret": 12}
+    }
+  },
   "standard": {
     "waves": {
       "maxWave": 20,

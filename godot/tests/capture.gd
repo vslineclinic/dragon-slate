@@ -57,7 +57,7 @@ func _init() -> void:
 			scene.call("_render", [], ctl.state)
 			for i in 20:
 				await process_frame
-		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "lineage", "slab", "erase", "live", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear"]:
+		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "lineage", "slab", "erase", "live", "wave7", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -71,6 +71,12 @@ func _init() -> void:
 			for b in range(4):
 				if ctl.state["bench"][b] != null:
 					ctl.dispatch({"type": "move", "from": {"zone": "bench", "index": b}, "to": {"zone": "nest", "index": b % 3}})
+			for i in 20:
+				await process_frame
+		if mode == "wave7":
+			## 졸병 종류가 섞이는 웨이브의 줄 미리보기.
+			ctl.state["wave"] = 7
+			scene.call("_render", [], ctl.state)
 			for i in 20:
 				await process_frame
 		if mode == "live":

@@ -17,6 +17,9 @@ func _init() -> void:
 	## --standard: 기본 원정(20웨이브) 값으로 잰다.
 	if args.has("--standard") and not demo:
 		data = Build.for_length(data, "standard")
+	elif not demo and int(_arg(args, "--stage", "0")) == 0:
+		## 지역도 기본 원정도 아니면 긴 원정(40웨이브).
+		data = Build.for_length(data, "long")
 	## --stage N: N번째 지역(1부터). --carry 종id: 앞 지역에서 데려온 용.
 	var stage_arg: int = int(_arg(args, "--stage", "0"))
 	if stage_arg > 0 and not demo:

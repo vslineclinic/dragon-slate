@@ -36,10 +36,26 @@ func test_standard_run_is_twenty_waves_and_ends_on_a_boss() -> void:
 	assert_eq(data, original, "원래 자료는 그대로")
 
 
-func test_long_run_keeps_the_data_as_it_is() -> void:
+func test_long_run_is_forty_waves_with_its_own_growth() -> void:
 	var data: Dictionary = GameData.load_all()
-	assert_eq(Build.for_length(data, "long")["waves"]["maxWave"], 40)
-	assert_true(Build.for_length(data, "long") == data)
+	var original: Dictionary = data.duplicate(true)
+	var long_run: Dictionary = Build.for_length(data, "long")
+	assert_eq(long_run["waves"]["maxWave"], 40)
+	assert_true(not long_run["waves"].has("long") and not long_run["waves"].has("standard"))
+	assert_eq(long_run["waves"]["nestUnlockAfter"], original["waves"]["long"]["waves"]["nestUnlockAfter"])
+	assert_eq(long_run["battle"]["level"]["evolveLevel"], original["waves"]["long"]["level"]["evolveLevel"])
+	assert_true(Waves.is_boss(long_run["waves"], 40))
+	assert_eq(data, original)
+
+
+func test_demo_is_the_first_ten_waves_of_the_first_region() -> void:
+	var data: Dictionary = GameData.load_all()
+	var demo: Dictionary = Build.apply(data, true)
+	var first: Dictionary = Build.for_stage(data, 0)
+	assert_eq(demo["waves"]["maxWave"], 10)
+	assert_eq(demo["waves"]["stageName"], first["waves"]["stageName"])
+	assert_eq(demo["waves"]["nestUnlockAfter"], first["waves"]["nestUnlockAfter"])
+	assert_eq(demo["battle"]["level"]["evolveLevel"], first["battle"]["level"]["evolveLevel"])
 
 
 func test_standard_run_can_be_played_to_the_end_by_the_bot() -> void:
