@@ -66,7 +66,8 @@ static func evolvable_pairs(data: Dictionary, state: Dictionary) -> Array:
 	return pairs
 
 
-static func line_rewards(data: Dictionary, grid: Dictionary) -> Dictionary:
+## crown = 유물 "여의주 왕관"을 가졌는지(여의주 줄에 2티어 알이 더 온다).
+static func line_rewards(data: Dictionary, grid: Dictionary, crown: bool = false) -> Dictionary:
 	var lines: int = 0
 	var mana: int = 0
 	var eggs: Array = []
@@ -78,6 +79,8 @@ static func line_rewards(data: Dictionary, grid: Dictionary) -> Dictionary:
 				mana += data["slot"]["goldLineMana"]
 			"wild":
 				mana += data["slot"]["wildLineMana"]
+				if crown:
+					eggs.append({"element": "wild", "tier": "t2"})
 			_:
 				eggs.append({"element": group["element"], "tier": "t2" if count >= 2 else "base"})
 				mana += data["slot"]["lineMana"]
@@ -109,3 +112,55 @@ static func _primary_element(data: Dictionary, species_id: String) -> Variant:
 	var spec: Dictionary = data["dragons"].get(species_id, {})
 	var elements: Array = spec.get("elements", [])
 	return null if elements.is_empty() else elements[0]
+
+
+## 진 전투를 되짚어 가장 큰 이유 하나를 고른다: {"kind": 이유, "pct": 비율(해당할 때)}.
+## weakElement = 우리 용의 공격 절반 이상이 약한 상성 / offLane = 넷 중 하나 이상이 다른 줄을 쳐서 약해짐 /
+## timeout = 시간이 다 됨 / leaders = 우두머리만 남음 / swarm = 졸병에게 밀림.
+static func defeat_reason(cfg: Dictionary, result: Dictionary) -> Dictionary:
+	var kind_of: Dictionary = {}
+	var side_of: Dictionary = {}
+	var stage_of: Dictionary = {}
+	## 전장에 나와 있는 유닛만 센다(뒤 무리는 stage 사건이 올 때 나온다).
+	var alive: Dictionary = {}
+	for unit: Dictionary in result["units"]:
+		kind_of[unit["id"]] = unit["kind"]
+		side_of[unit["id"]] = unit["side"]
+		stage_of[unit["id"]] = int(unit.get("stage", 0))
+		alive[unit["id"]] = int(unit.get("stage", 0)) == 0
+	var hits: int = 0
+	var weak: int = 0
+	var off_lane: int = 0
+	for event: Dictionary in result["events"]:
+		if event["kind"] == "death":
+			alive[event["id"]] = false
+		elif event["kind"] == "stage":
+			for id: Variant in stage_of:
+				if stage_of[id] == int(event["stage"]):
+					alive[id] = true
+		elif event["kind"] == "attack" and side_of.get(event["src"]) == "ally" and kind_of.get(event["src"]) == "dragon":
+			hits += 1
+			if int(event["mult"]) < 100:
+				weak += 1
+			if event.has("lane"):
+				off_lane += 1
+	if hits > 0 and weak * 2 >= hits:
+		return {"kind": "weakElement", "pct": Rng.fdiv(weak * 100, hits)}
+	if hits > 0 and off_lane * 4 >= hits:
+		return {"kind": "offLane", "pct": Rng.fdiv(off_lane * 100, hits)}
+	var leaders: int = 0
+	var minions: int = 0
+	var allies_left: int = 0
+	for id: Variant in alive:
+		if alive[id] and side_of[id] == "ally":
+			allies_left += 1
+	## 시간이 다 됐다는 것은 우리 편이 남아 있는데 못 끝낸 경우다.
+	if int(result["ticks"]) >= int(cfg["maxTicks"]) and allies_left > 0:
+		return {"kind": "timeout"}
+	for id: Variant in alive:
+		if alive[id] and side_of[id] == "enemy":
+			if kind_of[id] == "dragon":
+				leaders += 1
+			else:
+				minions += 1
+	return {"kind": "leaders" if leaders > 0 and minions <= leaders else "swarm"}

@@ -12,6 +12,8 @@ var _base_objects: int = 0
 
 
 func _init() -> void:
+	## 사용자가 하던 판의 자동 저장을 건드리지 않는다.
+	load("res://godot/ui/store.gd").set("autosave_off", true)
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	var waves: int = int(args[0]) if args.size() > 0 else 10
 	var resize: bool = args.size() > 1 and args[1] == "1"

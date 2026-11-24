@@ -1,51 +1,63 @@
 # Wyrmslot Steam 상점 페이지 초안
 
+2026-11-24 고침: 방향 B(석판 짜기 + 용 계보 + 줄 전투)에 맞춰 다시 썼어요. 게시 전 영어 문장은 검토가 한 번 더 필요해요.
+
 ## 한국어
 
 ### 짧은 설명
 
-3×3 룬 석판을 돌려 드래곤 알을 고르고, 두 마리를 합쳐 촉룡과 쿠라오카미 같은 신화 속 드래곤을 발견하세요. 불·얼음·번개 상성에 맞춰 진형을 짜고, 자동 전투로 20웨이브와 심판 보스 4종에 도전하는 로그라이트입니다.
+룬 석판을 내 손으로 짜고, 드래곤 둘을 합쳐 신화 속 용의 계보를 이어 가세요. 적이 몰려오는 줄을 읽고 진형을 세우면 드래곤이 걸어 나가 싸웁니다. 여섯 원소, 드래곤 196종, 20웨이브 원정의 로그라이트입니다.
 
 ### 긴 설명
 
-#### 룬 석판에서 알 고르기
+#### 운이 아니라 내가 짜는 석판
 
-3×3 룬 석판을 돌린 뒤 가운데 줄의 세 후보 중 하나를 고르세요. 원하는 원소가 다른 줄에 있다면 세로줄 하나를 밀어 후보를 바꿀 수 있습니다. 새로 얻은 드래곤을 둥지에 배치하고 다음 전투를 준비하세요.
+3×3 룬 석판의 칸은 내 룬 묶음에서 나옵니다. 판을 시작할 때 원소 묶음을 고르고, 이길 때마다 룬을 넣거나 빼서 묶음을 다듬으세요. 불 룬을 늘리면 불의 알과 불의 줄이 더 자주 나옵니다. 세로줄을 밀어 줄을 맞추면 알과 마력을 더 받습니다.
 
-#### 두 마리를 합쳐 신화 속 드래곤 발견하기
+#### 합칠 때마다 고르는 계보
 
-둥지의 드래곤 두 마리를 합쳐 새 종을 찾아보세요. 촉룡, 쿠라오카미, 응룡을 비롯해 22종을 도감에 기록할 수 있습니다. 도감에 적힌 신화 속 단서를 읽으면 아직 발견하지 못한 조합을 추리할 수 있습니다.
+드래곤 둘을 합치면 윗계급 용으로 진화합니다. 이때 두 갈래 가운데 하나를 고릅니다. 같은 두 마리라도 어느 쪽 위에 놓느냐에 따라 갈래가 달라집니다. 촉룡, 쿠라오카미, 응룡을 비롯한 196종을 도감의 세계수에 채워 보세요.
 
-#### 진형을 짜고 심판 보스에 도전하기
+#### 줄을 읽고 세우는 전투
 
-불은 얼음에, 얼음은 번개에, 번개는 불에 강합니다. 다음 적에 맞춰 전열과 후열을 짜면 드래곤들이 자동으로 싸웁니다. 웨이브 보상 상자로 전력을 보강하고, 5·10·15·20웨이브에 등장하는 심판 보스에 도전하세요.
+전투 전에 적이 어느 줄로 몰려오는지 보입니다. 드래곤은 제 줄을 지키며 걸어 나가 싸우고, 다른 줄을 치면 힘이 줄어듭니다. 멀리 쏘는 사수, 앞에서 버티는 수호, 같은 줄을 돕는 지원을 어디에 세울지가 승부를 가릅니다.
 
-#### 재앙 단계 올리기
+#### 형태마다 다른 능력
 
-다섯 재앙 단계에서 조합과 진형을 시험해 보세요. 1인 개발 로그라이트 Wyrmslot의 첫 10웨이브를 무료 데모로 플레이할 수 있습니다.
+꿰뚫는 창날 와이번, 두 번 치는 쌍두 와이번, 다친 용을 돌보는 현자룡, 같은 줄을 지키는 갑주룡. 같은 형태는 원소가 달라도 같은 능력을 가집니다. 능력과 원소 상성을 함께 보고 진형을 짜세요.
+
+#### 판을 바꾸는 유물과 전환의 룬
+
+보스를 이기면 유물을 고릅니다. 후열의 줄 제한을 없애거나, 룬을 한 번에 두 장 바꾸게 하는 유물이 판의 방향을 바꿉니다. 전환의 룬으로 용의 원소를 바꿔 보스에 맞서세요.
+
+#### 20웨이브 원정과 긴 원정
+
+기본 원정은 20웨이브입니다. 더 긴 판을 원하면 40웨이브 긴 원정에 도전하세요. 하던 판은 자동으로 저장되어 언제든 이어 할 수 있습니다. 원정을 마치면 재앙 단계가 열립니다.
 
 ### 특징
 
-- 3×3 룬 석판과 가운데 줄의 알 선택
-- 두 마리를 합쳐 발견하는 드래곤 22종과 신화 힌트 도감
-- 불·얼음·번개 상성과 전열·후열 배치를 활용하는 자동 전투
-- 20웨이브, 심판 보스 4종, 웨이브 보상 상자
-- 재앙 5단계와 10웨이브 무료 데모
+- 내 룬 묶음에서 뽑히는 3×3 룬 석판: 룬을 넣고 빼서 짜는 판
+- 드래곤 196종과 합칠 때마다 고르는 계보
+- 세 줄 전장: 적이 몰리는 줄 미리보기, 줄 거리에 따른 피해, 사수 · 수호 · 지원 역할
+- 형태별 능력 8종, 여섯 원소 상성, 궁극기
+- 유물 16종, 전환의 룬, 갈림길
+- 기본 원정 20웨이브 · 긴 원정 40웨이브, 자동 저장, 재앙 5단계
+- 첫 10웨이브 무료 데모
 
 ### 추천 태그
 
-Auto Battler, Roguelite, Creature Collector, Dragons, Strategy, Singleplayer, Fantasy, Mythology, 2D, Colorful, Tactical, Casual, Indie, PvE, Replay Value, Procedural Generation, Choices Matter, Inventory Management, Atmospheric, Stylized
+Auto Battler, Roguelite, Deckbuilding, Creature Collector, Dragons, Strategy, Singleplayer, Fantasy, Mythology, 2D, Tactical, Indie, PvE, Replay Value, Procedural Generation, Choices Matter, Tower Defense, Atmospheric, Stylized, Casual
 
-### 최소 사양 (추정)
+### 최소 사양 (추정, 실제 기기에서 확인하지 않음)
 
 - 운영체제 Windows 10
 - 메모리 4 GB RAM
-- 그래픽 내장 그래픽
+- 그래픽 내장 그래픽(OpenGL 3.3)
 - 저장공간 약 300 MB
 
 ### AI 사용 공시
 
-게임 안의 드래곤 그림, 상점 페이지 그림, 게임 안 문구(도감·안내·보스 설명), 상점 문구에 생성형 AI를 사용했습니다. 코드 작성에도 AI 도구를 사용했습니다. 개발자가 결과물을 고르고 검토했습니다.
+드래곤과 졸병 그림은 생성형 AI로 만들었습니다. 배경, 화면 장식, 배경음악은 AI 도구로 작성한 코드가 만들어 낸 것입니다. 게임 안 문구(도감 · 안내 · 보스 설명)와 상점 문구, 코드 작성에도 AI 도구를 사용했습니다. 개발자가 결과물을 고르고 검토했습니다.
 
 ### 출시 정보 (예정)
 
@@ -55,48 +67,58 @@ Auto Battler, Roguelite, Creature Collector, Dragons, Strategy, Singleplayer, Fa
 
 ### Short description
 
-Turn a 3×3 rune tablet to choose dragon eggs, then merge pairs to discover dragons from world mythology. Build a formation around fire, ice, and lightning matchups in this roguelite auto battler. Take on 20 waves and four Judgment bosses.
+Build your own rune tablet, merge dragons, and choose which mythic lineage they follow. Read the lanes, set your formation, and watch your dragons march out to fight. A roguelite with six elements, 196 dragons, and a 20-wave expedition.
 
 ### Long description
 
-#### Choose an egg from the rune tablet
+#### A tablet you build, not a slot you pray to
 
-Turn the 3×3 rune tablet and pick one of the three options in the middle row. If the element you want lands on another row, shift a column to change your choices. Place your new dragon in the nest and prepare for the next fight.
+Every cell of the 3×3 rune tablet is drawn from your own set of runes. Pick a starting set, then add and remove runes after each victory. Add fire runes and fire eggs and fire lines come up more often. Shift a column to complete a line for extra eggs and mana.
 
-#### Merge dragons and piece together their myths
+#### Choose a lineage with every merge
 
-Combine two dragons in your nest to discover a new species. Record all 22 in your codex, including Zhulong, Kuraokami, and Yinglong. Read their mythological clues to work out which pairs to try next.
+Merge two dragons and they evolve into a higher tier. You choose one of two branches, and the same pair offers a different branch depending on which dragon you drop onto the other. Fill the world-tree codex with 196 dragons, including Zhulong, Kuraokami, and Yinglong.
 
-#### Build your formation for the Judgment bosses
+#### Read the lanes, then place your dragons
 
-Fire beats ice, ice beats lightning, and lightning beats fire. Arrange your front and back rows for the next enemy, then watch your dragons fight automatically. Open wave reward chests to bolster your team and face Judgment bosses on waves 5, 10, 15, and 20.
+Before each battle you see which lane the enemy will crowd. Dragons hold their lane, walk forward, and hit weaker when they attack another lane. Where you place long-range Archers, sturdy Guardians, and lane-helping Supports decides the fight.
 
-#### Raise the Calamity level
+#### Every form has its own ability
 
-Test your merges and formations across five Calamity levels. Try the first 10 waves of Wyrmslot, a solo-developed roguelite, in the free demo.
+The Lancer Wyvern pierces, the Twinhead strikes twice, the Sage mends the wounded, and the Armored dragon shields its lane. A form keeps its ability across all six elements, so you plan around both ability and element.
+
+#### Relics and the Rune of Change
+
+Defeat a boss and choose a relic. Some change the rules: back-row dragons ignore lane limits, or one rune card replaces two runes. Use the Rune of Change to turn a dragon into another element before a boss.
+
+#### A 20-wave expedition, or the long one
+
+The standard expedition is 20 waves. The long expedition is 40. Your run saves automatically, so you can stop and continue at any time. Finish an expedition to unlock Calamity levels.
 
 ### Features
 
-- A 3×3 rune tablet with three choices in its middle row
-- 22 dragons to discover through merging, with mythological clues in the codex
-- Automatic battles with fire, ice, and lightning matchups and two-row formations
-- 20 waves, four Judgment bosses, and wave reward chests
-- Five Calamity levels and a free 10-wave demo
+- A 3×3 rune tablet drawn from your own rune set
+- 196 dragons and a lineage choice with every merge
+- Three-lane battles with an enemy lane preview, lane damage falloff, and Archer, Guardian, and Support roles
+- Eight form abilities, six elements, and ultimates
+- 16 relics, the Rune of Change, and crossroads events
+- A 20-wave standard expedition, a 40-wave long expedition, autosave, and five Calamity levels
+- A free demo of the first 10 waves
 
 ### Suggested tags
 
-Auto Battler, Roguelite, Creature Collector, Dragons, Strategy, Singleplayer, Fantasy, Mythology, 2D, Colorful, Tactical, Casual, Indie, PvE, Replay Value, Procedural Generation, Choices Matter, Inventory Management, Atmospheric, Stylized
+Auto Battler, Roguelite, Deckbuilding, Creature Collector, Dragons, Strategy, Singleplayer, Fantasy, Mythology, 2D, Tactical, Indie, PvE, Replay Value, Procedural Generation, Choices Matter, Tower Defense, Atmospheric, Stylized, Casual
 
-### Minimum system requirements (estimated)
+### Minimum system requirements (estimated, not tested on real hardware)
 
 - OS Windows 10
 - Memory 4 GB RAM
-- Graphics Integrated graphics
+- Graphics Integrated graphics (OpenGL 3.3)
 - Storage Approximately 300 MB
 
 ### AI usage disclosure
 
-Generative AI was used for the in-game dragon artwork, store artwork, in-game text (codex, tutorial and boss descriptions) and store text. AI tools were also used to help write the code. The developer selected and reviewed the results.
+The dragon and minion artwork was made with generative AI. Backgrounds, interface decorations, and background music are produced by code written with AI tools. AI tools were also used for in-game text (codex, tutorial, and boss descriptions), store text, and code. The developer selected and reviewed the results.
 
 ### Release information (planned)
 
@@ -106,21 +128,23 @@ The full game is planned to cost approximately US$9.99. The free demo covers the
 
 | 장 | 화면 | 촬영 순간 |
 | --- | --- | --- |
-| 1 | 3×3 룬 석판 | 회전이 멎고 가운데 줄의 세 후보가 모두 보일 때 |
-| 2 | 드래곤 합성 | 두 드래곤의 합성이 끝나고 새로 발견한 드래곤 이름이 표시될 때 |
-| 3 | 자동 전투 | 전열과 후열이 한 화면에 들어오고 원소 공격이 적에게 닿는 순간 |
-| 4 | 심판 보스 | 15웨이브 보스전이 시작되어 보스 이름과 양측 진형이 함께 보일 때 |
-| 5 | 웨이브 보상 상자 | 상자를 열고 보상이 표시된 직후 |
-| 6 | 신화 도감 | 쿠라오카미 그림과 이름, 신화 문구를 함께 읽을 수 있을 때 |
+| 1 | 시작 묶음 고르기 | 원소 묶음 세 장과 함께 오는 용이 보일 때 |
+| 2 | 룬 석판 | 줄이 맞아 금빛 선이 그어지고 석판 위에 내 룬 장수가 보일 때 |
+| 3 | 줄 미리보기와 배치 | "적이 몰려와요" 표지가 뜬 줄에 용을 끌어 놓는 순간 |
+| 4 | 전투 | 용이 머리를 내밀어 숨결을 쏘고 피해 숫자가 뜨는 순간 |
+| 5 | 궁극기 컷인 | 화면 가운데 띠에 용 그림과 궁극기 이름이 뜰 때 |
+| 6 | 계보 선택 | 두 갈래 카드에 역할과 능력이 함께 보일 때 |
+| 7 | 도감 세계수 | 한 원소의 계보가 절반쯤 채워진 화면 |
+| 8 | 석판 고치기 | 받은 룬을 묶음의 어느 룬과 바꿀지 고르는 화면 |
 
 ## 30초 트레일러 구성안
 
 | 시간 | 화면 |
 | --- | --- |
-| 00–04초 | 3×3 룬 석판이 멈추고 가운데 줄에서 알을 하나 고른다. |
-| 04–08초 | 둥지에서 드래곤 두 마리를 합치고 새 종이 나타나는 순간을 보여 준다. |
-| 08–12초 | 불·얼음·번개 드래곤을 전열과 후열에 배치하고 자동 전투를 시작한다. |
-| 12–15초 | 웨이브를 넘긴 뒤 보상 상자를 열어 보상을 보여 준다. |
-| 15–19초 | 도감에서 촉룡과 쿠라오카미를 차례로 보여 주고 신화 힌트에 잠시 멈춘다. |
-| 19–26초 | 5·10·15·20웨이브의 심판 보스를 전투 장면과 함께 차례로 보여 준다. |
-| 26–30초 | Wyrmslot 제목과 「무료 데모 · 10웨이브」를 표시한다. 영문판에는 “Free Demo · 10 Waves”를 표시한다. |
+| 00–04초 | 시작 묶음을 고르고 석판을 돌린다. 줄이 맞는다. |
+| 04–08초 | 룬 한 장을 받아 석판의 룬과 바꾼다. 석판 위 숫자가 바뀐다. |
+| 08–13초 | 줄 미리보기를 보고 용을 옮긴다. 전투 시작, 용이 걸어 나간다. |
+| 13–18초 | 숨결, 피해 숫자, 궁극기 컷인. |
+| 18–23초 | 드래곤 둘을 합쳐 두 갈래 가운데 하나를 고른다. 새 용 발견. |
+| 23–27초 | 심판 보스전과 유물 선택. |
+| 27–30초 | Wyrmslot 제목과 「무료 데모 · 10웨이브」. 영문판에는 “Free Demo · 10 Waves”. |

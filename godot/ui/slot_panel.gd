@@ -281,7 +281,8 @@ func _reward_text(state: Dictionary, recommendation: Variant) -> String:
 	if state["phase"] != "pick":
 		return ""
 	var grid: Dictionary = state["grid"]
-	var reward: Dictionary = HintRules.line_rewards(_ctl.data, grid)
+	var crown: bool = RunRules.relic_bonus(_ctl.data, _ctl.state).has("wildLineEgg")
+	var reward: Dictionary = HintRules.line_rewards(_ctl.data, grid, crown)
 	if reward["lines"] > 0:
 		var groups: PackedStringArray = PackedStringArray()
 		var wild: bool = false
@@ -299,7 +300,7 @@ func _reward_text(state: Dictionary, recommendation: Variant) -> String:
 	if recommendation != null:
 		var col: int = recommendation["col"]
 		var direction: int = recommendation["dir"]
-		var after: Dictionary = HintRules.line_rewards(_ctl.data, SlotRules.nudge(grid, col, direction))
+		var after: Dictionary = HintRules.line_rewards(_ctl.data, SlotRules.nudge(grid, col, direction), crown)
 		return "추천: %d번째 줄의 %s를 누르면 줄이 맞아요(보너스: %s)." % [
 			col + 1, "▼" if direction == -1 else "▲", _describe(after),
 		]
@@ -310,7 +311,7 @@ func _reward_text(state: Dictionary, recommendation: Variant) -> String:
 func _describe(reward: Dictionary) -> String:
 	var eggs: PackedStringArray = PackedStringArray()
 	for egg: Dictionary in reward["eggs"]:
-		eggs.append(GameTheme.ELEMENT_KO[egg["element"]] + (" 2티어 알 1개" if egg["tier"] == "t2" else " 알 1개"))
+		eggs.append(GameTheme.ELEMENT_KO.get(egg["element"], "아무 원소") + (" 2티어 알 1개" if egg["tier"] == "t2" else " 알 1개"))
 	var mana: String = "마력 %d" % reward["mana"] if reward["mana"] > 0 else ""
 	return ", ".join(eggs) + ("와 " if not eggs.is_empty() and not mana.is_empty() else "") + mana
 

@@ -164,6 +164,24 @@
       "descKo": "제 줄의 적을 보통 공격으로 칠 때 피해 +25%",
       "pct": 25,
       "forms": ["horned", "brawler"]
+    },
+    "vanguard": {
+      "nameKo": "선봉",
+      "descKo": "전열에 서면 받는 피해 -12%",
+      "pct": 12,
+      "forms": ["drake", "lindworm", "whelp"]
+    },
+    "ambush": {
+      "nameKo": "저격",
+      "descKo": "후열에 서면 보통 공격 피해 +15%",
+      "pct": 15,
+      "forms": ["amphiptere", "gecko"]
+    },
+    "rally": {
+      "nameKo": "함성",
+      "descKo": "전투를 시작할 때 같은 줄의 다른 우리 용의 공격 속도 +12%",
+      "pct": 12,
+      "forms": ["serpent", "wyrm", "dancer"]
     }
   },
   "crit": {

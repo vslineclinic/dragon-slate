@@ -1,6 +1,15 @@
 extends RefCounted
 
 const PATH: String = "user://wyrmslot.cfg"
+## 하던 판의 자동 저장. 규칙이나 자료가 바뀌어 옛 저장을 이어 할 수 없게 되면 RUN_VERSION을 올린다.
+const RUN_PATH: String = "user://run.json"
+## 데모판은 저장을 따로 둔다(정식판과 같은 폴더를 쓰므로 서로 덮어쓰지 않게).
+const DEMO_RUN_PATH: String = "user://run_demo.json"
+const RUN_VERSION: int = 1
+const RUN_PHASES: Array[String] = ["spin", "pick", "manage", "reward", "relic", "fork", "slab"]
+
+## 화면 캡처 · 메모리 측정 같은 도구가 켠다: 하던 판 저장 파일을 쓰지도 지우지도 않는다(사용자의 저장을 지킨다).
+static var autosave_off: bool = false
 
 var _config: ConfigFile = ConfigFile.new()
 var speed: int:
@@ -10,6 +19,17 @@ var speed: int:
 	set(value):
 		if value in [1, 2, 4]:
 			_config.set_value("settings", "speed", value)
+			_save()
+
+
+## 원정 길이: "standard"(기본 20웨이브) 또는 "long"(긴 원정 40웨이브).
+var run_length: String:
+	get:
+		var value: String = str(_config.get_value("settings", "run_length", "standard"))
+		return value if value in ["standard", "long"] else "standard"
+	set(value):
+		if value in ["standard", "long"]:
+			_config.set_value("settings", "run_length", value)
 			_save()
 
 
@@ -60,6 +80,107 @@ func finish_tutorial() -> void:
 	if not tutorial_done():
 		_config.set_value("tutorial", "done", true)
 		_save()
+
+
+## 하던 판을 글(JSON)로 싼다. 명령 기록은 빼고 저장한다.
+static func pack_run(state: Dictionary, length: String, demo: bool) -> String:
+	var copy: Dictionary = state.duplicate(true)
+	copy["log"] = []
+	return JSON.stringify({"version": RUN_VERSION, "demo": demo, "length": length, "state": copy}, "", false)
+
+
+## 저장한 글을 푼다: {"state": 상태, "length": 원정 길이}. 못 읽거나 지금 판에서 이어 할 수 없으면 {}.
+static func unpack_run(text: String, data: Dictionary, demo: bool) -> Dictionary:
+	if text.is_empty():
+		return {}
+	var json: JSON = JSON.new()
+	if json.parse(text) != OK or not json.data is Dictionary:
+		return {}
+	var packed: Dictionary = json.data
+	if int(packed.get("version", 0)) != RUN_VERSION or bool(packed.get("demo", false)) != demo or not packed.get("state") is Dictionary:
+		return {}
+	var state: Dictionary = GameData._normalize_numbers(packed["state"])
+	if not _run_is_playable(state, data):
+		return {}
+	return {"state": state, "length": str(packed.get("length", "standard"))}
+
+
+## 이어 할 수 있는 상태인가: 진행 중인 차례이고, 필요한 칸이 다 있고, 든 용이 모두 지금 자료에 있는 종인가.
+static func _run_is_playable(state: Dictionary, data: Dictionary) -> bool:
+	for key: String in ["seed", "rngState", "wave", "phase", "lives", "mana", "nest", "bench", "nestOpen", "relics", "discovered", "calamity"]:
+		if not state.has(key):
+			return false
+	if state["phase"] not in RUN_PHASES or not state["nest"] is Array or not state["bench"] is Array:
+		return false
+	if int(state["wave"]) < 1 or int(state["wave"]) > int(data["waves"]["maxWave"]):
+		return false
+	## 고르는 차례라면 고를 것이 있어야 한다(없으면 이어 해도 나아갈 수 없다).
+	match state["phase"]:
+		"pick":
+			if not state.get("grid") is Dictionary:
+				return false
+		"reward":
+			if not state.get("rewardChoices") is Array or state["rewardChoices"].is_empty():
+				return false
+		"relic":
+			if not state.get("relicChoices") is Array or state["relicChoices"].is_empty():
+				return false
+		"fork":
+			if not state.get("forkChoices") is Array or state["forkChoices"].is_empty():
+				return false
+		"slab":
+			if not state.get("runePending") is String or not state.get("slab") is Array:
+				return false
+	for key: String in ["items", "waveMod"]:
+		if state.has(key) and not state[key] is Dictionary:
+			return false
+	for inst: Variant in state["nest"] + state["bench"]:
+		if inst != null and (not inst is Dictionary or not data["dragons"].has(inst.get("speciesId", ""))):
+			return false
+	return true
+
+
+## 지금 판(정식 · 데모)의 저장 파일.
+static func run_path() -> String:
+	return DEMO_RUN_PATH if OS.has_feature("demo") else RUN_PATH
+
+
+## path를 비우면 지금 판의 저장 파일. 임시 파일에 다 쓴 뒤 바꿔치기해서, 쓰는 도중 꺼져도 직전 저장이 남는다.
+func save_run(state: Dictionary, length: String, path: String = "") -> void:
+	var real: bool = path.is_empty()
+	if real and autosave_off:
+		return
+	var target: String = run_path() if real else path
+	var draft: String = target + ".tmp"
+	var file: FileAccess = FileAccess.open(draft, FileAccess.WRITE)
+	if file == null:
+		push_warning("판을 저장하지 못했어요 (%s)" % error_string(FileAccess.get_open_error()))
+		return
+	file.store_string(pack_run(state, length, OS.has_feature("demo")))
+	var failed: bool = file.get_error() != OK
+	file.close()
+	if failed:
+		push_warning("판을 저장하지 못했어요")
+		return
+	var error: Error = DirAccess.rename_absolute(ProjectSettings.globalize_path(draft), ProjectSettings.globalize_path(target))
+	if error != OK:
+		push_warning("판을 저장하지 못했어요 (%s)" % error_string(error))
+
+
+func load_run(data: Dictionary, path: String = "") -> Dictionary:
+	var target: String = run_path() if path.is_empty() else path
+	if not FileAccess.file_exists(target):
+		return {}
+	return unpack_run(FileAccess.get_file_as_string(target), data, OS.has_feature("demo"))
+
+
+func clear_run(path: String = "") -> void:
+	var real: bool = path.is_empty()
+	if real and autosave_off:
+		return
+	var target: String = run_path() if real else path
+	if FileAccess.file_exists(target):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(target))
 
 
 func _save() -> void:

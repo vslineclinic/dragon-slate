@@ -4,6 +4,8 @@ extends SceneTree
 ## 모드: (없음) | spin | spinmid | manage | battle | battle-late
 
 func _init() -> void:
+	## 사용자가 하던 판의 자동 저장을 건드리지 않는다.
+	load("res://godot/ui/store.gd").set("autosave_off", true)
 	var args := OS.get_cmdline_user_args()
 	var scene_path: String = args[0] if args.size() > 0 else "res://godot/scenes/main.tscn"
 	var out: String = args[1] if args.size() > 1 else "user://capture.png"

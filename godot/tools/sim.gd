@@ -14,6 +14,9 @@ func _init() -> void:
 	var calamity: int = int(_arg(args, "--calamity", "0"))
 	var demo: bool = args.has("--demo")
 	var data: Dictionary = Build.apply(GameData.load_all(), demo)
+	## --standard: 기본 원정(20웨이브) 값으로 잰다.
+	if args.has("--standard") and not demo:
+		data = Build.for_length(data, "standard")
 	## --set waves.basePower=190 처럼 자료 값을 바꿔 가며 잰다(여러 번 쓸 수 있다). 배열 칸은 숫자로: battle.field.crossLanePct.1=80
 	for i: int in range(args.size() - 1):
 		if args[i] == "--set":
@@ -154,6 +157,8 @@ static func _margin(data: Dictionary, state: Dictionary) -> int:
 			rules = boss.get("rules", {}).duplicate()
 	if relics.has("strongAddPct"):
 		rules["strongAddPct"] = relics["strongAddPct"]
+	if relics.has("backRowNoLane"):
+		rules["backRowNoLane"] = true
 	var best: int = 25
 	var pct: int = 35
 	while pct <= 900:

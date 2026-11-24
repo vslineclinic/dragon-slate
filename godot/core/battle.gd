@@ -326,6 +326,9 @@ static func simulate_battle(
 						lane_pct = _lane_pct(field, unit, victim)
 						if lane_pct != 100:
 							dmg = maxi(1, Rng.fdiv(dmg * lane_pct, 100))
+					## 저격: 후열에 선 용의 보통 공격이 더 세다.
+					if int(unit["edge"]) > 0 and not is_ult:
+						dmg = Rng.fdiv(dmg * (100 + int(unit["edge"])), 100)
 					## 맞대결: 제 줄의 적을 칠 때 더 세다.
 					if ability_pct > 0 and ability == "duel" and unit["lane"] == victim["lane"]:
 						dmg = Rng.fdiv(dmg * (100 + ability_pct), 100)
@@ -406,6 +409,10 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 		dragon["slot"] = slot
 		dragon["role"] = unit.get("role", "")
 		dragon["ability"] = unit.get("ability", "")
+		## 선봉은 전열에서, 저격은 후열에서 힘을 낸다.
+		var stance_pct: int = int(cfg.get("abilities", {}).get(dragon["ability"], {}).get("pct", 0))
+		if dragon["ability"] == "ambush" and slot >= 3:
+			dragon["edge"] = stance_pct
 		dragon["range"] = _role_range(field, int(field.get("frontRange" if slot < 3 else "backRange", 0)), dragon["role"])
 		dragon["lifesteal"] = int(unit["lifestealPct"])
 		dragon["tier"] = unit.get("tier", "")
@@ -414,7 +421,7 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 			dragon["ultNeed"] = maxi(2, int(dragon["ultNeed"]) - int(unit.get("ultCharge", 0)))
 		dragon["ultPower"] = int(unit.get("ultPowerPct", 0))
 		dragon["critBonus"] = int(unit.get("critPct", 0))
-		dragon["guard"] = mini(60, int(unit.get("guardPct", 0)))
+		dragon["guard"] = mini(60, int(unit.get("guardPct", 0)) + (stance_pct if dragon["ability"] == "vanguard" and slot < 3 else 0))
 		units.append(dragon)
 		var count: int = int(escort["count"].get(unit.get("tier", "base"), 0)) + int(unit.get("escortBonus", 0))
 		var escort_scale: int = 100 + int(unit.get("escortPct", 0))
@@ -438,11 +445,28 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 		if item["kind"] == "dragon":
 			foe["role"] = item.get("role", "")
 			foe["ability"] = item.get("ability", "")
+			var foe_pct: int = int(cfg.get("abilities", {}).get(foe["ability"], {}).get("pct", 0))
+			if foe["ability"] == "vanguard":
+				foe["guard"] = foe_pct
+			elif foe["ability"] == "ambush":
+				foe["edge"] = foe_pct
 			foe["range"] = _role_range(field, int(field.get("leaderRange", 0)), foe["role"])
 		foe["stage"] = int(item.get("stage", 0))
 		foe["elite"] = bool(item.get("elite", false))
 		foe["active"] = foe["stage"] == 0
 		units.append(foe)
+	## 함성: 같은 편·같은 줄에 함성 용이 있으면 다른 용의 공격이 빨라진다(겹치지 않는다).
+	var rally_pct: int = int(cfg.get("abilities", {}).get("rally", {}).get("pct", 0))
+	if rally_pct > 0:
+		for unit: Dictionary in units:
+			if unit["kind"] != "dragon" or not unit["active"]:
+				continue
+			for other: Dictionary in units:
+				## 아직 나오지 않은 무리의 용은 함성을 주지도 받지도 않는다.
+				if other["ability"] == "rally" and other["active"] and other["kind"] == "dragon" and other["side"] == unit["side"] \
+						and other["lane"] == unit["lane"] and other["id"] != unit["id"]:
+					unit["cd"] = maxi(5, Rng.fdiv(int(unit["cd"]) * (100 - rally_pct), 100))
+					break
 	return units
 
 
@@ -455,7 +479,7 @@ static func _make(
 		"hp": hp, "maxHp": hp, "atk": atk, "cd": cd, "timer": 0, "speed": speed,
 		"lane": lane, "x": x, "laneTimer": 0, "slot": -1, "owner": -1, "lifesteal": 0,
 		"stage": 0, "active": true, "tier": "", "ultNeed": 0, "charge": 0, "elite": false,
-		"ultPower": 0, "critBonus": 0, "guard": 0, "range": 0, "role": "", "ability": "",
+		"ultPower": 0, "critBonus": 0, "guard": 0, "range": 0, "role": "", "ability": "", "edge": 0,
 	}
 
 

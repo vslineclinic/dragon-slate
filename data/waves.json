@@ -20,6 +20,36 @@
       20
     ]
   },
+  "standard": {
+    "waves": {
+      "maxWave": 20,
+      "nestUnlockAfter": [3, 7, 12],
+      "bossPct": {"5": 113, "10": 122, "15": 128, "20": 112},
+      "elitePct": {"7": 115, "13": 118, "17": 120},
+      "growthBands": [
+        {"from": 2, "pct": 125},
+        {"from": 9, "pct": 125},
+        {"from": 15, "pct": 121}
+      ],
+      "transmute": {"successPct": 70, "afterFailPct": 100, "grantAfterWaves": [5, 15]}
+    },
+    "squad": {
+      "secondLeaderWave": 8,
+      "thirdLeaderWave": 15,
+      "bossApexFromWave": 20,
+      "leaderTiers": [
+        {"from": 1, "tiers": ["base"]},
+        {"from": 4, "tiers": ["base", "t2"]},
+        {"from": 10, "tiers": ["t2", "t1"]},
+        {"from": 16, "tiers": ["t1", "dual"]}
+      ]
+    },
+    "level": {
+      "winXp": 3,
+      "lossXp": 2,
+      "evolveLevel": {"t2": 4, "t1": 8, "apex": 12, "dual": 8, "secret": 12}
+    }
+  },
   "startLives": 5,
   "lossLife": 1,
   "bossLossLife": 2,

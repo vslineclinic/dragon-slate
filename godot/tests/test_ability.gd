@@ -16,6 +16,7 @@ func _cfg() -> Dictionary:
 	cfg["field"]["crossLanePct"] = [100, 70, 50]
 	cfg["abilities"] = {
 		"pierce": {"pct": 60}, "twin": {"pct": 50}, "mend": {"pct": 40}, "ward": {"pct": 20}, "duel": {"pct": 25},
+		"vanguard": {"pct": 12}, "ambush": {"pct": 15}, "rally": {"pct": 12},
 	}
 	return cfg
 
@@ -138,13 +139,16 @@ func test_species_get_their_ability_from_the_form_name() -> void:
 		"poison_fairy": "mend", "steel_sage": "mend", "fire_elder": "mend",
 		"ice_tortoise": "ward", "fire_armored": "ward", "poison_guardian": "ward",
 		"steel_horned": "duel", "abyss_brawler": "duel",
-		"fire_drake": "", "beowulf_firedrake": "", "north_black_dragon": "", "fire_god": "",
+		"fire_drake": "vanguard", "ice_lindworm": "vanguard", "storm_whelp": "vanguard",
+		"poison_amphiptere": "ambush", "steel_gecko": "ambush",
+		"abyss_serpent": "rally", "fire_wyrm": "rally", "ice_dancer": "rally",
+		"beowulf_firedrake": "", "north_black_dragon": "", "fire_god": "",
 	}
 	for id: String in want:
 		assert_true(_data["dragons"].has(id), id)
 		assert_eq(Battle.ability_of(_data, id), want[id], id)
 	assert_eq(Battle.to_unit(_data, {"speciesId": "fire_raptor", "traits": [], "bonusPct": 0})["ability"], "pierce")
-	assert_true(not Battle.to_unit(_data, {"speciesId": "fire_drake", "traits": [], "bonusPct": 0}).has("ability"))
+	assert_true(not Battle.to_unit(_data, {"speciesId": "fire_god", "traits": [], "bonusPct": 0}).has("ability"))
 
 
 func test_every_ability_form_exists_for_all_six_elements_and_has_copy() -> void:
@@ -195,3 +199,57 @@ func test_ability_lookup_follows_the_data_as_it_is_now() -> void:
 	data["battle"]["abilities"]["twin"]["forms"].append("raptor")
 	assert_eq(Battle.ability_of(data, "fire_raptor"), "twin")
 	assert_eq(Battle.ability_of(data, "tiamat"), "")
+
+
+func test_every_base_form_has_an_ability() -> void:
+	for spec: Dictionary in _data["dragons"].values():
+		if spec["tier"] == "base":
+			assert_true(not Battle.ability_of(_data, spec["id"]).is_empty(), spec["id"])
+
+
+func test_vanguard_takes_less_damage_only_in_the_front_row() -> void:
+	var foe: Dictionary = B._enemy("dragon", "fire", 100000, 100, 10, 0, 400)
+	var front: Dictionary = Battle.simulate_battle(_cfg(), B._slots([_able("vanguard", 100000, 1, 1000)]), [foe])
+	var back: Dictionary = Battle.simulate_battle(_cfg(), B._slots([], [_able("vanguard", 100000, 1, 1000)]), [foe])
+	assert_eq(int(_hits(front, 1)[0]["dmg"]), 88)
+	assert_eq(int(_hits(back, 1)[0]["dmg"]), 100)
+
+
+func test_ambush_hits_harder_only_from_the_back_row() -> void:
+	var foe: Array = [B._enemy("minion", "fire", 100000, 1, 1000, 0, 400)]
+	var front: Dictionary = Battle.simulate_battle(_cfg(), B._slots([_able("ambush", 100000, 100)]), foe)
+	var back: Dictionary = Battle.simulate_battle(_cfg(), B._slots([], [_able("ambush", 100000, 100)]), foe)
+	assert_eq(int(_hits(front, 0)[0]["dmg"]), 100)
+	assert_eq(int(_hits(back, 0)[0]["dmg"]), 115)
+
+
+func test_rally_speeds_up_the_other_dragon_in_its_lane_but_not_itself() -> void:
+	var foe: Array = [B._enemy("minion", "fire", 100000, 1, 1000, 0, 400)]
+	## 앞줄 함성(쿨다운 100) + 같은 줄 뒷줄 용(쿨다운 100): 뒷줄 용만 88틱에 친다.
+	var result: Dictionary = Battle.simulate_battle(_cfg(), B._slots([_able("rally", 100000, 1, 100)], [B._solo("fire", 100000, 1, 100)]), foe)
+	assert_eq(int(_hits(result, 0)[0]["tick"]), 100, "함성 용 자신은 그대로")
+	assert_eq(int(_hits(result, 1)[0]["tick"]), 88, "같은 줄의 다른 용은 12% 빨라진다")
+	var apart: Dictionary = Battle.simulate_battle(_cfg(), B._slots([_able("rally", 100000, 1, 100), B._solo("fire", 100000, 1, 100)]), foe)
+	assert_eq(int(_hits(apart, 1)[0]["tick"]), 100, "다른 줄에는 닿지 않는다")
+
+
+func test_enemy_leaders_use_stance_abilities_without_a_row() -> void:
+	var tough: Dictionary = B._enemy("dragon", "fire", 100000, 1, 1000, 0, 400)
+	tough["ability"] = "vanguard"
+	var hit: Dictionary = _hits(Battle.simulate_battle(_cfg(), B._slots([B._solo("fire", 100000, 100)]), [tough]), 0)[0]
+	assert_eq(int(hit["dmg"]), 88)
+	var sniper: Dictionary = B._enemy("dragon", "fire", 100000, 100, 10, 0, 400)
+	sniper["ability"] = "ambush"
+	var shot: Dictionary = _hits(Battle.simulate_battle(_cfg(), B._slots([B._solo("fire", 100000, 1, 1000)]), [sniper]), 1)[0]
+	assert_eq(int(shot["dmg"]), 115)
+
+
+func test_rally_does_not_come_from_a_group_that_has_not_appeared() -> void:
+	## 0단계 적 용과, 같은 줄의 2단계 함성 용: 함성 용이 나오기 전에는 빨라지지 않는다.
+	var cfg: Dictionary = _cfg()
+	var first: Dictionary = B._enemy("dragon", "fire", 100000, 1, 100, 0, 400)
+	var later: Dictionary = B._enemy("dragon", "fire", 100000, 1, 100, 0, 450)
+	later["ability"] = "rally"
+	later["stage"] = 2
+	var result: Dictionary = Battle.simulate_battle(cfg, B._slots([B._solo("fire", 100000, 1, 1000)]), [first, later])
+	assert_eq(int(_hits(result, 1)[0]["tick"]), 100)

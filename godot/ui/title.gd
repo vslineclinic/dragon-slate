@@ -22,6 +22,10 @@ var _calamity_label: Label
 var _lower: Button
 var _higher: Button
 var _level: int = 0
+var _length_button: Button
+var _continue_button: Button
+var _saved: Dictionary = {}
+var _intro: Label
 var _max_level: int = 0
 
 
@@ -58,8 +62,15 @@ func _ready() -> void:
 		subtitle += " · 무료 데모"
 	GameTheme.divider(stage, Rect2(390, 236, 500, 10))
 	GameTheme.heading(stage, Rect2(240, 248, 800, 40), subtitle, 24, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER, 600)
-	var intro: String = "석판을 돌려 알을 얻고 · 드래곤 둘을 합쳐 신화룡을 깨우고 · %d웨이브를 버텨요" % _data["waves"]["maxWave"]
-	GameTheme.outline(GameTheme.label(stage, Rect2(240, 290, 800, 30), intro, 16, Color("#e9dcc4"), HORIZONTAL_ALIGNMENT_CENTER), 4, Color(0, 0, 0, 0.6))
+	_intro = GameTheme.label(stage, Rect2(240, 290, 800, 30), "", 16, Color("#e9dcc4"), HORIZONTAL_ALIGNMENT_CENTER)
+	GameTheme.outline(_intro, 4, Color(0, 0, 0, 0.6))
+	## 원정 길이: 기본(20웨이브) ↔ 긴 원정(40웨이브). 데모판은 길이가 하나라 묻지 않는다.
+	_length_button = GameTheme.button(stage, Rect2(500, 488, 280, 42), "", _toggle_length, Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
+	_length_button.tooltip_text = "누르면 원정 길이를 바꿔요"
+	_length_button.visible = not OS.has_feature("demo") and _data["waves"].has("standard")
+	_show_length()
+	_continue_button = GameTheme.cta(stage, Rect2(500, 424, 280, 52), "", _continue, "ember", 20)
+	_show_continue()
 	_start_button = GameTheme.cta(stage, Rect2(500, 540, 280, 64), "시작하기", _start, "gold", 26)
 	_dex_button = GameTheme.button(stage, Rect2(530, 620, 220, 48), "드래곤 도감", _open_dex, Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
 	var music: Node = Music.get_for(get_tree())
@@ -98,6 +109,52 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+## 하던 판이 있으면 "이어 하기"를 보여 준다.
+func _show_continue() -> void:
+	_saved = {}
+	## 저장은 그 판의 원정 길이로 풀어야 웨이브 수가 맞는다.
+	for length: String in ["standard", "long"]:
+		var found: Dictionary = _store.load_run(_data if OS.has_feature("demo") else Build.for_length(_data, length))
+		if not found.is_empty() and (found["length"] == length or OS.has_feature("demo")):
+			_saved = found
+			break
+	_continue_button.visible = not _saved.is_empty()
+	if not _saved.is_empty():
+		_continue_button.text = "이어 하기 · 웨이브 %d" % int(_saved["state"]["wave"])
+
+
+func _continue() -> void:
+	if _saved.is_empty():
+		return
+	var length: String = _saved["length"]
+	var data: Dictionary = _data if OS.has_feature("demo") else Build.for_length(_data, length)
+	_game = GameScene.instantiate() as Game
+	_game.controller = Controller.new(data, int(_saved["state"]["seed"]))
+	_game.controller.state = _saved["state"]
+	_game.store = _store
+	_game.calamity = int(_saved["state"]["calamity"])
+	_game.run_length = length
+	_game.resume = true
+	_game.title_requested.connect(_return_to_title)
+	_menu.hide()
+	add_child(_game)
+
+
+func _run_data() -> Dictionary:
+	return _data if OS.has_feature("demo") else Build.for_length(_data, _store.run_length)
+
+
+func _toggle_length() -> void:
+	_store.run_length = "long" if _store.run_length == "standard" else "standard"
+	_show_length()
+
+
+func _show_length() -> void:
+	var waves: int = int(_run_data()["waves"]["maxWave"])
+	_length_button.text = ("기본 원정 · %d웨이브  ⇄" if _store.run_length == "standard" else "긴 원정 · %d웨이브  ⇄") % waves
+	_intro.text = "석판을 돌려 알을 얻고 · 드래곤 둘을 합쳐 신화룡을 깨우고 · %d웨이브를 버텨요" % waves
+
+
 func _select_level(delta: int) -> void:
 	var unlocked: int = mini(_store.unlocked(), _max_level)
 	_level = clampi(_level + delta, 0, unlocked)
@@ -133,9 +190,10 @@ func _close_dex() -> void:
 func _start() -> void:
 	var seed_value: int = int(Time.get_unix_time_from_system() * 1000.0) % 1000000007
 	_game = GameScene.instantiate() as Game
-	_game.controller = Controller.new(_data, seed_value)
+	_game.controller = Controller.new(_run_data(), seed_value)
 	_game.store = _store
 	_game.calamity = _level
+	_game.run_length = _store.run_length
 	_game.title_requested.connect(_return_to_title)
 	_menu.hide()
 	add_child(_game)
@@ -146,5 +204,6 @@ func _return_to_title() -> void:
 	_game.queue_free()
 	_game = null
 	_select_level(0)
+	_show_continue()
 	_menu.show()
 	_start_button.grab_focus()

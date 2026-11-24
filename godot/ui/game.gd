@@ -46,6 +46,9 @@ signal title_requested
 var controller: Controller
 var store: Store
 var calamity: int = -1
+## 원정 길이(자동 저장에 적는다)와, 저장한 판을 이어 하는지.
+var run_length: String = "long"
+var resume: bool = false
 var _hud: Hud
 var _slot: SlotPanel
 var _board: Board
@@ -67,6 +70,7 @@ var _music_button: Button
 var _boss_fight: bool = false
 ## 새 판을 막 시작해서 시작 묶음을 아직 고르지 않았는지.
 var _start_open: bool = false
+var _defeat_note: String = ""
 
 
 func _ready() -> void:
@@ -81,6 +85,13 @@ func _ready() -> void:
 	_tutorial.setup(store, _areas)
 	controller.changed.connect(_on_change)
 	get_viewport().size_changed.connect(_on_resize)
+	if resume:
+		## 이어 하기: 저장한 상태 그대로 그린다. 보스 예보는 이번 구간의 첫 웨이브 기준으로 다시 만든다.
+		resume = false
+		var probe: Dictionary = controller.state.duplicate()
+		probe["wave"] = int(probe["wave"]) - (int(probe["wave"]) - 1) % 5
+		controller.changed.emit([Run._wave_start(controller.data, probe)], controller.state)
+		return
 	_start_open = true
 	controller.restart(controller.state["seed"], calamity)
 
@@ -261,9 +272,13 @@ func _render(events: Array, state: Dictionary) -> void:
 	elif state["phase"] == "fork":
 		_show_fork_choices(state)
 	if state["phase"] in ["gameOver", "victory"]:
+		store.clear_run()
 		_show_result(state)
 		run_finished.emit(state)
 	else:
+		## 자동 저장: 차례가 바뀔 때마다(시작 묶음을 고르는 중에는 아직 판이 아니다).
+		if not _start_open:
+			store.save_run(state, run_length)
 		_tutorial.update(state)
 
 
@@ -284,6 +299,9 @@ func _battle_finished() -> void:
 	for event: Dictionary in _pending["events"]:
 		if event["t"] == "lives":
 			result += "\n생명 %d 남음" % event["lives"]
+		elif event["t"] == "battle" and not _pending["won"]:
+			## 왜 졌는지 한 줄(판이 끝난 뒤 잠깐 떠 있는다).
+			_defeat_note = _defeat_text(Hints.defeat_reason(controller.data["battle"], event["result"]))
 	_announce(result, 0.9)
 	_sequence = create_tween()
 	_sequence.tween_interval(0.7)
@@ -295,6 +313,22 @@ func _complete_battle() -> void:
 	_pending = {}
 	controller.busy = false
 	_render(previous["events"], previous["state"])
+	if not _defeat_note.is_empty():
+		flash(_defeat_note)
+		_defeat_note = ""
+
+
+func _defeat_text(reason: Dictionary) -> String:
+	match reason["kind"]:
+		"weakElement":
+			return "진 이유: 상성에서 밀렸어요.\n우리 용의 공격 %d%%가 약한 상성이었어요. 전환의 룬이나 다른 원소 용을 써 보세요." % int(reason["pct"])
+		"offLane":
+			return "진 이유: 줄이 어긋났어요.\n우리 용의 공격 %d%%가 다른 줄을 쳐서 약해졌어요. 적이 몰리는 줄에 용을 세워 보세요." % int(reason["pct"])
+		"timeout":
+			return "진 이유: 시간이 다 됐어요.\n버티기는 했지만 화력이 모자랐어요."
+		"leaders":
+			return "진 이유: 우두머리를 못 잡았어요.\n우두머리가 오는 줄에 가장 센 용을 세워 보세요."
+	return "진 이유: 졸병에게 밀렸어요.\n적이 몰리는 줄에 용을 더 세우거나 합쳐서 키워 보세요."
 
 
 func _open_dex() -> void:

@@ -95,3 +95,75 @@ static func _grid(rows: Array) -> Dictionary:
 
 static func _cell(symbol: String, species_id: Variant = null) -> Dictionary:
 	return {"symbol": symbol, "speciesId": species_id}
+
+
+## ── 패배 이유 ──
+
+static func _fight(units: Array, events: Array, ticks: int = 100) -> Dictionary:
+	return {"winner": "enemy", "ticks": ticks, "units": units, "events": events}
+
+
+static func _u(id: int, side: String, kind: String) -> Dictionary:
+	return {"id": id, "side": side, "kind": kind}
+
+
+static func _hit(src: int, dst: int, mult: int = 100, lane: int = 100) -> Dictionary:
+	var event: Dictionary = {"tick": 1, "kind": "attack", "src": src, "dst": dst, "dmg": 1, "mult": mult, "heal": 0}
+	if lane != 100:
+		event["lane"] = lane
+	return event
+
+
+func test_defeat_reason_names_a_weak_element_first() -> void:
+	var units: Array = [_u(0, "ally", "dragon"), _u(1, "enemy", "dragon")]
+	var events: Array = [_hit(0, 1, 75), _hit(0, 1, 75, 75), _hit(0, 1, 100), _hit(1, 0, 135)]
+	assert_eq(HintRules.defeat_reason({"maxTicks": 3600}, _fight(units, events)), {"kind": "weakElement", "pct": 66})
+
+
+func test_defeat_reason_names_off_lane_hits() -> void:
+	var units: Array = [_u(0, "ally", "dragon"), _u(1, "enemy", "minion")]
+	var events: Array = [_hit(0, 1, 100, 75), _hit(0, 1), _hit(0, 1), _hit(0, 1, 100, 50)]
+	assert_eq(HintRules.defeat_reason({"maxTicks": 3600}, _fight(units, events)), {"kind": "offLane", "pct": 50})
+
+
+func test_defeat_reason_tells_timeout_leaders_and_swarm_apart() -> void:
+	var units: Array = [_u(0, "ally", "dragon"), _u(1, "enemy", "dragon"), _u(2, "enemy", "minion"), _u(3, "enemy", "minion")]
+	var plain: Array = [_hit(0, 2), _hit(0, 2), _hit(0, 2), _hit(0, 2), _hit(0, 2)]
+	assert_eq(HintRules.defeat_reason({"maxTicks": 100}, _fight(units, plain, 100))["kind"], "timeout")
+	assert_eq(HintRules.defeat_reason({"maxTicks": 3600}, _fight(units, plain))["kind"], "swarm")
+	var cleared: Array = plain + [{"tick": 2, "kind": "death", "id": 2, "cause": "hit"}, {"tick": 2, "kind": "death", "id": 3, "cause": "hit"}]
+	assert_eq(HintRules.defeat_reason({"maxTicks": 3600}, _fight(units, cleared))["kind"], "leaders")
+
+
+func test_defeat_reason_ignores_escorts_and_enemy_hits() -> void:
+	var units: Array = [_u(0, "ally", "dragon"), _u(1, "ally", "escort"), _u(2, "enemy", "minion")]
+	var events: Array = [_hit(1, 2, 75), _hit(1, 2, 75), _hit(2, 0, 75), _hit(0, 2)]
+	assert_eq(HintRules.defeat_reason({"maxTicks": 3600}, _fight(units, events))["kind"], "swarm")
+
+
+func test_defeat_reason_does_not_count_groups_that_never_appeared() -> void:
+	## 첫 무리의 졸병 하나에게 졌고, 둘째 무리의 우두머리는 나오지도 않았다.
+	var leader: Dictionary = _u(2, "enemy", "dragon")
+	leader["stage"] = 1
+	var units: Array = [_u(0, "ally", "dragon"), _u(1, "enemy", "minion"), leader]
+	var events: Array = [_hit(0, 1), {"tick": 5, "kind": "death", "id": 0, "cause": "hit"}]
+	assert_eq(HintRules.defeat_reason({"maxTicks": 3600}, _fight(units, events))["kind"], "swarm")
+	var shown: Array = events + [{"tick": 6, "kind": "stage", "stage": 1, "total": 2}]
+	assert_eq(HintRules.defeat_reason({"maxTicks": 3600}, _fight(units, shown))["kind"], "leaders")
+
+
+func test_being_wiped_on_the_last_tick_is_not_a_timeout() -> void:
+	var units: Array = [_u(0, "ally", "dragon"), _u(1, "enemy", "minion"), _u(2, "enemy", "minion")]
+	var events: Array = [_hit(0, 1), {"tick": 100, "kind": "death", "id": 0, "cause": "hit"}]
+	assert_eq(HintRules.defeat_reason({"maxTicks": 100}, _fight(units, events, 100))["kind"], "swarm")
+
+
+func test_line_rewards_show_the_crown_egg() -> void:
+	var wild: Dictionary = {"symbol": "wild", "speciesId": "fire_drake"}
+	var gold: Dictionary = {"symbol": "gold", "speciesId": null}
+	var reels: Array = []
+	for col: int in range(3):
+		reels.append([gold, gold, wild, gold, gold])
+	var grid: Dictionary = {"reels": reels, "offsets": [0, 0, 0]}
+	assert_eq(HintRules.line_rewards(_data, grid)["eggs"], [])
+	assert_eq(HintRules.line_rewards(_data, grid, true)["eggs"], [{"element": "wild", "tier": "t2"}])
