@@ -25,13 +25,16 @@ func _draw() -> void:
 		draw_circle(center, minf(size.x, size.y) / 2.0, color, true, -1.0, true)
 		_mark(center, minf(size.x, size.y) * 0.6)
 		return
-	draw_style_box(GameTheme.style(Color("#1e2230"), GameTheme.PANEL_LINE, 0, 12), Rect2(Vector2.ZERO, size))
+	draw_style_box(GameTheme.style(GameTheme.WELL, Color("#2c2820"), 1, 10, "flat"), Rect2(Vector2.ZERO, size))
 	if symbol.is_empty():
-		_ellipse(center, size * Vector2(0.62, 0.78), color, false)
+		_ellipse(center, size * Vector2(0.56, 0.72), Color(GameTheme.GOLD_DIM, 0.35), false)
 		return
-	_ellipse(center + Vector2(0, 3), size * Vector2(0.7, 0.86), color.darkened(0.35))
-	_ellipse(center, size * Vector2(0.66, 0.82), color)
-	_ellipse(center - size * Vector2(0.12, 0.2), size * Vector2(0.18, 0.24), Color(1, 1, 1, 0.25))
+	_ellipse(center + Vector2(0, size.y * 0.36), size * Vector2(0.6, 0.14), Color(0, 0, 0, 0.45))
+	_ellipse(center, size * Vector2(0.72, 0.88), Color("#14121a"))
+	_ellipse(center, size * Vector2(0.64, 0.8), color.darkened(0.28))
+	_ellipse(center - size * Vector2(0.025, 0.035), size * Vector2(0.56, 0.7), color)
+	_ellipse(center - size * Vector2(0.1, 0.16), size * Vector2(0.3, 0.38), color.lightened(0.22))
+	_ellipse(center - size * Vector2(0.14, 0.22), size * Vector2(0.12, 0.16), Color(1, 1, 1, 0.55))
 	_mark(center + Vector2(0, 2), minf(size.x, size.y) * 0.42)
 
 

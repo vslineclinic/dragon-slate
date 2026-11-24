@@ -43,6 +43,8 @@ static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary =
 
 	var escort_bonus: int = 0
 	var escort_pct: int = 0
+	## 스킬로만 붙는 값: 치명타 확률, 궁극기 피해, 받는 피해 감소, 궁극기 충전 줄이기.
+	var extra: Dictionary = {}
 	var learned: Dictionary = inst.get("skills", {})
 	for skill_id: String in learned:
 		var skill: Variant = data.get("skills", {}).get(skill_id)
@@ -62,6 +64,8 @@ static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary =
 				escort_bonus += amount
 			"escortPct":
 				escort_pct += amount
+			"critPct", "ultPowerPct", "guardPct", "ultCharge":
+				extra[skill["kind"]] = int(extra.get(skill["kind"], 0)) + amount
 
 	hp_pct += int(team_bonus.get("hpPct", 0))
 	atk_pct += int(team_bonus.get("atkPct", 0))
@@ -73,7 +77,7 @@ static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary =
 	var stats: Dictionary = spec["stats"]
 	var level_pct: int = int(data["battle"].get("level", {}).get("statPct", 0)) * (maxi(1, int(inst.get("level", 1))) - 1)
 	var bonus_pct: int = int(inst.get("bonusPct", 0)) + level_pct
-	return {
+	var unit: Dictionary = {
 		"speciesId": spec["id"],
 		"tier": spec["tier"],
 		"elements": spec["elements"].duplicate(),
@@ -84,6 +88,10 @@ static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary =
 		"escortBonus": escort_bonus,
 		"escortPct": escort_pct,
 	}
+	## 배운 것만 싣는다(안 배웠으면 키가 없다).
+	for kind: String in extra:
+		unit[kind] = extra[kind]
+	return unit
 
 
 ## 원소 시너지: 전장에 놓인 드래곤을 원소별로 세어 단계와 효과를 돌려준다(이중 원소는 양쪽에 센다).
@@ -261,7 +269,7 @@ static func simulate_battle(
 					if unit["charge"] >= need:
 						unit["charge"] = 0
 						is_ult = true
-						power_pct = int(ultimate["powerPct"].get(unit["tier"], 100))
+						power_pct = int(ultimate["powerPct"].get(unit["tier"], 100)) + int(unit["ultPower"])
 						victims = _nearest_many(field, units, unit, int(ultimate["targets"].get(unit["tier"], 1)))
 						events.append({"tick": tick, "kind": "ult", "src": unit["id"]})
 				for victim: Dictionary in victims:
@@ -269,11 +277,14 @@ static func simulate_battle(
 					if side == "ally" and mult > 100:
 						mult += strong_add
 					var dmg: int = maxi(1, Rng.fdiv(int(unit["atk"]) * mult * power_pct, 10000))
-					var is_crit: bool = crit_pct > 0 and not is_ult and unit["kind"] == "dragon" and crit_rng.next_int(100) < crit_pct
+					var crit_chance: int = crit_pct + int(unit["critBonus"])
+					var is_crit: bool = crit_chance > 0 and not is_ult and unit["kind"] == "dragon" and crit_rng.next_int(100) < crit_chance
 					if is_crit:
 						dmg = Rng.fdiv(dmg * int(crit["dmgPct"]), 100)
 					if side == "enemy" and enraged:
 						dmg = Rng.fdiv(dmg * int(enrage["atkPct"]), 100)
+					if int(victim["guard"]) > 0:
+						dmg = maxi(1, Rng.fdiv(dmg * (100 - int(victim["guard"])), 100))
 					victim["hp"] -= dmg
 					var raw_heal: int = Rng.fdiv(dmg * int(unit["lifesteal"]), 100)
 					if side == "ally" and heal_cut_pct != 0 and tick >= heal_cut_from:
@@ -328,6 +339,11 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 		dragon["lifesteal"] = int(unit["lifestealPct"])
 		dragon["tier"] = unit.get("tier", "")
 		dragon["ultNeed"] = int(cfg.get("ultimate", {}).get("chargeHits", {}).get(dragon["tier"], 0))
+		if dragon["ultNeed"] > 0:
+			dragon["ultNeed"] = maxi(2, int(dragon["ultNeed"]) - int(unit.get("ultCharge", 0)))
+		dragon["ultPower"] = int(unit.get("ultPowerPct", 0))
+		dragon["critBonus"] = int(unit.get("critPct", 0))
+		dragon["guard"] = mini(60, int(unit.get("guardPct", 0)))
 		units.append(dragon)
 		var count: int = int(escort["count"].get(unit.get("tier", "base"), 0)) + int(unit.get("escortBonus", 0))
 		var escort_scale: int = 100 + int(unit.get("escortPct", 0))
@@ -361,6 +377,7 @@ static func _make(
 		"hp": hp, "maxHp": hp, "atk": atk, "cd": cd, "timer": 0, "speed": speed,
 		"lane": lane, "x": x, "laneTimer": 0, "slot": -1, "owner": -1, "lifesteal": 0,
 		"stage": 0, "active": true, "tier": "", "ultNeed": 0, "charge": 0, "elite": false,
+		"ultPower": 0, "critBonus": 0, "guard": 0,
 	}
 
 

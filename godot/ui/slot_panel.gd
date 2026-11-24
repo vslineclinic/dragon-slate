@@ -46,8 +46,11 @@ func setup(ctl: Controller, store: Store) -> void:
 	_ctl = ctl
 	_store = store
 	_right_w = size.x - 32.0
-	GameTheme.panel(self, Rect2(Vector2.ZERO, size), GameTheme.PANEL, GameTheme.PANEL_LINE, 1)
-	GameTheme.panel(self, Rect2(SLAB_X - 8, SLAB_Y - 32, STRIDE_X * 3 + 10, STRIDE_Y * 3 + 62), Color("#1a1e2b"), GameTheme.PANEL_LINE, 1, 10)
+	GameTheme.panel(self, Rect2(Vector2.ZERO, size), Color("#14131b"))
+	GameTheme.picture(self, Rect2(Vector2.ZERO, size), "res://assets/backgrounds/chart.png").modulate = Color(1, 1, 1, 0.5)
+	GameTheme.panel(self, Rect2(size.x - 2, 0, 2, size.y), Color(GameTheme.GOLD_DIM, 0.7))
+	## 룬 석판: 금박 테두리 돌판.
+	GameTheme.frame(self, Rect2(SLAB_X - 8, SLAB_Y - 32, STRIDE_X * 3 + 10, STRIDE_Y * 3 + 62), Color("#1a1922"), GameTheme.GOLD_DIM, 10)
 	_layer = Control.new()
 	_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_layer)
@@ -60,8 +63,7 @@ func setup(ctl: Controller, store: Store) -> void:
 	_reward = GameTheme.label(self, Rect2(16, 26, _right_w, 18), "", 12, Color("#ffe066"))
 	GameTheme.wrap(_reward)
 	_reward.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	_spin = GameTheme.button(self, Rect2(16, 346, _right_w, 54), "", _dispatch.bind({"type": "spin"}), Color("#5f3dc4"))
-	_spin.add_theme_font_size_override("font_size", 20)
+	_spin = GameTheme.cta(self, Rect2(16, 346, _right_w, 54), "", _dispatch.bind({"type": "spin"}), "gold", 21)
 
 
 func render(state: Dictionary, events: Array) -> void:
@@ -97,7 +99,7 @@ func render(state: Dictionary, events: Array) -> void:
 	match phase:
 		"spin": _hint.text = "석판을 돌리면 알 3개가 나와요."
 		"pick":
-			_hint.text = "대기칸이 꽉 찼어요. 합치거나 놓아주세요." if state["bench"].all(_occupied) else "보라 띠의 알 3개 중 하나를 골라요."
+			_hint.text = "대기칸이 꽉 찼어요. 합치거나 놓아주세요." if state["bench"].all(_occupied) else "금빛 띠의 알 3개 중 하나를 골라요."
 		"manage": _hint.text = "드래곤을 전장의 발판으로 끌어 놓고 전투를 시작해요."
 		_: _hint.text = ""
 	_hint.text = GameTheme.keep_words(_hint.text)
@@ -106,7 +108,7 @@ func render(state: Dictionary, events: Array) -> void:
 
 
 func _draw_grid(state: Dictionary, grid: Dictionary, recommendation: Variant, animate: bool) -> void:
-	GameTheme.panel(_layer, Rect2(SLAB_X - 4, SLAB_Y + STRIDE_Y - 3, STRIDE_X * 3 + 2, CELL + 6), Color(0.439, 0.282, 0.91, 0.32), Color(0.69, 0.59, 1.0, 0.6), 1, 6)
+	GameTheme.panel(_layer, Rect2(SLAB_X - 4, SLAB_Y + STRIDE_Y - 3, STRIDE_X * 3 + 2, CELL + 6), Color(GameTheme.GOLD, 0.2), Color(GameTheme.GOLD_HI, 0.75), 1, 8, "flat")
 	var reels: Array = []
 	for col: int in range(3):
 		var reel: Array = grid["reels"][col]
@@ -212,7 +214,7 @@ func _nudge_button(col: int, direction: int, symbol: String, recommendation: Var
 	var x: float = _cell(col, 0).x
 	var y: float = SLAB_Y - 30.0 if direction == -1 else SLAB_Y + STRIDE_Y * 3 - 4.0
 	var recommended: bool = recommendation != null and recommendation["col"] == col and recommendation["dir"] == direction
-	var tap: Button = GameTheme.button(_layer, Rect2(x, y, CELL, 28), "", _dispatch.bind({"type": "nudge", "col": col, "dir": direction}), Color("#5c4a00") if recommended else GameTheme.CARD, GameTheme.RECOMMEND if recommended else Color("#4c5470"), 2)
+	var tap: Button = GameTheme.button(_layer, Rect2(x, y, CELL, 28), "", _dispatch.bind({"type": "nudge", "col": col, "dir": direction}), Color("#5c4a00") if recommended else GameTheme.CARD, GameTheme.RECOMMEND if recommended else Color("#5a4d38"), 2)
 	GameTheme.label(tap, Rect2(12, 0, 18, 28), "▼" if direction == -1 else "▲", 16)
 	GameTheme.place(tap, Marks.new(symbol), Rect2(34, 4, 20, 20))
 	if recommended:
@@ -226,7 +228,7 @@ func _draw_offers(state: Dictionary) -> void:
 	for i: int in range(3):
 		var rect: Rect2 = Rect2(OFFER_X, SLAB_Y + i * 70, card_w, 66)
 		if i >= offers.size():
-			GameTheme.panel(_offers_layer, rect, GameTheme.CARD, GameTheme.PANEL_LINE, 1, 8)
+			GameTheme.well(_offers_layer, rect, 8)
 			continue
 		var is_reco: bool = reco != null and reco["index"] == i
 		var card: Button = GameTheme.button(_offers_layer, rect, "", _dispatch.bind({"type": "pick", "index": i}), GameTheme.CARD, GameTheme.RECOMMEND if is_reco else GameTheme.PANEL_LINE, 3 if is_reco else 1)

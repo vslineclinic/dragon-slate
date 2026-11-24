@@ -3,6 +3,7 @@ extends Control
 
 const GameTheme = preload("res://godot/ui/theme.gd")
 const Store = preload("res://godot/ui/store.gd")
+const Ambience = preload("res://godot/ui/ambience.gd")
 const HAZARD_KO: Dictionary = {
 	"burn": "화염 낙인! 가장 약한 드래곤이 타요",
 	"rowBlast": "용암탄! 한 줄 전체가 피해를 입어요",
@@ -44,6 +45,8 @@ var _background_path: String = ""
 var _units_layer: Control
 var _fx_layer: Control
 var _caption: Label
+var _plaque: Panel
+var _air: Control
 var _skip: Button
 var _flash: ColorRect
 var _views: Dictionary = {}
@@ -62,25 +65,26 @@ func setup(data: Dictionary, store: Store, width: float) -> void:
 	_pos_every = int(data["battle"]["field"]["posEveryTicks"])
 	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	GameTheme.panel(self, Rect2(Vector2.ZERO, size), Color("#161a24"))
+	GameTheme.panel(self, Rect2(Vector2.ZERO, size), Color("#0d0d13"))
 	_background = TextureRect.new()
 	_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	GameTheme.place(self, _background, Rect2(Vector2.ZERO, size))
-	var shade: ColorRect = ColorRect.new()
-	shade.color = Color(0.05, 0.06, 0.1, 0.18)
-	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	GameTheme.place(self, shade, Rect2(Vector2.ZERO, size))
+	_air = Control.new()
+	_air.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	GameTheme.place(self, _air, Rect2(Vector2.ZERO, size))
+	Ambience.vignette(self, Rect2(Vector2.ZERO, size), 0.5)
 	_units_layer = Control.new()
 	_units_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_units_layer)
 	_fx_layer = Control.new()
 	_fx_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fx_layer)
-	_caption = GameTheme.label(self, Rect2(size.x / 2.0 - 360, 8, 720, 52), "", 18, Color("#fff3bf"), HORIZONTAL_ALIGNMENT_CENTER)
-	_caption.add_theme_constant_override("outline_size", 5)
-	_caption.add_theme_color_override("font_outline_color", Color("#000000cc"))
+	_plaque = GameTheme.panel(self, Rect2(size.x / 2.0 - 230, 8, 460, 56), Color("#0b0b10c7"), Color(GameTheme.GOLD, 0.6), 1, 10, "flat")
+	_plaque.hide()
+	_caption = GameTheme.heading(self, Rect2(size.x / 2.0 - 360, 10, 720, 52), "", 17, GameTheme.GOLD_HI, HORIZONTAL_ALIGNMENT_CENTER, 600)
+	_caption.add_theme_constant_override("line_spacing", 0)
 	_flash = ColorRect.new()
 	_flash.color = Color(1, 0.8, 0.1, 0)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -97,7 +101,7 @@ func show_idle(state: Dictionary) -> void:
 	_events = []
 	_skip.hide()
 	set_process(false)
-	_caption.text = ""
+	_say("")
 	if state["phase"] not in ["gameOver", "victory"]:
 		var wave: int = state["wave"]
 		var kind: String = ""
@@ -114,7 +118,7 @@ func show_idle(state: Dictionary) -> void:
 		for unit: Variant in Battle.team(_data, state["nest"], state["nestOpen"], Run.relic_bonus(_data, state)):
 			if unit != null:
 				ours += Waves.unit_power(unit)
-		_caption.text = "다음 전투: 웨이브 %d%s\n적 전투력 %d · 우리 드래곤 %d" % [wave, kind, Waves.enemy_power(_data["waves"], wave, mods), ours]
+		_say("다음 전투: 웨이브 %d%s\n적 전투력 %d · 우리 드래곤 %d" % [wave, kind, Waves.enemy_power(_data["waves"], wave, mods), ours])
 
 
 func play(result: Dictionary, boss: bool, wave: int, elite: bool = false) -> void:
@@ -126,7 +130,7 @@ func play(result: Dictionary, boss: bool, wave: int, elite: bool = false) -> voi
 		if view.stage > 0:
 			view.root.hide()
 		_views[unit["id"]] = view
-	_caption.text = "심판 보스 전투!" if boss else ("중간 보스 등장!" if elite else "전투 중")
+	_say("심판 보스 전투!" if boss else ("중간 보스 등장!" if elite else "전투 중"))
 	_result = result
 	_events = result["events"]
 	_next_event = 0
@@ -142,6 +146,25 @@ func _set_background(wave: int) -> void:
 		return
 	_background_path = path
 	_background.texture = load(path) as Texture2D if ResourceLoader.exists(path) else null
+	for child: Node in _air.get_children():
+		_air.remove_child(child)
+		child.queue_free()
+	Ambience.particles(_air, Rect2(Vector2.ZERO, size), GameTheme.ambience_for(wave))
+
+
+## 위쪽 명판에 한두 줄을 띄운다. 빈 글이면 명판도 숨긴다.
+func _say(text: String) -> void:
+	_caption.text = text
+	_plaque.visible = not text.is_empty()
+	if _plaque.visible:
+		var lines: int = text.count("\n") + 1
+		var wide: float = 60.0
+		for line: String in text.split("\n"):
+			wide = maxf(wide, GameTheme.serif_font(600).get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x)
+		_plaque.size = Vector2(wide + 56.0, 16.0 + 24.0 * lines)
+		_plaque.position = Vector2((size.x - _plaque.size.x) / 2.0, 8)
+		_caption.position.y = 8
+		_caption.size.y = _plaque.size.y
 
 
 func _clear_units() -> void:
@@ -254,7 +277,7 @@ func _apply(event: Dictionary, animate: bool) -> void:
 					view.root.create_tween().tween_property(view.root, "modulate:a", 1.0, 0.3 / _store.speed)
 			reinforced.emit()
 			if animate:
-				_caption.text = "%d번째 무리 등장! (%d / %d)" % [int(event["stage"]) + 1, int(event["stage"]) + 1, int(event["total"])]
+				_say("%d번째 무리 등장! (%d / %d)" % [int(event["stage"]) + 1, int(event["stage"]) + 1, int(event["total"])])
 				_flash.color.a = 0.18
 				_flash.create_tween().tween_property(_flash, "color:a", 0.0, 0.35)
 		"pos":
@@ -290,7 +313,7 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				dead.root.modulate.a = 0.0
 		"enrage":
 			if animate:
-				_caption.text = "광폭화! 적의 공격력이 올라가요"
+				_say("광폭화! 적의 공격력이 올라가요")
 				_flash.color.a = 0.3
 				_flash.create_tween().tween_property(_flash, "color:a", 0.0, 0.3)
 		"hazard":
@@ -299,7 +322,7 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				return
 			_change_hp(victim, -int(event["dmg"]))
 			if animate:
-				_caption.text = HAZARD_KO.get(event["name"], "")
+				_say(HAZARD_KO.get(event["name"], ""))
 				_hit(victim, int(event["dmg"]), Color("#b197fc"), false)
 		"ult":
 			var caster: UnitView = _views.get(int(event["src"]))
@@ -307,7 +330,7 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				return
 			var tint: Color = GameTheme.COLOR[caster.element]
 			var ult_name: String = str(_data["battle"].get("ultimate", {}).get("names", {}).get(caster.element, ""))
-			_caption.text = "궁극기! " + ult_name
+			_say("궁극기! " + ult_name)
 			_callout("%s의 %s!" % [caster.title, ult_name], tint.lightened(0.45), tint.darkened(0.6))
 			_shake(7.0)
 			_flash.color = Color(tint, 0.28)

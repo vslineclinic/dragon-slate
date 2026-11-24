@@ -26,7 +26,7 @@ func _init() -> void:
 		ctl.dispatch({"type": "spin"})
 		for i in (12 if mode == "spinmid" else 90):
 			await process_frame
-		if mode in ["manage", "battle", "battle-late", "crit", "reward", "skills", "synergy", "dex", "relic", "levels"]:
+		if mode in ["manage", "battle", "battle-late", "crit", "reward", "skills", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -59,7 +59,7 @@ func _init() -> void:
 			scene.call("_render", [], ctl.state)
 			for i in 10:
 				await process_frame
-		if mode in ["dex", "relic", "levels", "fork"]:
+		if mode in ["dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
 			var team: Array = [["fafnir", 7, 3], ["fire_whelp", 4, 1], ["zhulong", 11, 0]]
 			for slot in range(3):
 				ctl.state["nest"][slot] = {"uid": 900 + slot, "speciesId": team[slot][0], "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": team[slot][2], "level": team[slot][1], "xp": 3}
@@ -71,8 +71,17 @@ func _init() -> void:
 				ctl.state["phase"] = "fork"
 				ctl.state["forkChoices"] = ["elite", "rest", "merchant"]
 			scene.call("_render", [], ctl.state)
-			if mode == "dex":
+			if mode == "result":
+				ctl.state["discovered"] = ["fafnir", "zhulong", "fire_whelp"]
+				ctl.state["phase"] = "victory"
+				scene.call("_show_result", ctl.state)
+			if mode in ["dex", "dexpick", "dexmixed"]:
 				scene.call("_open_dex")
+				var dex: Node = scene.get_child(scene.get_child_count() - 1)
+				if mode == "dexpick":
+					dex.call("_show_detail", ctl.data["dragons"]["zhulong"])
+				if mode == "dexmixed":
+					dex.call("_show_page", "mixed")
 			for i in 30:
 				await process_frame
 		if mode == "skills":

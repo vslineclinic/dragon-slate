@@ -2,8 +2,8 @@ extends Control
 
 const GameTheme = preload("res://godot/ui/theme.gd")
 const Store = preload("res://godot/ui/store.gd")
-const PAPER: Color = Color("#fff3bf")
-const BORDER: Color = Color("#5f3dc4")
+const PAPER: Color = Color("#f6ead0")
+const BORDER: Color = Color("#7a5a24")
 const BUBBLE: Vector2 = Vector2(474, 108)
 
 var _store: Store
@@ -24,8 +24,8 @@ func setup(store: Store, areas: Dictionary = {}) -> void:
 	var spin_tip: Vector2 = Vector2(spin.end.x - 20.0, spin.get_center().y)
 	_steps = [
 		{"copy": "① 이 버튼을 눌러 룬 석판을 돌려요.", "at": Vector2(side_x, spin.position.y - 30.0), "point": spin_tip},
-		{"copy": "② 보라 띠의 알 3개가 오른쪽 카드로 나와요.\n하나를 고르세요. 노란 테두리가 추천이에요.", "at": Vector2(side_x, offers.position.y + 40.0), "point": Vector2(offers.end.x - 16.0, offers.get_center().y)},
-		{"copy": "③ 대기칸의 드래곤을 전장의 노란 발판으로 끌어 놓아요.\n드래곤끼리 겹치면 경험치를 주고, 레벨 5부터는 진화해요!", "at": Vector2(pad.end.x + 40.0, pad.position.y - 130.0), "point": pad.get_center() + Vector2(40, 0)},
+		{"copy": "② 금빛 띠의 알 3개가 오른쪽 카드로 나와요.\n하나를 고르세요. 노란 테두리가 추천이에요.", "at": Vector2(side_x, offers.position.y + 40.0), "point": Vector2(offers.end.x - 16.0, offers.get_center().y)},
+		{"copy": "③ 대기칸의 드래곤을 전장의 금빛 발판으로 끌어 놓아요.\n드래곤끼리 겹치면 경험치를 주고, 레벨 5부터는 진화해요!", "at": Vector2(pad.end.x + 40.0, pad.position.y - 130.0), "point": pad.get_center() + Vector2(40, 0)},
 		{"copy": "④ 준비되면 전투 시작! 전투는 자동이에요.\n전열은 먼저 맞고, 후열은 오래 버텨요.", "at": Vector2(side_x, spin.position.y - 30.0), "point": spin_tip},
 		{"copy": "⑤ 위쪽에 다음 보스 예보가 있어요. 눌러서 대응법을 보세요.\n이제 혼자 해 볼까요? 행운을 빌어요!", "at": Vector2(420, 60), "point": Vector2(600, 44)},
 	]

@@ -33,14 +33,13 @@ func setup(ctl: Controller, areas: Dictionary) -> void:
 	_areas = areas
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bench: Rect2 = areas["bench"]
-	GameTheme.label(self, Rect2(bench.position.x, bench.position.y - 24, 200, 22), "대기칸", 15, GameTheme.DIM)
+	GameTheme.heading(self, Rect2(bench.position.x, bench.position.y - 26, 200, 24), "대기칸", 15, GameTheme.GOLD, HORIZONTAL_ALIGNMENT_LEFT, 600)
 	var release: Rect2 = areas["release"]
-	var zone: Panel = GameTheme.panel(self, release, Color("#3b2a2acc"), Color("#ff878780"), 2, 8)
+	var zone: Panel = GameTheme.panel(self, release, Color("#2a1416d9"), Color("#ff878766"), 1, 8, "flat")
 	var zone_text: Label = GameTheme.label(zone, Rect2(Vector2(6, 0), release.size - Vector2(12, 0)), "여기에 놓으면 놓아주고 마력을 받아요", 13, Color("#ffc9c9"), HORIZONTAL_ALIGNMENT_CENTER)
 	GameTheme.wrap(zone_text)
 	zone.name = "Release"
-	_battle = GameTheme.button(self, areas["spin"], "전투 시작", _start_battle, Color("#c92a2a"))
-	_battle.add_theme_font_size_override("font_size", 22)
+	_battle = GameTheme.cta(self, areas["spin"], "전투 시작", _start_battle, "ember", 23)
 	_layer = Control.new()
 	_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_layer)
@@ -87,18 +86,19 @@ func render(state: Dictionary) -> void:
 		var rect: Rect2 = _slot_rect(ref)
 		var locked: bool = _locked(state, ref)
 		if on_field:
-			var pad_fill: Color = Color(0.05, 0.06, 0.1, 0.55 if not locked else 0.35)
-			var pad_line: Color = Color(1, 0.83, 0.23, 0.9) if manage and not locked else Color(1, 1, 1, 0.25)
+			var pad_fill: Color = Color(0.04, 0.04, 0.07, 0.46 if not locked else 0.3)
+			var pad_line: Color = Color(GameTheme.GOLD_HI, 0.95) if manage and not locked else Color(GameTheme.GOLD, 0.28)
 			GameTheme.panel(_layer, rect, pad_fill, pad_line, 2, 12)
+			GameTheme.panel(_layer, rect.grow(-5), Color.TRANSPARENT, Color(pad_line, pad_line.a * 0.35), 1, 8)
 			if ref["index"] % 3 == 0:
 				var header: Label = GameTheme.label(_layer, Rect2(rect.position.x, rect.position.y - 22, rect.size.x, 18),
 					"전열" if ref["index"] < 3 else "후열", 13, Color(1, 1, 1, 0.85), HORIZONTAL_ALIGNMENT_CENTER)
 				header.add_theme_constant_override("outline_size", 4)
 				header.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
 		else:
-			GameTheme.panel(_layer, rect, GameTheme.CARD, GameTheme.PANEL_LINE, 1, 8)
+			GameTheme.well(_layer, rect, 8)
 		if locked:
-			GameTheme.label(_layer, rect, "잠김", 14, Color("#8a93ab"), HORIZONTAL_ALIGNMENT_CENTER)
+			GameTheme.label(_layer, rect, "잠김", 14, Color(GameTheme.TEXT, 0.5), HORIZONTAL_ALIGNMENT_CENTER)
 		var inst: Variant = _at(state, ref)
 		if inst != null:
 			_draw_card(rect, inst, ref, can_drag and not locked, recommend.has(_key(ref)))
@@ -153,11 +153,13 @@ func _draw_card(rect: Rect2, inst: Dictionary, ref: Dictionary, draggable: bool,
 	var id: String = inst["speciesId"]
 	var spec: Dictionary = _ctl.data["dragons"][id]
 	var elements: Array = spec["elements"]
-	var card: Panel = GameTheme.panel(_layer, rect, Color("#1e2230e6"), GameTheme.COLOR[elements[0]], 2, 10)
+	var card: Panel = GameTheme.panel(_layer, rect, Color("#15141cf2"), GameTheme.COLOR[elements[0]], 2, 10)
 	var stripe_width: float = 100.0 / elements.size()
 	for i: int in range(elements.size()):
-		GameTheme.panel(card, Rect2(10 + i * stripe_width, 0, stripe_width, 6), GameTheme.COLOR[elements[i]])
-	var image: TextureRect = GameTheme.dragon(card, Rect2(23, 7, 62, 62), id)
+		GameTheme.panel(card, Rect2(10 + i * stripe_width, 0, stripe_width, 4), GameTheme.COLOR[elements[i]])
+	GameTheme.glow(card, Vector2(60, 38), 46.0, Color(GameTheme.COLOR[elements[0]], 0.34))
+	GameTheme.panel(card, Rect2(2, 66, rect.size.x - 4, 17), Color(0, 0, 0, 0.42))
+	var image: TextureRect = GameTheme.dragon(card, Rect2(25, 4, 66, 66), id)
 	for i: int in range(elements.size()):
 		GameTheme.place(card, Marks.new(elements[i]), Rect2(92 - i * 22, 16, 20, 20))
 	if recommended:
@@ -174,7 +176,7 @@ func _draw_card(rect: Rect2, inst: Dictionary, ref: Dictionary, draggable: bool,
 	GameTheme.panel(card, Rect2(8, rect.size.y - 5, (rect.size.x - 16) * filled, 3), Color("#ffd43b"))
 	if image != null:
 		GameTheme.label(card, Rect2(6, 4, 50, 18), "Lv.%d" % level, 12, Color("#fff3bf"))
-		GameTheme.label(card, Rect2(6, 20, 50, 16), GameTheme.TIER_KO[tier], 10, tier_color)
+		GameTheme.label(card, Rect2(6, 20, 50, 16), GameTheme.TIER_KO[tier], 10, GameTheme.TIER_RING[tier] if tier != "base" else tier_color)
 		GameTheme.label(card, Rect2(0, 68, 120, 18), spec["nameKo"], 12, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 		var skill_total: int = 0
 		for learned: Variant in inst.get("skills", {}).values():

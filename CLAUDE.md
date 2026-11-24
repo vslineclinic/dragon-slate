@@ -6,6 +6,7 @@
 - Godot(기준): `npm run godot:test` · `npm run sim -- --runs 300 --seed 1000 [--demo] [--calamity 1] [--waves] [--margin]` · `npm run godot:export` (Windows 정식·데모) · `npm run godot:apk` (Android 테스트 APK)
 - 화면 확인: `godot --audio-driver Dummy --path . --position -4000,-4000 --script res://godot/tests/capture.gd -- <장면> <png> [spin|spinmid|manage|battle|battle-late] [폭]`
 - 배경음악: `python tools/music/make_tracks.py`(A 모음) · `python tools/music/codex_tracks.py`(B 모음) → ffmpeg로 `assets/music/a|b/*.ogg`. 재생·전환은 `godot/ui/music.gd`.
+- 배경·UI 그림: `python tools/art/gen_backgrounds.py [이름...]` → `assets/backgrounds/*.png`, `assets/ui/*.png` (코드로 그림, 그림 생성 AI 안 씀). 바꾼 뒤 `godot --headless --path . --import`.
 - 웹판(멈춤, 참고용): `npm run dev` · `npm test` · `npm run typecheck`
 
 ## 불변 규칙
@@ -17,6 +18,8 @@
 - 화면 문구 한국어. 금지어: 잭팟, JACKPOT, 코인, 베팅, 칩, 각인, 코어. 대신 줄 맞춤, 마력, 룬 석판, 계승 특성.
 - 성장 구조(2026-11-23 2차): 40웨이브, 원소별 계급 피라미드(기본 4 · 2티어 3 · 1티어 2 · 정점 1), 용 레벨(전투·흡수로 경험치, 레벨 업마다 스킬 점수 1), 진화는 레벨 5/10/15부터, 보스마다 유물 3택 1. 수치는 `data/battle.json`의 level, `data/relics.json`, `data/waves.json`의 growthBands·bossPct.
 - 3차(2026-11-24): 갈림길(waves.fork), 중간 보스(waves.elitePct), 기본 용 원소별 12종(`node tools/gen-upper-dragons.cjs`가 조합표까지 다시 만듦), 궁극기(battle.ultimate). 설계 문서 13·14장.
+- 화풍 "용 신전"(2026-11-24, 설계 문서 16장): 흑요석 판 · 금박 선 · 양피지색 글자. 색·판·단추·제목은 `godot/ui/theme.gd`의 도우미(panel · frame · well · heading · cta · divider · glow)로만 만든다. 화면 파일에 색 코드를 새로 박지 않는다. 제목은 명조(Noto Serif KR), 본문은 고딕(Noto Sans KR).
+- 스킬은 별자리 3개 × 별 4개(`data/skills.json` 12개). 도감은 원소별 세계수(가지 = 같은 용 둘을 합친 결과).
 - 화면 배치(2026-11-23 개정): 왼쪽 약 34% 조작 패널(석판·알 카드·대기칸), 오른쪽 전장(둥지 발판 포함).
 
 ## 레인 소유권 (설계 8.1)

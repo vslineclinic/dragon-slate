@@ -22,6 +22,30 @@
     }
   },
   {
+    "id": "pierce",
+    "branch": "attack",
+    "nameKo": "급소 꿰뚫기",
+    "descKo": "치명타 확률 +5%",
+    "kind": "critPct",
+    "value": 5,
+    "max": 3,
+    "requires": {
+      "frenzy": 1
+    }
+  },
+  {
+    "id": "ragnarok",
+    "branch": "attack",
+    "nameKo": "종말의 불길",
+    "descKo": "궁극기 피해 +20%",
+    "kind": "ultPowerPct",
+    "value": 20,
+    "max": 2,
+    "requires": {
+      "pierce": 1
+    }
+  },
+  {
     "id": "scale",
     "branch": "defense",
     "nameKo": "단단한 비늘",
@@ -44,6 +68,30 @@
     }
   },
   {
+    "id": "aegis",
+    "branch": "defense",
+    "nameKo": "현무의 등딱지",
+    "descKo": "받는 피해 -5%",
+    "kind": "guardPct",
+    "value": 5,
+    "max": 3,
+    "requires": {
+      "leech": 1
+    }
+  },
+  {
+    "id": "worldroot",
+    "branch": "defense",
+    "nameKo": "세계수의 뿌리",
+    "descKo": "체력 +20%",
+    "kind": "hpPct",
+    "value": 20,
+    "max": 2,
+    "requires": {
+      "aegis": 1
+    }
+  },
+  {
     "id": "pack",
     "branch": "pack",
     "nameKo": "무리 부름",
@@ -63,6 +111,30 @@
     "max": 3,
     "requires": {
       "pack": 1
+    }
+  },
+  {
+    "id": "brood",
+    "branch": "pack",
+    "nameKo": "어미 용의 부름",
+    "descKo": "호위 +1마리",
+    "kind": "escortCount",
+    "value": 1,
+    "max": 1,
+    "requires": {
+      "alpha": 2
+    }
+  },
+  {
+    "id": "roar",
+    "branch": "pack",
+    "nameKo": "티아마트의 포효",
+    "descKo": "궁극기 충전 -1번",
+    "kind": "ultCharge",
+    "value": 1,
+    "max": 2,
+    "requires": {
+      "brood": 1
     }
   }
 ]

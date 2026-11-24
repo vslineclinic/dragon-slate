@@ -437,3 +437,52 @@ func test_crit_rolls_depend_only_on_the_seed() -> void:
 	assert_eq(first["events"], again["events"])
 	var crits: int = _of_kind(first, "attack").filter(func(hit: Dictionary) -> bool: return hit.get("crit", false)).size()
 	assert_true(crits > 0 and crits < _of_kind(first, "attack").size())
+
+
+func test_star_skills_ride_on_the_unit_only_when_learned() -> void:
+	var data: Dictionary = GameData.load_all()
+	var plain: Dictionary = Battle.to_unit(data, {"uid": 1, "speciesId": "fire_drake", "traits": [], "bonusPct": 0})
+	assert_true(not (plain.has("critPct") or plain.has("guardPct") or plain.has("ultPowerPct") or plain.has("ultCharge")))
+	var inst: Dictionary = {
+		"uid": 2, "speciesId": "fire_drake", "traits": [], "bonusPct": 0,
+		"skills": {"pierce": 3, "ragnarok": 2, "aegis": 2, "roar": 1}, "skillPoints": 0,
+	}
+	var unit: Dictionary = Battle.to_unit(data, inst)
+	assert_eq([unit["critPct"], unit["ultPowerPct"], unit["guardPct"], unit["ultCharge"]], [15, 40, 10, 1])
+
+
+func test_guard_cuts_damage_taken() -> void:
+	var guarded: Dictionary = _solo("fire", 1000, 1, 100)
+	guarded["guardPct"] = 50
+	var foe: Dictionary = _enemy("dragon", "fire", 100000, 40, 10, 0, 900)
+	var plain: Dictionary = Battle.simulate_battle(_cfg, _slots([_solo("fire", 1000, 1, 100)]), [foe])
+	var cut: Dictionary = Battle.simulate_battle(_cfg, _slots([guarded]), [foe])
+	var first_plain: Dictionary = plain["events"].filter(func(e: Dictionary) -> bool: return e["kind"] == "attack" and e["src"] != 0)[0]
+	var first_cut: Dictionary = cut["events"].filter(func(e: Dictionary) -> bool: return e["kind"] == "attack" and e["src"] != 0)[0]
+	assert_eq(first_cut["dmg"], Rng.fdiv(int(first_plain["dmg"]) * 50, 100))
+
+
+func test_roar_shortens_the_ultimate_and_ragnarok_strengthens_it() -> void:
+	var cfg: Dictionary = _cfg.duplicate(true)
+	cfg["ultimate"] = {"chargeHits": {"base": 4}, "powerPct": {"base": 200}, "targets": {"base": 1}}
+	var foe: Dictionary = _enemy("dragon", "fire", 100000, 0, 1000, 0, 900)
+	var plain: Dictionary = Battle.simulate_battle(cfg, _slots([_ally("fire", 1000, 10, 10)]), [foe])
+	var tuned_ally: Dictionary = _ally("fire", 1000, 10, 10)
+	tuned_ally["ultCharge"] = 1
+	tuned_ally["ultPowerPct"] = 50
+	var tuned: Dictionary = Battle.simulate_battle(cfg, _slots([tuned_ally]), [foe])
+	assert_eq([plain["units"][0]["ultNeed"], tuned["units"][0]["ultNeed"]], [4, 3])
+	var ult_plain: Dictionary = plain["events"].filter(func(e: Dictionary) -> bool: return e.get("ult", false))[0]
+	var ult_tuned: Dictionary = tuned["events"].filter(func(e: Dictionary) -> bool: return e.get("ult", false))[0]
+	assert_eq([ult_plain["dmg"], ult_tuned["dmg"]], [20, 25])
+	assert_true(ult_tuned["tick"] < ult_plain["tick"])
+
+
+func test_every_skill_kind_is_one_the_battle_understands() -> void:
+	var known: Array = ["hpPct", "atkPct", "hastePct", "lifestealPct", "escortCount", "escortPct", "critPct", "ultPowerPct", "guardPct", "ultCharge"]
+	var data: Dictionary = GameData.load_all()
+	assert_eq(data["skills"].size(), 12)
+	for skill: Dictionary in data["skills"].values():
+		assert_true(known.has(skill["kind"]), skill["id"])
+		for need: String in skill["requires"]:
+			assert_true(data["skills"].has(need), skill["id"])

@@ -2,6 +2,7 @@ extends Control
 
 const GameTheme = preload("res://godot/ui/theme.gd")
 const Store = preload("res://godot/ui/store.gd")
+const Icons = preload("res://godot/ui/icons.gd")
 
 signal boss_info(message: String)
 
@@ -9,6 +10,7 @@ var _store: Store
 var _wave: Label
 var _lives: Label
 var _mana: Label
+var _wave_bar: Panel
 var _boss: Button
 var _speeds: Dictionary = {}
 var _preview: Dictionary = {}
@@ -16,10 +18,14 @@ var _preview: Dictionary = {}
 
 func setup(store: Store, width: float = 1280.0) -> void:
 	_store = store
-	GameTheme.panel(self, Rect2(Vector2.ZERO, size), Color("#151925"))
-	_wave = GameTheme.label(self, Rect2(16, 0, 160, 44), "", 20)
-	_lives = GameTheme.label(self, Rect2(180, 0, 160, 44), "", 20, Color("#ff8787"))
-	_mana = GameTheme.label(self, Rect2(340, 0, 130, 44), "", 20, Color("#b197fc"))
+	GameTheme.panel(self, Rect2(Vector2.ZERO, size), Color("#0b0b10"))
+	GameTheme.panel(self, Rect2(0, size.y - 2, size.x, 2), Color(GameTheme.GOLD_DIM, 0.55))
+	_wave = GameTheme.heading(self, Rect2(16, 0, 160, 40), "", 20, GameTheme.GOLD_HI)
+	GameTheme.panel(self, Rect2(16, 36, 140, 3), Color(1, 1, 1, 0.08))
+	_wave_bar = GameTheme.panel(self, Rect2(16, 36, 0, 3), GameTheme.GOLD)
+	_lives = GameTheme.label(self, Rect2(180, 0, 160, 44), "", 19, Color("#ff7b8c"))
+	GameTheme.place(self, Icons.new("mana", Color("#a58bff"), false), Rect2(336, 11, 22, 22))
+	_mana = GameTheme.heading(self, Rect2(362, 0, 108, 44), "", 20, Color("#c9b8ff"))
 	_boss = GameTheme.button(self, Rect2(470, 0, maxf(300.0, width - 404 - 470 - 8), 44), "", _show_boss_info)
 	_boss.clip_text = true
 	_boss.flat = true
@@ -42,8 +48,10 @@ func set_boss_preview(wave: int, element: Variant, spec: Variant) -> void:
 
 func render(state: Dictionary, max_wave: int) -> void:
 	_wave.text = "웨이브 %d / %d" % [state["wave"], max_wave]
+	_wave_bar.size.x = 140.0 * clampf(float(state["wave"]) / maxf(1.0, max_wave), 0.0, 1.0)
 	var lives: int = maxi(0, state["lives"])
-	_lives.text = "생명 " + ("♥".repeat(lives) if lives <= 6 else "♥ ×%d" % lives)
+	_lives.text = "♥".repeat(lives) if lives <= 6 else "♥ ×%d" % lives
+	_lives.tooltip_text = "생명"
 	_mana.text = "마력 %d" % state["mana"]
 	_boss.visible = not _preview.is_empty()
 	if _preview.is_empty():

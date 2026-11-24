@@ -1,4 +1,7 @@
 extends RefCounted
+## 화풍 "용 신전": 흑요석 판 · 금박 선 · 양피지색 글자. 제목은 명조(Noto Serif KR), 본문은 고딕(Noto Sans KR).
+
+const OrnateBox = preload("res://godot/ui/ornate_box.gd")
 
 const HEIGHT: float = 720.0
 const MIN_WIDTH: float = 1280.0
@@ -50,6 +53,17 @@ static func pad_rect(width: float, field_cfg: Dictionary, index: int) -> Rect2:
 	return Rect2(center - CARD_SIZE / 2.0, CARD_SIZE)
 
 
+## 배경 위에 떠다니는 빛: 평원 꽃가루 · 협곡 눈 · 화산 불티 · 심연 먼지.
+static func ambience_for(wave: int) -> String:
+	if wave <= 10:
+		return "pollen"
+	if wave <= 20:
+		return "snow"
+	if wave <= 30:
+		return "embers"
+	return "motes"
+
+
 ## 배경 그림: 웨이브 구간별.
 static func background_for(wave: int) -> String:
 	if wave <= 10:
@@ -60,9 +74,9 @@ static func background_for(wave: int) -> String:
 		return "res://assets/backgrounds/volcano.png"
 	return "res://assets/backgrounds/abyss.png"
 const COLOR: Dictionary = {
-	"fire": Color("#e8590c"), "ice": Color("#4dabf7"), "lightning": Color("#fab005"),
-	"poison": Color("#82c91e"), "steel": Color("#adb5bd"), "abyss": Color("#5f3dc4"),
-	"gold": Color("#d4af37"), "wild": Color("#f783ac"),
+	"fire": Color("#f0622a"), "ice": Color("#58b8f5"), "lightning": Color("#f7b928"),
+	"poison": Color("#8fd13c"), "steel": Color("#b4bcc8"), "abyss": Color("#7a54e0"),
+	"gold": Color("#d9b25f"), "wild": Color("#f783ac"),
 }
 const ELEMENT_KO: Dictionary = {
 	"fire": "불", "ice": "얼음", "lightning": "번개", "poison": "독", "steel": "강철", "abyss": "심연",
@@ -72,37 +86,70 @@ const SYMBOL_LABEL: Dictionary = {
 	"gold": "금", "wild": "여의주",
 }
 const TIER_KO: Dictionary = {"base": "기본", "t2": "2티어", "t1": "1티어", "apex": "정점", "dual": "이중", "secret": "???"}
-const NEW_COLOR: Color = Color("#66d9e8")
-const PANEL: Color = Color("#232838")
-const PANEL_LINE: Color = Color("#3a4157")
-const TEXT: Color = Color("#e9ecf5")
-const DIM: Color = Color("#8a93ab")
-const CARD: Color = Color("#2b3045")
-const INK: Color = Color("#1b1f2a")
-const RECOMMEND: Color = Color("#ffd43b")
+## 계급마다 메달 테두리 색: 청동 → 은 → 금 → 백금빛.
+const TIER_RING: Dictionary = {
+	"base": Color("#a8774a"), "t2": Color("#c3ccd6"), "t1": Color("#e6bd55"), "apex": Color("#fff0b8"),
+	"dual": Color("#c9a3ff"), "secret": Color("#ff9ec4"),
+}
+const NEW_COLOR: Color = Color("#6fe3ee")
+const INK: Color = Color("#0d0d13")
+const PANEL: Color = Color("#191821")
+const CARD: Color = Color("#24222d")
+const WELL: Color = Color("#111017")
+const PANEL_LINE: Color = Color("#4d4334")
+const GOLD: Color = Color("#d9b25f")
+const GOLD_HI: Color = Color("#f7e4a8")
+const GOLD_DIM: Color = Color("#8a6f3a")
+const EMBER: Color = Color("#c8401f")
+const MYSTIC: Color = Color("#5b40c0")
+const TEXT: Color = Color("#f0e8d6")
+const DIM: Color = Color("#9f9786")
+const RECOMMEND: Color = Color("#ffd75e")
 const FONT_PATH: String = "res://godot/fonts/NotoSansKR.ttf"
+const SERIF_PATH: String = "res://godot/fonts/NotoSerifKR.ttf"
 const FONT_WEIGHT: int = 500
+
+static var _fonts: Dictionary = {}
 
 
 static func create() -> Theme:
 	var skin: Theme = Theme.new()
 	skin.default_font = korean_font()
+	skin.set_stylebox("panel", "TooltipPanel", style(Color("#0b0b10f2"), GOLD_DIM, 1, 6))
+	skin.set_color("font_color", "TooltipLabel", TEXT)
+	skin.set_font_size("font_size", "TooltipLabel", 14)
 	return skin
 
 
 ## 배포판에 넣는 Noto Sans KR(OFL, godot/fonts/OFL-NotoSansKR.txt). 없으면 시스템 글꼴로.
 static func korean_font() -> Font:
-	if ResourceLoader.exists(FONT_PATH):
-		var bundled: Font = load(FONT_PATH) as Font
-		if bundled != null:
-			# 가변 글꼴이라 굵기를 정해 줘야 가늘게 나오지 않는다.
-			var weighted: FontVariation = FontVariation.new()
-			weighted.base_font = bundled
-			weighted.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("weight"): FONT_WEIGHT}
-			return weighted
-	var system: SystemFont = SystemFont.new()
-	system.font_names = PackedStringArray(["Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo"])
-	return system
+	return _font(FONT_PATH, FONT_WEIGHT, ["Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo"])
+
+
+## 제목용 명조: Noto Serif KR(OFL, godot/fonts/OFL-NotoSerifKR.txt).
+static func serif_font(weight: int = 700) -> Font:
+	return _font(SERIF_PATH, weight, ["Noto Serif KR", "Batang", "AppleMyungjo"])
+
+
+static func _font(path: String, weight: int, fallback: Array) -> Font:
+	var key: String = "%s:%d" % [path, weight]
+	if _fonts.has(key):
+		return _fonts[key]
+	var made: Font
+	var bundled: Font = load(path) as Font if ResourceLoader.exists(path) else null
+	if bundled != null:
+		# 가변 글꼴이라 굵기를 정해 줘야 가늘게 나오지 않는다.
+		var weighted: FontVariation = FontVariation.new()
+		weighted.base_font = bundled
+		weighted.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("weight"): weight}
+		made = weighted
+	else:
+		var system: SystemFont = SystemFont.new()
+		system.font_names = PackedStringArray(fallback)
+		system.font_weight = weight
+		made = system
+	_fonts[key] = made
+	return made
 
 
 ## 만분율을 "5.9%"처럼.
@@ -113,18 +160,18 @@ static func percent(odds: int) -> String:
 ## 종의 등장 비율(weight)에 따른 희귀도 이름과 색.
 static func rarity(weight: int) -> Array:
 	if weight >= 35:
-		return ["흔함", Color("#adb5bd")]
+		return ["흔함", Color("#b4bcc8")]
 	if weight >= 25:
 		return ["보통", Color("#8ce99a")]
 	if weight >= 15:
 		return ["드묾", Color("#74c0fc")]
-	return ["희귀", Color("#ffd43b")]
+	return ["희귀", Color("#ffd75e")]
 
 
 ## 도감에 없는 용에 붙이는 "새 용!" 표시(깜빡이는 테두리 + 꼬리표).
 static func new_badge(card: Control, card_size: Vector2) -> void:
-	var outline: Panel = panel(card, Rect2(Vector2(-3, -3), card_size + Vector2(6, 6)), Color.TRANSPARENT, NEW_COLOR, 3, 10)
-	outline.create_tween().set_loops().tween_property(outline, "modulate:a", 0.3, 0.6).from(1.0)
+	var edge: Panel = panel(card, Rect2(Vector2(-3, -3), card_size + Vector2(6, 6)), Color.TRANSPARENT, NEW_COLOR, 3, 10)
+	edge.create_tween().set_loops().tween_property(edge, "modulate:a", 0.3, 0.6).from(1.0)
 	var tag: Panel = panel(card, Rect2(card_size.x - 58, -10, 62, 20), Color("#0b3d46"), NEW_COLOR, 2, 8)
 	label(tag, Rect2(0, 0, 62, 20), "새 용!", 12, NEW_COLOR, HORIZONTAL_ALIGNMENT_CENTER)
 
@@ -136,20 +183,51 @@ static func place(parent: Control, child: Control, rect: Rect2) -> void:
 	parent.add_child(child)
 
 
-static func style(fill: Color, border: Color, width: int = 0, radius: int = 0) -> StyleBoxFlat:
-	var box: StyleBoxFlat = StyleBoxFlat.new()
-	box.bg_color = fill
-	box.border_color = border
-	box.set_border_width_all(width)
-	box.set_corner_radius_all(radius)
+## 테두리도 둥근 모서리도 없으면 그냥 색 막대, 아니면 광택 있는 판.
+static func style(fill: Color, border: Color, width: int = 0, radius: int = 0, kind: String = "auto") -> StyleBox:
+	var flat: StyleBoxFlat = StyleBoxFlat.new()
+	flat.bg_color = fill
+	flat.border_color = border
+	flat.set_border_width_all(width)
+	flat.set_corner_radius_all(radius)
+	flat.anti_aliasing_size = 0.8
+	if width == 0 and radius == 0 and kind == "auto":
+		return flat
+	var box: OrnateBox = OrnateBox.new()
+	box.base = flat
+	box.kind = kind
 	return box
 
 
-static func panel(parent: Control, rect: Rect2, fill: Color, border: Color = PANEL_LINE, width: int = 0, radius: int = 0) -> Panel:
+static func panel(parent: Control, rect: Rect2, fill: Color, border: Color = PANEL_LINE, width: int = 0, radius: int = 0, kind: String = "auto") -> Panel:
 	var node: Panel = Panel.new()
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	node.add_theme_stylebox_override("panel", style(fill, border, width, radius))
+	node.add_theme_stylebox_override("panel", style(fill, border, width, radius, kind))
 	place(parent, node, rect)
+	return node
+
+
+## 금박 테두리 큰 판(창 · 카드 묶음). 그림자와 모서리 장식이 붙는다.
+static func frame(parent: Control, rect: Rect2, fill: Color = PANEL, border: Color = GOLD, radius: int = 12) -> Panel:
+	var node: Panel = panel(parent, rect, fill, border, 2, radius, "frame")
+	var box: OrnateBox = node.get_theme_stylebox("panel") as OrnateBox
+	box.base.shadow_color = Color(0, 0, 0, 0.55)
+	box.base.shadow_size = 18
+	box.base.shadow_offset = Vector2(0, 6)
+	return node
+
+
+## 움푹 들어간 칸(빈 자리 · 석판 바닥).
+static func well(parent: Control, rect: Rect2, radius: int = 8, line: Color = Color("#2c2820")) -> Panel:
+	var node: Panel = panel(parent, rect, WELL, line, 1, radius, "flat")
+	var shade: StyleBoxFlat = StyleBoxFlat.new()
+	shade.bg_color = Color(0, 0, 0, 0.28)
+	shade.corner_radius_top_left = radius
+	shade.corner_radius_top_right = radius
+	var top: Panel = Panel.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_theme_stylebox_override("panel", shade)
+	place(node, top, Rect2(1, 1, rect.size.x - 2, minf(8.0, rect.size.y / 3.0)))
 	return node
 
 
@@ -161,6 +239,66 @@ static func label(parent: Control, rect: Rect2, copy: String, pixels: int, color
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.add_theme_font_size_override("font_size", pixels)
 	node.add_theme_color_override("font_color", color)
+	place(parent, node, rect)
+	return node
+
+
+## 명조 제목. 아래로 살짝 그림자가 져서 돌에 새긴 금박처럼 보인다.
+static func heading(parent: Control, rect: Rect2, copy: String, pixels: int, color: Color = GOLD_HI, alignment: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT, weight: int = 700) -> Label:
+	var node: Label = label(parent, rect, copy, pixels, color, alignment)
+	node.add_theme_font_override("font", serif_font(weight))
+	node.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.75))
+	node.add_theme_constant_override("shadow_offset_x", 0)
+	node.add_theme_constant_override("shadow_offset_y", maxi(1, int(pixels / 14.0)))
+	node.add_theme_constant_override("shadow_outline_size", maxi(2, int(pixels / 8.0)))
+	return node
+
+
+## 글자에 어두운 테두리를 둘러 그림 위에서도 읽히게 한다.
+static func outline(node: Label, pixels: int = 5, color: Color = Color(0, 0, 0, 0.82)) -> Label:
+	node.add_theme_constant_override("outline_size", pixels)
+	node.add_theme_color_override("font_outline_color", color)
+	return node
+
+
+## 가운데 마름모가 박힌 금박 가로줄.
+static func divider(parent: Control, rect: Rect2, color: Color = GOLD) -> Control:
+	var node: Control = Control.new()
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	place(parent, node, rect)
+	node.draw.connect(func() -> void:
+		var mid: Vector2 = node.size / 2.0
+		var reach: float = node.size.x / 2.0
+		for side: float in [-1.0, 1.0]:
+			node.draw_polyline_colors(
+				PackedVector2Array([mid + Vector2(side * 10.0, 0), mid + Vector2(side * reach, 0)]),
+				PackedColorArray([Color(color, 0.9), Color(color, 0.0)]), 1.0, true)
+		node.draw_colored_polygon(PackedVector2Array([mid + Vector2(0, -4), mid + Vector2(5, 0), mid + Vector2(0, 4), mid + Vector2(-5, 0)]), color)
+	)
+	return node
+
+
+## 부드러운 빛 덩어리(더하기 합성).
+static func glow(parent: Control, center: Vector2, radius: float, color: Color) -> TextureRect:
+	var node: TextureRect = TextureRect.new()
+	node.texture = load("res://assets/ui/glow.png") as Texture2D
+	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	node.stretch_mode = TextureRect.STRETCH_SCALE
+	node.modulate = color
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var additive: CanvasItemMaterial = CanvasItemMaterial.new()
+	additive.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	node.material = additive
+	place(parent, node, Rect2(center - Vector2(radius, radius), Vector2(radius, radius) * 2.0))
+	return node
+
+
+static func picture(parent: Control, rect: Rect2, path: String, cover: bool = true) -> TextureRect:
+	var node: TextureRect = TextureRect.new()
+	node.texture = load(path) as Texture2D if ResourceLoader.exists(path) else null
+	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED if cover else TextureRect.STRETCH_SCALE
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	place(parent, node, rect)
 	return node
 
@@ -194,13 +332,51 @@ static func button(parent: Control, rect: Rect2, copy: String, action: Callable,
 	node.text = copy
 	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	node.add_theme_color_override("font_color", TEXT)
+	node.add_theme_color_override("font_hover_color", Color.WHITE)
+	node.add_theme_color_override("font_pressed_color", GOLD_HI)
+	node.add_theme_color_override("font_focus_color", TEXT)
+	node.add_theme_color_override("font_disabled_color", Color(DIM, 0.6))
 	node.add_theme_font_size_override("font_size", 18)
-	node.add_theme_stylebox_override("normal", style(fill, border, width, 8))
-	node.add_theme_stylebox_override("hover", style(fill.lightened(0.12), border, width, 8))
-	node.add_theme_stylebox_override("pressed", style(fill.darkened(0.15), border, width, 8))
-	node.add_theme_stylebox_override("disabled", style(fill.darkened(0.4), border, width, 8))
+	var hover_line: Color = border.lightened(0.35)
+	node.add_theme_stylebox_override("normal", style(fill, border, width, 8, "button"))
+	node.add_theme_stylebox_override("hover", style(fill.lightened(0.1), hover_line, width, 8, "button"))
+	node.add_theme_stylebox_override("pressed", style(fill.darkened(0.2), border, width, 8, "button"))
+	node.add_theme_stylebox_override("disabled", style(fill.darkened(0.45), Color(border, border.a * 0.5), width, 8, "flat"))
+	node.add_theme_stylebox_override("focus", style(Color.TRANSPARENT, Color(GOLD_HI, 0.7), 2, 8, "flat"))
 	node.pressed.connect(action)
 	place(parent, node, rect)
+	return node
+
+
+## 그림 위에 얹는 보이지 않는 단추(누르는 자리만). 초점이 오면 금빛 테두리만 보인다.
+static func ghost(parent: Control, rect: Rect2, action: Callable, radius: int = 10) -> Button:
+	var node: Button = Button.new()
+	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	for state: String in ["normal", "hover", "pressed", "disabled"]:
+		node.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	node.add_theme_stylebox_override("hover", style(Color(1, 1, 1, 0.05), Color(GOLD_HI, 0.35), 1, radius, "flat"))
+	node.add_theme_stylebox_override("focus", style(Color.TRANSPARENT, Color(GOLD_HI, 0.6), 2, radius, "flat"))
+	node.pressed.connect(action)
+	place(parent, node, rect)
+	return node
+
+
+## 눈에 띄는 큰 단추. tone: gold(금판 · 어두운 글자) · ember(붉은 전투) · mystic(보라 석판)
+static func cta(parent: Control, rect: Rect2, copy: String, action: Callable, tone: String = "gold", pixels: int = 21) -> Button:
+	var fills: Dictionary = {"gold": Color("#c99a3c"), "ember": EMBER, "mystic": MYSTIC}
+	var lines: Dictionary = {"gold": GOLD_HI, "ember": Color("#ffb38a"), "mystic": Color("#c0adff")}
+	var node: Button = button(parent, rect, copy, action, fills[tone], lines[tone], 2)
+	node.add_theme_font_override("font", serif_font(800))
+	node.add_theme_font_size_override("font_size", pixels)
+	var ink: Color = Color("#231704") if tone == "gold" else Color("#fff6e6")
+	for state: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		node.add_theme_color_override(state, ink)
+	for state: String in ["normal", "hover", "pressed"]:
+		var box: OrnateBox = node.get_theme_stylebox(state) as OrnateBox
+		box.gloss = 1.5
+		box.base.shadow_color = Color(0, 0, 0, 0.5)
+		box.base.shadow_size = 6
+		box.base.shadow_offset = Vector2(0, 3)
 	return node
 
 

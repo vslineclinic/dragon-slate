@@ -14,6 +14,7 @@ const DexOverlay = preload("res://godot/ui/dex_overlay.gd")
 const ResultOverlay = preload("res://godot/ui/result_overlay.gd")
 const Tutorial = preload("res://godot/ui/tutorial.gd")
 const Marks = preload("res://godot/ui/marks.gd")
+const Icons = preload("res://godot/ui/icons.gd")
 const Music = preload("res://godot/ui/music.gd")
 const REJECT_KO: Dictionary = {
 	"wrongPhase": "지금은 할 수 없어요",
@@ -114,9 +115,9 @@ func _build_panels() -> void:
 	_battle.reinforced.connect(_on_reinforced)
 	var field: Rect2 = _areas["field"]
 	var center_x: float = field.position.x + (field.size.x - 800.0) / 2.0
-	_banner = _notice(self, Rect2(center_x, 108, 800, 124), "", 40, Color("#fff3bf"), Color("#5f3dc4"), 8, 60)
+	_banner = _notice(self, Rect2(center_x, 108, 800, 124), "", 40, GameTheme.GOLD_HI, Color("#1a1206"), 8, 60)
 	_banner.modulate.a = 0.0
-	_toast = _notice(self, Rect2(center_x, 210, 800, 80), "", 22, Color("#ffd8a8"), Color("#000000aa"), 7, 50)
+	_toast = _notice(self, Rect2(center_x, 210, 800, 80), "", 21, Color("#ffe9c4"), Color("#000000aa"), 6, 50)
 	_toast.modulate.a = 0.0
 
 
@@ -313,52 +314,35 @@ func _return_to_title() -> void:
 
 ## 승리 보상 3개 중 하나를 고른다.
 func _show_reward_choices(state: Dictionary) -> void:
-	var field: Rect2 = _areas["field"]
-	_reward_overlay = Control.new()
-	_reward_overlay.z_index = 70
-	GameTheme.place(self, _reward_overlay, field)
-	var dim: ColorRect = ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.55)
-	GameTheme.place(_reward_overlay, dim, Rect2(Vector2.ZERO, field.size))
-	var title: Label = _notice(_reward_overlay, Rect2(0, 120, field.size.x, 50), "승리 보상을 하나 고르세요", 32, Color("#fff3bf"), Color("#5f3dc4"), 8, 0)
-	title.pivot_offset = Vector2.ZERO
+	var field: Rect2 = _open_choice("승리 보상을 하나 고르세요", "", GameTheme.GOLD_HI)
 	var choices: Array = state["rewardChoices"]
 	var odds: Dictionary = _reward_odds(Waves.is_boss(controller.data["waves"], int(state["wave"]) - 1))
-	var card_w: float = 230.0
-	var gap: float = 20.0
-	var total: float = choices.size() * card_w + (choices.size() - 1) * gap
+	var tints: Dictionary = {"mana": Color("#b197fc"), "egg": GameTheme.GOLD, "t2egg": Color("#ffe27a"), "trait": Color("#f06595"), "nudge": Color("#74c0fc"), "freeSpin": Color("#8ce99a"), "life": Color("#ff8787")}
 	for i: int in range(choices.size()):
 		var choice: Dictionary = choices[i]
 		var reward: Dictionary = choice["reward"]
-		var rect: Rect2 = Rect2((field.size.x - total) / 2.0 + i * (card_w + gap), 200, card_w, 250)
-		var card: Button = GameTheme.button(_reward_overlay, rect, "", controller.dispatch.bind({"type": "chooseReward", "index": i}), Color("#2b3045"), GameTheme.RECOMMEND, 2)
+		var is_egg: bool = choice["detail"] != null and reward["kind"] in ["egg", "t2egg"]
+		var tint: Color = tints.get(reward["kind"], GameTheme.GOLD)
+		if is_egg:
+			tint = GameTheme.COLOR.get(controller.data["dragons"][choice["detail"]]["elements"][0], tint)
+		var card: Button = _choice_card(i, choices.size(), field, {"type": "chooseReward", "index": i}, tint, reward["nameKo"], _reward_preview(reward, choice["detail"]), 280.0)
+		var card_w: float = card.size.x
 		var art: TextureRect = null
-		if choice["detail"] != null and reward["kind"] in ["egg", "t2egg"]:
-			art = GameTheme.dragon(card, Rect2((card_w - 110) / 2.0, 14, 110, 110), choice["detail"])
+		if is_egg:
+			art = GameTheme.dragon(card, Rect2((card_w - 116) / 2.0, 18, 116, 116), choice["detail"])
 		if art == null:
-			GameTheme.place(card, Marks.new("gold" if reward["kind"] == "mana" else "wild", true), Rect2((card_w - 90) / 2.0, 24, 90, 90))
-		GameTheme.label(card, Rect2(8, 134, card_w - 16, 28), reward["nameKo"], 20, Color("#fff3bf"), HORIZONTAL_ALIGNMENT_CENTER)
-		var detail: Label = GameTheme.label(card, Rect2(12, 166, card_w - 24, 46), _reward_preview(reward, choice["detail"]), 14, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-		detail.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-		GameTheme.wrap(detail)
+			GameTheme.place(card, Icons.new(reward["kind"], tint), Rect2((card_w - 104) / 2.0, 24, 104, 104))
 		var chance: String = "이 보상이 나올 확률 %d%%" % roundi(odds.get(reward["id"], 0.0) * 100.0)
 		var chance_color: Color = GameTheme.DIM
-		if choice["detail"] != null and reward["kind"] in ["egg", "t2egg"]:
+		if is_egg:
 			var share: float = _species_share(choice["detail"])
 			chance += "\n그중 이 용일 확률 %.1f%%" % (share * 100.0)
 			chance_color = GameTheme.rarity(Slot.species_weight(controller.data, choice["detail"]))[1] if reward["kind"] == "egg" else GameTheme.DIM
 			if not store.discovered().has(choice["detail"]):
-				GameTheme.new_badge(card, rect.size)
-		GameTheme.label(card, Rect2(8, 200, card_w - 16, 40), chance, 12, chance_color, HORIZONTAL_ALIGNMENT_CENTER)
-		card.pivot_offset = rect.size / 2.0
-		card.scale = Vector2(0.8, 0.8)
-		card.modulate.a = 0.0
-		var pop: Tween = card.create_tween().set_parallel()
-		pop.tween_property(card, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(i * 0.08)
-		pop.tween_property(card, "modulate:a", 1.0, 0.2).set_delay(i * 0.08)
+				GameTheme.new_badge(card, card.size)
+		GameTheme.label(card, Rect2(8, 232, card_w - 16, 40), chance, 12, chance_color, HORIZONTAL_ALIGNMENT_CENTER)
 
 
-## 보상 종류마다, 세 장 가운데 한 장으로 나올 확률(0~1). 겹치지 않게 세 번 뽑는 경우를 모두 센다.
 func _reward_odds(boss: bool) -> Dictionary:
 	var key: String = "bossWeight" if boss else "weight"
 	var pool: Array = controller.data["rewards"].filter(func(reward: Dictionary) -> bool: return int(reward[key]) > 0)
@@ -393,75 +377,82 @@ func _species_share(id: String) -> float:
 
 ## 보스를 이기면 유물 3개 중 하나를 고른다. 유물은 판이 끝날 때까지 남는다.
 func _show_relic_choices(state: Dictionary) -> void:
-	var field: Rect2 = _areas["field"]
-	_reward_overlay = Control.new()
-	_reward_overlay.z_index = 70
-	GameTheme.place(self, _reward_overlay, field)
-	var dim: ColorRect = ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.6)
-	GameTheme.place(_reward_overlay, dim, Rect2(Vector2.ZERO, field.size))
-	var title: Label = _notice(_reward_overlay, Rect2(0, 110, field.size.x, 50), "보스 유물을 하나 고르세요", 32, Color("#ffe066"), Color("#7a5c00"), 8, 0)
-	title.pivot_offset = Vector2.ZERO
-	GameTheme.label(_reward_overlay, Rect2(0, 162, field.size.x, 24), "유물은 이번 판이 끝날 때까지 계속 적용돼요.", 15, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	var field: Rect2 = _open_choice("보스 유물을 하나 고르세요", "유물은 이번 판이 끝날 때까지 계속 적용돼요.", GameTheme.GOLD_HI)
 	var choices: Array = state["relicChoices"]
-	var card_w: float = 230.0
-	var gap: float = 20.0
-	var total: float = choices.size() * card_w + (choices.size() - 1) * gap
 	for i: int in range(choices.size()):
 		var relic: Dictionary = {}
 		for candidate: Dictionary in controller.data["relics"]:
 			if candidate["id"] == choices[i]:
 				relic = candidate
-		var rect: Rect2 = Rect2((field.size.x - total) / 2.0 + i * (card_w + gap), 210, card_w, 220)
-		var card: Button = GameTheme.button(_reward_overlay, rect, "", controller.dispatch.bind({"type": "chooseRelic", "index": i}), Color("#2e2710"), Color("#d4af37"), 2)
-		GameTheme.place(card, Marks.new("gold", true), Rect2((card_w - 80) / 2.0, 18, 80, 80))
-		GameTheme.label(card, Rect2(8, 108, card_w - 16, 28), relic.get("nameKo", ""), 20, Color("#ffe066"), HORIZONTAL_ALIGNMENT_CENTER)
-		var detail: Label = GameTheme.label(card, Rect2(14, 142, card_w - 28, 66), relic.get("descKo", ""), 15, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-		detail.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-		GameTheme.wrap(detail)
-		card.pivot_offset = rect.size / 2.0
-		card.scale = Vector2(0.8, 0.8)
-		card.modulate.a = 0.0
-		var pop: Tween = card.create_tween().set_parallel()
-		pop.tween_property(card, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(i * 0.08)
-		pop.tween_property(card, "modulate:a", 1.0, 0.2).set_delay(i * 0.08)
+		var card: Button = _choice_card(i, choices.size(), field, {"type": "chooseRelic", "index": i}, GameTheme.GOLD, relic.get("nameKo", ""), relic.get("descKo", ""), 250.0)
+		GameTheme.place(card, Icons.new(str(relic.get("id", "")), GameTheme.GOLD), Rect2((card.size.x - 108) / 2.0, 22, 108, 108))
 
 
 ## 갈림길: 세 길 가운데 하나를 고른다.
 func _show_fork_choices(state: Dictionary) -> void:
-	var field: Rect2 = _areas["field"]
 	var fork: Dictionary = controller.data["waves"].get("fork", {})
 	var cost: int = int(fork.get("merchantCost", 0))
 	var cards: Dictionary = {
-		"elite": ["정예 사냥", "다음 웨이브의 적이 %d%% 강해져요. 이기면 보상을 한 번 더 골라요." % int(fork.get("elitePowerPct", 0)), Color("#c92a2a"), "fire"],
-		"rest": ["쉼터", "생명 +%d(가득 차 있으면 그대로), 모든 드래곤 경험치 +%d." % [int(fork.get("restLives", 0)), int(fork.get("restXp", 0))], Color("#2f9e44"), "poison"],
-		"merchant": ["떠돌이 상인", "마력 %d을 내고 유물 3개 가운데 하나를 골라요." % cost, Color("#d4af37"), "gold"],
+		"elite": ["정예 사냥", "다음 웨이브의 적이 %d%% 강해져요. 이기면 보상을 한 번 더 골라요." % int(fork.get("elitePowerPct", 0)), Color("#e8573a")],
+		"rest": ["쉼터", "생명 +%d(가득 차 있으면 그대로), 모든 드래곤 경험치 +%d." % [int(fork.get("restLives", 0)), int(fork.get("restXp", 0))], Color("#6fcf7a")],
+		"merchant": ["떠돌이 상인", "마력 %d을 내고 유물 3개 가운데 하나를 골라요." % cost, GameTheme.GOLD],
 	}
+	var field: Rect2 = _open_choice("갈림길이에요. 어느 길로 갈까요?", "", GameTheme.GOLD_HI)
+	var choices: Array = state["forkChoices"]
+	for i: int in range(choices.size()):
+		var option: String = choices[i]
+		var info: Array = cards[option]
+		var card: Button = _choice_card(i, choices.size(), field, {"type": "chooseFork", "option": option}, info[2], info[0], info[1], 262.0)
+		GameTheme.place(card, Icons.new(option, info[2]), Rect2((card.size.x - 108) / 2.0, 22, 108, 108))
+		if option == "merchant" and int(state["mana"]) < cost:
+			card.disabled = true
+			GameTheme.label(card, Rect2(8, 236, card.size.x - 16, 20), "마력이 모자라요 (지금 %d)" % int(state["mana"]), 13, Color("#ff8787"), HORIZONTAL_ALIGNMENT_CENTER)
+
+
+## 보상 · 유물 · 갈림길이 함께 쓰는 선택 화면 바탕과 제목.
+func _open_choice(heading: String, note: String, tint: Color) -> Rect2:
+	var field: Rect2 = _areas["field"]
 	_reward_overlay = Control.new()
 	_reward_overlay.z_index = 70
 	GameTheme.place(self, _reward_overlay, field)
 	var dim: ColorRect = ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.6)
+	dim.color = Color(0.02, 0.02, 0.04, 0.72)
 	GameTheme.place(_reward_overlay, dim, Rect2(Vector2.ZERO, field.size))
-	var title: Label = _notice(_reward_overlay, Rect2(0, 110, field.size.x, 50), "갈림길이에요. 어느 길로 갈까요?", 32, Color("#fff3bf"), Color("#5f3dc4"), 8, 0)
-	title.pivot_offset = Vector2.ZERO
-	var choices: Array = state["forkChoices"]
-	var card_w: float = 230.0
-	var gap: float = 20.0
-	var total: float = choices.size() * card_w + (choices.size() - 1) * gap
-	for i: int in range(choices.size()):
-		var option: String = choices[i]
-		var info: Array = cards[option]
-		var rect: Rect2 = Rect2((field.size.x - total) / 2.0 + i * (card_w + gap), 200, card_w, 230)
-		var card: Button = GameTheme.button(_reward_overlay, rect, "", controller.dispatch.bind({"type": "chooseFork", "option": option}), Color("#2b3045"), info[2], 2)
-		GameTheme.place(card, Marks.new(info[3], true), Rect2((card_w - 80) / 2.0, 18, 80, 80))
-		GameTheme.label(card, Rect2(8, 108, card_w - 16, 28), info[0], 20, Color("#fff3bf"), HORIZONTAL_ALIGNMENT_CENTER)
-		var detail: Label = GameTheme.label(card, Rect2(14, 142, card_w - 28, 60), info[1], 14, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-		detail.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-		GameTheme.wrap(detail)
-		if option == "merchant" and int(state["mana"]) < cost:
-			card.disabled = true
-			GameTheme.label(card, Rect2(8, 202, card_w - 16, 20), "마력이 모자라요 (지금 %d)" % int(state["mana"]), 13, Color("#ff8787"), HORIZONTAL_ALIGNMENT_CENTER)
+	GameTheme.glow(_reward_overlay, Vector2(field.size.x / 2.0, 150), 360.0, Color(tint, 0.2))
+	GameTheme.heading(_reward_overlay, Rect2(0, 96, field.size.x, 50), heading, 34, tint, HORIZONTAL_ALIGNMENT_CENTER, 800)
+	GameTheme.divider(_reward_overlay, Rect2(field.size.x / 2.0 - 220, 148, 440, 8), tint)
+	if not note.is_empty():
+		GameTheme.label(_reward_overlay, Rect2(0, 160, field.size.x, 24), note, 15, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	return field
+
+
+## 선택 카드 한 장: 위에 그림 자리, 가운데 이름, 아래 설명. 돌려주는 값은 카드(그림은 호출한 쪽이 얹는다).
+func _choice_card(index: int, count: int, field: Rect2, command: Dictionary, tint: Color, title: String, body: String, height: float = 262.0) -> Button:
+	var card_w: float = 232.0
+	var gap: float = 22.0
+	var total: float = count * card_w + (count - 1) * gap
+	var rect: Rect2 = Rect2((field.size.x - total) / 2.0 + index * (card_w + gap), 198, card_w, height)
+	var card: Button = GameTheme.button(_reward_overlay, rect, "", controller.dispatch.bind(command), Color("#1a1822"), tint, 2)
+	for state: String in ["normal", "hover", "pressed"]:
+		var box: StyleBox = card.get_theme_stylebox(state)
+		box.set("kind", "frame")
+		box.get("base").set("shadow_color", Color(0, 0, 0, 0.6))
+		box.get("base").set("shadow_size", 14)
+		box.get("base").set("shadow_offset", Vector2(0, 6))
+		box.get("base").set_corner_radius_all(12)
+	GameTheme.glow(card, Vector2(card_w / 2.0, 78), 92.0, Color(tint, 0.28))
+	GameTheme.heading(card, Rect2(8, 140, card_w - 16, 30), title, 21, GameTheme.GOLD_HI, HORIZONTAL_ALIGNMENT_CENTER)
+	GameTheme.divider(card, Rect2(40, 172, card_w - 80, 8), Color(tint, 0.8))
+	var detail: Label = GameTheme.label(card, Rect2(16, 184, card_w - 32, 48), body, 14, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	detail.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	GameTheme.wrap(detail)
+	card.pivot_offset = rect.size / 2.0
+	card.scale = Vector2(0.8, 0.8)
+	card.modulate.a = 0.0
+	var pop: Tween = card.create_tween().set_parallel()
+	pop.tween_property(card, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(index * 0.08)
+	pop.tween_property(card, "modulate:a", 1.0, 0.2).set_delay(index * 0.08)
+	return card
 
 
 func _reward_preview(reward: Dictionary, detail: Variant) -> String:
@@ -511,6 +502,24 @@ func _dragon_name(id: String) -> String:
 
 func _notice(parent: Control, rect: Rect2, message: String, pixels: int, tint: Color, outline: Color, width: int, depth: int) -> Label:
 	var label: Label = GameTheme.label(parent, rect, message, pixels, tint, HORIZONTAL_ALIGNMENT_CENTER)
+	if pixels >= 30:
+		label.add_theme_font_override("font", GameTheme.serif_font(800))
+	## 글 뒤에 양옆이 흐려지는 어두운 띠를 깔아 배경 위에서도 읽히게 한다.
+	var fade: Gradient = Gradient.new()
+	fade.offsets = PackedFloat32Array([0.0, 0.25, 0.75, 1.0])
+	fade.colors = PackedColorArray([Color(0, 0, 0, 0), Color(0.02, 0.02, 0.04, 0.78), Color(0.02, 0.02, 0.04, 0.78), Color(0, 0, 0, 0)])
+	var strip: GradientTexture2D = GradientTexture2D.new()
+	strip.gradient = fade
+	strip.width = 256
+	strip.height = 4
+	var ribbon: TextureRect = TextureRect.new()
+	ribbon.texture = strip
+	ribbon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ribbon.stretch_mode = TextureRect.STRETCH_SCALE
+	ribbon.show_behind_parent = true
+	ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var band: float = minf(rect.size.y, pixels * 2.9)
+	GameTheme.place(label, ribbon, Rect2(0, (rect.size.y - band) / 2.0, rect.size.x, band))
 	label.add_theme_constant_override("outline_size", width)
 	label.add_theme_color_override("font_outline_color", outline)
 	label.pivot_offset = rect.size / 2.0
