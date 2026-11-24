@@ -138,6 +138,9 @@ func _continue() -> void:
 	_game.store = _store
 	_game.calamity = int(_saved["state"]["calamity"])
 	_game.run_length = length
+	## "이 지역 다시"를 누를 때도 데려온 용이 함께 오게.
+	if length.begins_with("stage:"):
+		_game.controller.carry = _store.carry_for(int(length.substr(6)))
 	_game.resume = true
 	_game.title_requested.connect(_return_to_title)
 	_menu.hide()

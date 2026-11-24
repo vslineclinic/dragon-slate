@@ -149,3 +149,27 @@ func test_pact_makes_every_later_enemy_stronger_and_offers_a_relic() -> void:
 	for enemy: Dictionary in plain["enemies"]:
 		plain_hp += int(enemy["hp"])
 	assert_true(cursed_hp > plain_hp, "저주를 받으면 적이 더 세다: %d > %d" % [cursed_hp, plain_hp])
+
+
+func test_lives_lost_never_counts_more_than_the_lives_that_were_left() -> void:
+	var state: Dictionary = _manage(3, 9, "fire_drake")
+	state["lives"] = 1
+	var result: Dictionary = RunRules.apply_command(_data, state, {"type": "startBattle"})
+	assert_eq(int(result["state"]["lives"]), 0)
+	assert_eq(int(result["state"]["livesLost"]), 1)
+	assert_eq(result["state"]["phase"], "gameOver")
+
+
+func test_manual_command_ignores_garbage_in_the_ultimate_record() -> void:
+	var state: Dictionary = _manage(12, 6, "fire_god", 400)
+	var clean: Dictionary = RunRules.apply_command(_data, state, {"type": "startBattle", "manual": true, "ults": {}})
+	var junk: Dictionary = RunRules.apply_command(_data, state, {"type": "startBattle", "manual": true, "ults": {"abc": [0], "40": ["bogus", null], "x": 3}})
+	assert_eq(RunRules.state_hash(junk["state"]), RunRules.state_hash(clean["state"]))
+
+
+func test_plain_weight_zero_means_only_special_minions() -> void:
+	var cfg: Dictionary = _data["waves"].duplicate(true)
+	cfg["squad"]["plainWeight"] = 0
+	var kinds: Array = Waves.minion_types(cfg, 5, 12, 60)
+	assert_true(not kinds.has(""), "보통 졸병이 섞이지 않는다")
+	assert_eq(Waves.minion_types(cfg, 5, 1, 6), ["", "", "", "", "", ""], "쓸 수 있는 종류가 없는 웨이브는 모두 보통 졸병")

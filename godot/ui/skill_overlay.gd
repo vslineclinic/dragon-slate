@@ -135,7 +135,13 @@ func _draw_map() -> void:
 	var need: int = FusionRules.xp_needed(_ctl.data, level)
 	var growth: String = "최고 레벨" if need == 0 else "경험치 %d / %d" % [int(inst.get("xp", 0)), need]
 	GameTheme.heading(_body, Rect2(112, 8, 520, 34), "%s  Lv.%d" % [spec["nameKo"], level], 26)
-	var unit: Dictionary = Battle.to_unit(_ctl.data, inst)
+	## 전투와 같은 값을 보여 준다: 유물은 늘, 시너지는 둥지에 놓인 용일 때.
+	var bonus: Dictionary = RunRules.relic_bonus(_ctl.data, _ctl.state).duplicate()
+	if _ref["zone"] == "nest":
+		var synergy: Dictionary = Battle.team_bonus(_ctl.data, Battle.fielded(_ctl.state["nest"], _ctl.state["nestOpen"]))
+		for kind: String in synergy:
+			bonus[kind] = int(bonus.get(kind, 0)) + int(synergy[kind])
+	var unit: Dictionary = Battle.to_unit(_ctl.data, inst, bonus)
 	var escorts: int = Battle.escort_count(_ctl.data["battle"], unit)
 	var role: String = spec.get("role", "")
 	var stats_line: Label = GameTheme.label(_body, Rect2(112, 42, 380, 22), "%s · 체력 %d · 공격력 %d · 호위 %d마리" % [GameTheme.ROLE_KO.get(role, ""), unit["hp"], unit["atk"], escorts], 15, GameTheme.TEXT)

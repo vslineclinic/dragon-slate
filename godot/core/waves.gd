@@ -119,14 +119,19 @@ static func lane_sequence(plan: Dictionary, count: int) -> Array:
 ## squad.minionTypes: [{"id", "fromWave", "weight", "hpPct", "atkPct", "speedPct", "reach"?}], squad.plainWeight = 보통 졸병의 비중.
 static func minion_types(cfg: Dictionary, run_seed: int, wave: int, count: int) -> Array:
 	var squad: Dictionary = cfg["squad"]
-	var pool: Array = [""]
-	var weights: Array = [maxi(1, int(squad.get("plainWeight", 1)))]
+	var pool: Array = []
+	var weights: Array = []
 	for row: Dictionary in squad.get("minionTypes", []):
 		if wave >= int(row.get("fromWave", 1)) and int(row.get("weight", 0)) > 0:
 			pool.append(row["id"])
 			weights.append(int(row["weight"]))
+	## 보통 졸병의 비중이 0이면 종류가 있는 졸병만 나온다. 쓸 수 있는 종류가 없으면 모두 보통 졸병.
+	var plain: int = maxi(0, int(squad.get("plainWeight", 1)))
+	if plain > 0 or pool.is_empty():
+		pool.push_front("")
+		weights.push_front(maxi(1, plain))
 	var out: Array = []
-	if pool.size() == 1:
+	if pool.size() == 1 and pool[0] == "":
 		out.resize(count)
 		out.fill("")
 		return out

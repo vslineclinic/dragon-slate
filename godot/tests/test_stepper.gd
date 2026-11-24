@@ -138,3 +138,24 @@ func test_enemy_leaders_use_ultimates_only_under_the_region_rule() -> void:
 	var wild: Dictionary = Battle.simulate_battle(cfg, allies, [leader], {"enemyUlt": true})
 	var hits: Array = _hits(wild["events"], 1)
 	assert_eq([hits[1].get("ult", false), int(hits[1]["dmg"])], [true, 300])
+
+
+func test_a_ranged_minion_walks_into_lane_change_range_for_a_target_in_another_lane() -> void:
+	## 궁병의 유일한 표적이 옆줄, 가로 거리 200(사거리 220 안): 멈춰 서지 않고 다가가 줄을 바꿔 친다.
+	var cfg: Dictionary = _cfg()
+	var archer: Dictionary = B._enemy("minion", "fire", 100000, 7, 10, 1, 450, 5)
+	archer["reach"] = 220
+	var result: Dictionary = Battle.simulate_battle(cfg, B._slots([B._solo("fire", 100000, 1, 100000)]), [archer])
+	assert_true(not _hits(result["events"], 1).is_empty(), "다른 줄의 표적도 결국 친다")
+
+
+func test_recorded_ultimates_work_with_text_keys_and_ignore_garbage() -> void:
+	var cfg: Dictionary = _cfg()
+	var allies: Array = B._slots([B._solo("fire", 100000, 100)])
+	var enemies: Array = [B._enemy("minion", "fire", 100000, 1, 1000, 0, 400)]
+	var by_int: Dictionary = Battle.simulate_battle(cfg, allies, enemies, {"manualUlt": true, "ultAt": {66: [0]}})
+	var by_text: Dictionary = Battle.simulate_battle(cfg, allies, enemies, {"manualUlt": true, "ultAt": {"66": [0.0]}})
+	assert_true(_hits(by_int["events"], 0).any(func(e: Dictionary) -> bool: return e.get("ult", false)))
+	assert_eq(by_text["events"], by_int["events"])
+	var junk: Dictionary = Battle.simulate_battle(cfg, allies, enemies, {"manualUlt": true, "ultAt": {66: ["bogus", -3, 99, 0.5]}})
+	assert_true(_hits(junk["events"], 0).all(func(e: Dictionary) -> bool: return not e.get("ult", false)), "잘못된 id는 아무도 장전하지 않는다")

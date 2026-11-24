@@ -860,11 +860,15 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 		var given: Variant = cmd.get("ults", {})
 		if given is Dictionary:
 			for key: Variant in given:
-				if given[key] is Array:
-					var ids: Array = []
-					for id: Variant in given[key]:
+				## 틱은 정수(또는 정수를 적은 글자), id는 정수만 받는다. 그 밖의 값은 버린다.
+				var tick_ok: bool = key is int or (key is float and floorf(key) == key) or (key is String and key.is_valid_int())
+				if not tick_ok or not given[key] is Array:
+					continue
+				var ids: Array = []
+				for id: Variant in given[key]:
+					if id is int or (id is float and floorf(id) == id):
 						ids.append(int(id))
-					ult_at[int(key)] = ids
+				ult_at[int(key)] = ids
 		rules["ultAt"] = ult_at
 	var result: Dictionary = Battle.simulate_battle(data["battle"], allies, enemies, rules)
 	events.append({"t": "battle", "result": result})
@@ -880,7 +884,8 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 		if wave in waves.get("transmute", {}).get("grantAfterWaves", []):
 			_add_item(state, "transmute", 1, events)
 	else:
-		var loss: int = leak_lives(waves, result.get("left", {}), is_boss)
+		## 남은 생명보다 더 잃을 수는 없다.
+		var loss: int = mini(leak_lives(waves, result.get("left", {}), is_boss), int(state["lives"]))
 		state["lives"] = maxi(0, int(state["lives"]) - loss)
 		state["livesLost"] = int(state.get("livesLost", 0)) + loss
 		events.append({"t": "lives", "lives": state["lives"], "lost": loss, "left": result.get("left", {})})

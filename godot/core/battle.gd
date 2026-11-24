@@ -188,7 +188,10 @@ static func simulate_battle(
 	var sim: Dictionary = begin_battle(cfg, allies, enemies, rules)
 	var ult_at: Dictionary = rules.get("ultAt", {})
 	while not battle_over(sim):
-		step_battle(sim, ult_at.get(int(sim["tick"]) + 1, []) if not ult_at.is_empty() else [])
+		var next_tick: int = int(sim["tick"]) + 1
+		## 저장 글(JSON)을 거친 기록은 틱이 글자 열쇠다: 둘 다 찾아본다.
+		var arm: Variant = [] if ult_at.is_empty() else ult_at.get(next_tick, ult_at.get(str(next_tick), []))
+		step_battle(sim, arm if arm is Array else [])
 	return battle_result(sim)
 
 
@@ -278,7 +281,8 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 	## 수동 궁극기: 게이지가 가득 찬 우리 용을 장전한다. 바로 다음 공격이 궁극기가 되고, 기다리지 않게 공격 차례를 당긴다.
 	if manual:
 		for id: Variant in arm:
-			if int(id) < 0 or int(id) >= units.size():
+			## 숫자가 아닌 값이나 범위를 벗어난 id는 무시한다.
+			if not (id is int or (id is float and floorf(id) == id)) or int(id) < 0 or int(id) >= units.size():
 				continue
 			var shooter: Dictionary = units[int(id)]
 			if shooter["side"] == "ally" and shooter["kind"] == "dragon" and shooter["hp"] > 0 \
@@ -722,7 +726,10 @@ static func _step(field: Dictionary, units: Array, unit: Dictionary) -> bool:
 		return true
 	var moved: bool = false
 	var dx: int = int(target["x"]) - int(unit["x"])
+	## 다른 줄의 표적에게는 줄을 바꿀 수 있는 거리까지 다가간다. 멀리서 치는 졸병이 사거리 안이라고 멈추면 영영 못 친다.
 	var melee: int = _reach(field, unit)
+	if target["lane"] != unit["lane"]:
+		melee = mini(melee, int(field["laneChangeRange"]))
 	if target["lane"] != unit["lane"] and absi(dx) <= int(field["laneChangeRange"]):
 		unit["laneTimer"] += 1
 		if unit["laneTimer"] >= int(field["laneChangeTicks"]):

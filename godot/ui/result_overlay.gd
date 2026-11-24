@@ -101,8 +101,8 @@ func _carry_picker(panel: Panel, data: Dictionary, state: Dictionary, next_name:
 			if dragon != null:
 				roster.append({"inst": dragon, "power": Waves.unit_power(Battle.to_unit(data, dragon))})
 	roster.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["power"] > b["power"])
-	roster = roster.slice(0, 9)
-	var step: float = 70.0
+	## 둥지 6 + 대기칸 4 = 많아야 열 마리. 많으면 간격을 줄인다.
+	var step: float = minf(70.0, 652.0 / maxf(1.0, roster.size()))
 	var left: float = (700.0 - (roster.size() * step - 6.0)) / 2.0
 	_picked = GameTheme.heading(panel, Rect2(24, 318, 652, 28), "", 18, GameTheme.GOLD_HI, HORIZONTAL_ALIGNMENT_CENTER, 600)
 	for i: int in range(roster.size()):
