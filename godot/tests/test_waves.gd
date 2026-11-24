@@ -144,3 +144,86 @@ func test_elite_wave_has_one_strong_leader() -> void:
 	var leaders: Array = enemies.filter(func(unit: Dictionary) -> bool: return unit["kind"] == "dragon")
 	assert_eq(leaders.size(), 1)
 	assert_eq(leaders[0].get("elite", false), true)
+
+
+## 줄 편성을 켠 자료: 졸병이 줄마다 3:2:1로 몰린다.
+static func _lane_data() -> Dictionary:
+	var data: Dictionary = _data()
+	data["waves"]["squad"]["lanePatterns"] = [{"from": 1, "weights": [3, 2, 1]}]
+	return data
+
+
+static func _lane_counts(enemies: Array, kind: String) -> Array:
+	var counts: Array = [0, 0, 0]
+	for enemy: Dictionary in enemies:
+		if (enemy["kind"] == "minion") == (kind == "minion"):
+			counts[int(enemy["lane"])] += 1
+	return counts
+
+
+func test_lane_plan_is_a_stable_permutation_of_the_three_lanes() -> void:
+	var cfg: Dictionary = _lane_data()["waves"]
+	var seen: Dictionary = {}
+	for wave: int in range(1, 31):
+		var plan: Dictionary = Waves.lane_plan(cfg, 77, wave)
+		var order: Array = plan["order"].duplicate()
+		assert_eq(plan, Waves.lane_plan(cfg, 77, wave))
+		seen[str(order)] = true
+		order.sort()
+		assert_eq(order, [0, 1, 2])
+		for i: int in range(3):
+			assert_eq(int(plan["weights"][int(plan["order"][i])]), [3, 2, 1][i])
+	assert_true(seen.size() >= 4, "웨이브마다 몰리는 줄이 달라진다")
+
+
+func test_lane_plan_is_even_without_patterns() -> void:
+	var plan: Dictionary = Waves.lane_plan(_data()["waves"], 77, 3)
+	assert_eq(plan["weights"], [1, 1, 1])
+	assert_eq(plan["order"], [1, 0, 2])
+
+
+func test_minions_crowd_the_heavy_lane_and_leaders_follow_the_plan() -> void:
+	var data: Dictionary = _lane_data()
+	for wave: int in [2, 9, 14, 26]:
+		var plan: Dictionary = Waves.lane_plan(data["waves"], 5, wave)
+		var enemies: Array = Waves.generate_enemies(data, wave, Rng.new(wave), 5)
+		var minions: Array = _lane_counts(enemies, "minion")
+		var heavy: int = int(plan["order"][0])
+		var light: int = int(plan["order"][2])
+		assert_true(int(minions[heavy]) > int(minions[light]), "웨이브 %d: %s" % [wave, str(minions)])
+		var leaders: Array = enemies.filter(func(e: Dictionary) -> bool: return e["kind"] == "dragon")
+		for i: int in range(leaders.size()):
+			assert_eq(int(leaders[i]["lane"]), int(plan["order"][i]), "우두머리 %d" % i)
+
+
+func test_lane_preview_matches_the_generated_squad() -> void:
+	var data: Dictionary = _lane_data()
+	for seed: int in [1, 5, 9]:
+		for wave: int in range(1, 31):
+			var enemies: Array = Waves.generate_enemies(data, wave, Rng.new(seed * 100 + wave), seed)
+			var preview: Array = Waves.lane_preview(data, seed, wave)
+			var minions: Array = _lane_counts(enemies, "minion")
+			var leaders: Array = _lane_counts(enemies, "dragon")
+			for lane: int in range(3):
+				assert_eq(int(preview[lane]["minions"]), int(minions[lane]), "씨앗 %d 웨이브 %d 줄 %d 졸병" % [seed, wave, lane])
+				assert_eq(int(preview[lane]["leaders"]), int(leaders[lane]), "씨앗 %d 웨이브 %d 줄 %d 우두머리" % [seed, wave, lane])
+
+
+func test_minions_in_one_lane_do_not_stand_on_the_same_spot() -> void:
+	var data: Dictionary = _lane_data()
+	var enemies: Array = Waves.generate_enemies(data, 20, Rng.new(3), 3)
+	var spots: Dictionary = {}
+	for enemy: Dictionary in enemies:
+		if enemy["kind"] != "minion":
+			continue
+		var key: String = "%d/%d/%d" % [enemy["stage"], enemy["lane"], enemy["x"]]
+		assert_true(not spots.has(key), key)
+		spots[key] = true
+
+
+func test_real_waves_use_lane_patterns() -> void:
+	var patterns: Array = TestCase.load_json("res://data/waves.json")["squad"]["lanePatterns"]
+	assert_true(patterns.size() >= 2)
+	for pattern: Dictionary in patterns:
+		assert_eq(pattern["weights"].size(), 3)
+		assert_true(int(pattern["weights"][0]) > int(pattern["weights"][2]))

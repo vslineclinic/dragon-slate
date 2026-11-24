@@ -42,6 +42,8 @@ static func create_run(data: Dictionary, seed: int, calamity: int = 0) -> Dictio
 		"extraRewards": 0,
 		"rewardBoss": false,
 		"discovered": [],
+		"items": {},
+		"transmuteFails": 0,
 		"log": [],
 	}
 	return {"state": state, "events": [_wave_start(data, state)]}
@@ -75,6 +77,8 @@ static func apply_command(data: Dictionary, state: Dictionary, cmd: Dictionary) 
 			reason = _do_choose_relic(data, next, cmd["index"], rng, events)
 		"chooseFork":
 			reason = _do_choose_fork(data, next, cmd["option"], rng, events)
+		"transmute":
+			reason = _do_transmute(data, next, cmd["at"], cmd["element"], rng, events)
 	if not reason.is_empty():
 		return {"state": state, "events": [{"t": "rejected", "reason": reason}]}
 	next["rngState"] = rng.state()
@@ -479,6 +483,72 @@ static func _do_choose_relic(data: Dictionary, state: Dictionary, index: Variant
 	return ""
 
 
+## 전환의 룬: 이 용이 그 원소로 바뀌면 어떤 종이 되는지. 같은 등급에서 자료 순서가 같은 종(역할·능력치가 같다).
+## 바꿀 수 없으면 "" (이중·비밀 원소, 같은 원소, 모르는 원소).
+static func transmute_target(data: Dictionary, species_id: String, element: String) -> String:
+	var spec: Variant = data["dragons"].get(species_id)
+	if spec == null or spec["tier"] in ["dual", "secret"] or spec["elements"].size() != 1 or spec["elements"][0] == element:
+		return ""
+	var mine: Array = []
+	var theirs: Array = []
+	for other: Dictionary in data["dragons"].values():
+		if other["tier"] != spec["tier"] or other["elements"].size() != 1:
+			continue
+		if other["elements"][0] == spec["elements"][0]:
+			mine.append(other["id"])
+		elif other["elements"][0] == element:
+			theirs.append(other["id"])
+	var at: int = mine.find(species_id)
+	return theirs[at] if at >= 0 and at < theirs.size() else ""
+
+
+## 지금 전환이 성공할 확률(%). 직전에 실패했으면 afterFailPct.
+static func transmute_chance(data: Dictionary, state: Dictionary) -> int:
+	var cfg: Dictionary = data["waves"].get("transmute", {})
+	return int(cfg.get("afterFailPct", 100)) if int(state.get("transmuteFails", 0)) > 0 else int(cfg.get("successPct", 100))
+
+
+static func _add_item(state: Dictionary, id: String, amount: int, events: Array) -> void:
+	if amount == 0:
+		return
+	if not state.has("items"):
+		state["items"] = {}
+	state["items"][id] = int(state["items"].get(id, 0)) + amount
+	events.append({"t": "item", "id": id, "delta": amount, "count": state["items"][id]})
+
+
+static func _do_transmute(data: Dictionary, state: Dictionary, at: Dictionary, element: Variant, rng: Rng, events: Array) -> String:
+	if state["phase"] not in ARRANGE_PHASES:
+		return "wrongPhase"
+	if int(state.get("items", {}).get("transmute", 0)) <= 0:
+		return "noItem"
+	var reason: String = _valid_ref(state, at)
+	if not reason.is_empty():
+		return reason
+	var inst: Variant = _zone_of(state, at)[int(at["index"])]
+	if inst == null:
+		return "emptySlot"
+	var spec: Dictionary = data["dragons"].get(inst["speciesId"], {})
+	if element is String and not spec.get("elements", []).is_empty() and spec["elements"][0] == element:
+		return "sameElement"
+	var target: String = transmute_target(data, inst["speciesId"], element) if element is String else ""
+	if target.is_empty():
+		return "cannotTransmute"
+	var chance: int = transmute_chance(data, state)
+	var ok: bool = rng.next_int(100) < chance
+	_add_item(state, "transmute", -1, events)
+	var from: String = inst["speciesId"]
+	if ok:
+		inst["speciesId"] = target
+		state["transmuteFails"] = 0
+		if target not in state["discovered"]:
+			state["discovered"].append(target)
+	else:
+		state["transmuteFails"] = int(state.get("transmuteFails", 0)) + 1
+	events.append({"t": "transmuted", "at": at.duplicate(true), "ok": ok, "from": from, "to": target, "chance": chance, "inst": inst})
+	return ""
+
+
 static func _do_skill(data: Dictionary, state: Dictionary, at: Dictionary, node: String, events: Array) -> String:
 	if state["phase"] not in ARRANGE_PHASES:
 		return "wrongPhase"
@@ -517,6 +587,8 @@ static func _apply_reward(data: Dictionary, state: Dictionary, rng: Rng, reward:
 			state["bonusNudges"] += reward["amount"]
 		"freeSpin":
 			state["freeSpins"] += reward["amount"]
+		"transmute":
+			_add_item(state, "transmute", int(reward["amount"]), events)
 		"life":
 			var max_lives: int = data["waves"]["startLives"]
 			if state["lives"] < max_lives:
@@ -582,6 +654,8 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 			events.append({"t": "leveled", "at": {"zone": "nest", "index": i}, "level": fighter["level"]})
 	if won:
 		_add_mana(state, Rng.fdiv(int(waves["winMana"]) * (100 + int(mods["winManaPct"])), 100) + int(relics.get("winMana", 0)), "win", events)
+		if wave in waves.get("transmute", {}).get("grantAfterWaves", []):
+			_add_item(state, "transmute", 1, events)
 	else:
 		var loss: int = waves["bossLossLife"] if is_boss else waves["lossLife"]
 		state["lives"] = maxi(0, int(state["lives"]) - loss)

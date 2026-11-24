@@ -5,5 +5,6 @@
   { "id": "trait", "nameKo": "혈통의 축복", "kind": "trait", "amount": 1, "weight": 14, "bossWeight": 20 },
   { "id": "nudge", "nameKo": "밀기 +1", "kind": "nudge", "amount": 1, "weight": 12, "bossWeight": 5 },
   { "id": "freeSpin", "nameKo": "무료 다시 돌리기", "kind": "freeSpin", "amount": 1, "weight": 10, "bossWeight": 5 },
-  { "id": "life", "nameKo": "생명의 비늘", "kind": "life", "amount": 1, "weight": 2, "bossWeight": 15 }
+  { "id": "life", "nameKo": "생명의 비늘", "kind": "life", "amount": 1, "weight": 2, "bossWeight": 15 },
+  { "id": "transmute", "nameKo": "전환의 룬", "kind": "transmute", "amount": 1, "weight": 4, "bossWeight": 12 }
 ]

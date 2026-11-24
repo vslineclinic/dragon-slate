@@ -4,6 +4,8 @@ extends Control
 const GameTheme = preload("res://godot/ui/theme.gd")
 const Store = preload("res://godot/ui/store.gd")
 const Ambience = preload("res://godot/ui/ambience.gd")
+const DragonSprite = preload("res://godot/ui/dragon_sprite.gd")
+const BreathFx = preload("res://godot/ui/breath_fx.gd")
 const HAZARD_KO: Dictionary = {
 	"burn": "화염 낙인! 가장 약한 드래곤이 타요",
 	"rowBlast": "용암탄! 한 줄 전체가 피해를 입어요",
@@ -16,6 +18,8 @@ const SIZE_BY_KIND: Dictionary = {"dragon": 112.0, "escort": 62.0, "minion": 64.
 const MAX_NUMBERS: int = 70
 ## 치명타 컷인이 끝난 뒤 다음 치명타 컷인까지 쉬는 시간.
 const CRIT_CUT_GAP_MS: int = 900
+## 다른 줄을 쳐서 약해진 공격의 숫자 색.
+const GLANCE: Color = Color("#a9b4c9")
 
 signal finished
 ## 전투 도중 적 무리가 더 나타났다(음악을 급박하게 바꿀 때 쓴다).
@@ -133,6 +137,39 @@ func show_idle(state: Dictionary) -> void:
 			if unit != null:
 				ours += Waves.unit_power(unit)
 		_say("다음 전투: 웨이브 %d%s\n적 전투력 %d · 우리 드래곤 %d" % [wave, kind, Waves.enemy_power(_data["waves"], wave, mods), ours])
+		_show_lane_preview(state)
+
+
+## 전투 전: 줄마다 적이 얼마나 오는지 오른쪽에 미리 보여 준다. 가장 많이 몰리는 줄은 금빛.
+func _show_lane_preview(state: Dictionary) -> void:
+	var preview: Array = Waves.lane_preview(_data, state["seed"], state["wave"])
+	var most: int = 0
+	for row: Dictionary in preview:
+		most = maxi(most, int(row["minions"]) + 3 * int(row["leaders"]))
+	for lane: int in range(3):
+		var row: Dictionary = preview[lane]
+		var threat: int = int(row["minions"]) + 3 * int(row["leaders"])
+		var heavy: bool = threat == most and threat > 0
+		var at: Vector2 = _point(880, lane)
+		var chip: Panel = GameTheme.panel(_units_layer, Rect2(at.x - 78, at.y - 34, 156, 68), Color("#0b0b10d9"),
+			Color(GameTheme.GOLD, 0.9) if heavy else Color(GameTheme.PANEL_LINE, 0.9), 2 if heavy else 1, 10, "flat")
+		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var title: String = "적이 몰려와요" if heavy else ("적이 적어요" if threat * 2 <= most else "적이 와요")
+		GameTheme.label(chip, Rect2(0, 5, 156, 18), title, 12, GameTheme.GOLD_HI if heavy else GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		var parts: PackedStringArray = PackedStringArray()
+		if int(row["leaders"]) > 0:
+			parts.append("우두머리 %d" % int(row["leaders"]))
+		if int(row["minions"]) > 0:
+			parts.append("졸병 %d" % int(row["minions"]))
+		GameTheme.heading(chip, Rect2(0, 24, 156, 36), " · ".join(parts) if not parts.is_empty() else "비어 있음", 17,
+			GameTheme.TEXT if threat > 0 else GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER, 600)
+	var table: Array = _data["battle"]["field"].get("crossLanePct", [])
+	if table.size() >= 3:
+		var rule: String = "용의 공격: 제 줄 %d%% · 옆줄 %d%% · 건너편 줄 %d%%" % [int(table[0]), int(table[1]), int(table[2])]
+		var wide: float = GameTheme.korean_font().get_string_size(rule, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x * 1.12 + 32.0
+		var note: Panel = GameTheme.panel(_units_layer, Rect2(size.x - wide - 12, size.y - 38, wide, 28), Color("#0b0b10c7"), Color(GameTheme.PANEL_LINE, 0.8), 1, 8, "flat")
+		note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		GameTheme.label(note, Rect2(0, 0, wide, 28), rule, 13, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func play(result: Dictionary, boss: bool, wave: int, elite: bool = false) -> void:
@@ -235,7 +272,9 @@ func _unit_view(unit: Dictionary) -> UnitView:
 		GameTheme.place(view.root, sprite, Rect2(Vector2.ZERO, view.root.size))
 		view.body = sprite
 	else:
-		var image: TextureRect = GameTheme.dragon(view.root, Rect2(Vector2.ZERO, view.root.size), unit["ref"], ally)
+		## 용은 움직이는 그림(숨 쉬고, 걷고, 머리를 내민다). 호위는 작은 그림 그대로.
+		var image: Control = DragonSprite.make(view.root, Rect2(Vector2.ZERO, view.root.size), unit["ref"], ally) if view.kind == "dragon" \
+			else GameTheme.dragon(view.root, Rect2(Vector2.ZERO, view.root.size), unit["ref"], ally)
 		view.body = image if image != null else GameTheme.panel(view.root, Rect2(Vector2.ZERO, view.root.size), GameTheme.COLOR[view.element], Color.WHITE, 2, int(edge / 2))
 	var bar_w: float = edge * 0.8
 	view.bar_back = GameTheme.panel(view.root, Rect2((edge - bar_w) / 2.0, -8, bar_w, 6), Color(0, 0, 0, 0.6))
@@ -311,6 +350,9 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				if animate:
 					view.move = view.root.create_tween()
 					view.move.tween_property(view.root, "position", target, seconds)
+					var walker: DragonSprite = view.body as DragonSprite
+					if walker != null:
+						walker.walk(seconds)
 				else:
 					view.root.position = target
 		"death":
@@ -354,9 +396,9 @@ func _apply(event: Dictionary, animate: bool) -> void:
 			var glow: Tween = _flash.create_tween()
 			glow.tween_property(_flash, "color:a", 0.0, 0.4)
 			glow.tween_callback(func() -> void: _flash.color = Color(1, 0.8, 0.1, 0))
-			var pulse: Tween = caster.root.create_tween()
-			pulse.tween_property(caster.root, "scale", Vector2(1.3, 1.3), 0.1 / _store.speed)
-			pulse.tween_property(caster.root, "scale", Vector2.ONE, 0.2 / _store.speed)
+			var roar: DragonSprite = caster.body as DragonSprite
+			if roar != null:
+				roar.strike(_store.speed, true)
 			_pause = 0.12
 		"attack":
 			var attacker: UnitView = _views.get(int(event["src"]))
@@ -371,16 +413,17 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				attacker.gauge.size.x = attacker.gauge_full * int(event["charge"]) / attacker.ult_need
 			if animate:
 				var strong: bool = int(event["mult"]) > 100
+				var glancing: bool = event.has("lane")
 				if event.get("ult", false):
-					_breath(attacker, defender, true, int(event["dmg"]), 34.0, 2)
+					_breath(attacker, defender, true, int(event["dmg"]), 2)
 				elif event.get("crit", false):
 					## 치명타: 누가 쳤는지 이름을 띄우고, 잠깐 멈췄다가 크게 터뜨린다.
 					if not _cut_in(attacker, attacker.title, "치명타!", false):
 						_name_tag(attacker, attacker.title + " 치명타!", Color("#ffe066") if attacker.side == "ally" else Color("#ff8787"))
 					_pause = maxf(_pause, 0.07)
-					_breath(attacker, defender, true, int(event["dmg"]), 26.0, 1)
+					_breath(attacker, defender, true, int(event["dmg"]), 1, glancing)
 				elif attacker.kind == "dragon":
-					_breath(attacker, defender, strong, int(event["dmg"]))
+					_breath(attacker, defender, strong, int(event["dmg"]), 0, glancing)
 				else:
 					_lunge(attacker, defender)
 					_hit(defender, int(event["dmg"]), Color("#ffe066") if strong else Color.WHITE, strong)
@@ -449,16 +492,25 @@ func _impact(at: Vector2, tint: Color, power: int) -> void:
 		burst.chain().tween_callback(ring.queue_free)
 
 
-func _breath(attacker: UnitView, defender: UnitView, strong: bool, damage: int, orb_size: float = 18.0, power: int = 0) -> void:
-	var half: Vector2 = Vector2(orb_size, orb_size) / 2.0
-	var orb: Panel = GameTheme.panel(_fx_layer, Rect2(attacker.center - half, half * 2.0),
-		GameTheme.COLOR[attacker.element], Color(1, 1, 1, 0.9), 2, int(orb_size / 2.0))
-	orb.z_index = 50
-	var seconds: float = 0.18 / _store.speed
-	var flight: Tween = orb.create_tween()
-	flight.tween_property(orb, "position", defender.center - half, seconds)
-	flight.tween_callback(orb.queue_free)
-	flight.tween_callback(_hit.bind(defender, damage, Color("#ffe066") if strong else Color.WHITE, strong, power, GameTheme.COLOR[attacker.element]))
+## 용의 공격: 고개를 젖혔다가 머리를 내밀며 원소 숨결을 쏜다. 숨결이 닿을 때 숫자가 뜬다.
+## power: 0 보통, 1 치명타, 2 궁극기. glancing = 다른 줄을 쳐서 약해진 공격.
+func _breath(attacker: UnitView, defender: UnitView, strong: bool, damage: int, power: int = 0, glancing: bool = false) -> void:
+	var sprite: DragonSprite = attacker.body as DragonSprite
+	var wait: float = 0.0
+	var mouth: Vector2 = Vector2.ZERO
+	if sprite != null and not attacker.dead:
+		wait = sprite.strike(_store.speed, power > 0)
+		mouth = sprite.mouth()
+	var travel: float = 0.09 / _store.speed
+	var ink: Color = Color("#ffe066") if strong else Color.WHITE
+	if glancing and power == 0:
+		ink = GLANCE
+	var tint: Color = GameTheme.COLOR[attacker.element]
+	var shot: Tween = attacker.root.create_tween()
+	shot.tween_interval(maxf(0.001, wait))
+	shot.tween_callback(func() -> void: BreathFx.cast(_fx_layer, attacker.element, attacker.center + mouth, defender.center, travel, power))
+	shot.tween_interval(travel)
+	shot.tween_callback(_hit.bind(defender, damage, ink, strong, power, tint))
 
 
 func _lunge(attacker: UnitView, defender: UnitView) -> void:
@@ -487,7 +539,7 @@ func _hit(view: UnitView, damage: int, color: Color, strong: bool, power: int = 
 		_shake(4.0 + 3.0 * power)
 	if view.flash != null:
 		view.flash.kill()
-	view.body.modulate = color * 1.6 if color != Color.WHITE else Color(2, 2, 2)
+	view.body.modulate = Color(1.5, 1.5, 1.5) if color == GLANCE else (color * 1.6 if color != Color.WHITE else Color(2, 2, 2))
 	view.flash = view.body.create_tween()
 	view.flash.tween_property(view.body, "modulate", Color.WHITE, 0.14)
 	## 피해 숫자: 누가 맞든 맞을 때마다 머리 위로 튀어 오른다. 4배속에서는 드래곤과 큰 한 방만.
@@ -497,6 +549,8 @@ func _hit(view: UnitView, damage: int, color: Color, strong: bool, power: int = 
 		var ink: Color = color
 		if color == Color.WHITE and view.side == "ally":
 			ink = Color("#ff9f8f")
+		if color == GLANCE:
+			pixels -= 4
 		if power == 1:
 			pixels = 32
 			ink = Color("#ffcf3d")

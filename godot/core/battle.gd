@@ -1,7 +1,8 @@
 class_name Battle
 extends RefCounted
 ## 부대 전투(설계 2026-11-23-squad-battlefield 4장). 정수 좌표 x(0~1000), 줄 0~2.
-## 드래곤은 움직이지 않고 어디든 쏘며, 호위·졸병은 걸어가 같은 줄에서 근접 공격한다.
+## 드래곤은 제 줄을 지키며 사거리까지 걸어가 쏜다(다른 줄을 치면 약해진다). 호위·졸병은 걸어가 같은 줄에서 근접 공격한다.
+## field에 dragonSpeed·frontRange·backRange·leaderRange·crossLanePct가 없으면 예전처럼 서서 어디든 쏜다.
 
 const LANES: int = 3
 
@@ -252,7 +253,7 @@ static func simulate_battle(
 				unit["timer"] += 1
 				if unit["timer"] < unit["cd"]:
 					continue
-				var target: Variant = _nearest(field, units, unit)
+				var target: Variant = _target(field, units, unit)
 				if target == null:
 					continue
 				if not _can_hit(field, unit, target):
@@ -283,6 +284,12 @@ static func simulate_battle(
 						dmg = Rng.fdiv(dmg * int(crit["dmgPct"]), 100)
 					if side == "enemy" and enraged:
 						dmg = Rng.fdiv(dmg * int(enrage["atkPct"]), 100)
+					## 줄 감쇠: 드래곤이 제 줄 밖을 치면 줄 거리만큼 약해진다(궁극기는 그대로).
+					var lane_pct: int = 100
+					if unit["kind"] == "dragon" and not is_ult:
+						lane_pct = _lane_pct(field, unit, victim)
+						if lane_pct != 100:
+							dmg = maxi(1, Rng.fdiv(dmg * lane_pct, 100))
 					if int(victim["guard"]) > 0:
 						dmg = maxi(1, Rng.fdiv(dmg * (100 - int(victim["guard"])), 100))
 					victim["hp"] -= dmg
@@ -301,6 +308,8 @@ static func simulate_battle(
 						hit["ult"] = true
 					if is_crit:
 						hit["crit"] = true
+					if lane_pct != 100:
+						hit["lane"] = lane_pct
 					events.append(hit)
 					if victim["hp"] <= 0:
 						_kill(units, victim, tick, "hit", events)
@@ -333,9 +342,11 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 			continue
 		var unit: Dictionary = item
 		var dragon: Dictionary = _make(units.size(), "ally", "dragon", unit["speciesId"], unit["elements"],
-			Rng.fdiv(int(unit["hp"]) * hp_scale, 100), int(unit["atk"]), _slowed(int(unit["cooldownTicks"]), slow_pct), 0,
+			Rng.fdiv(int(unit["hp"]) * hp_scale, 100), int(unit["atk"]), _slowed(int(unit["cooldownTicks"]), slow_pct),
+			int(field.get("dragonSpeed", 0)),
 			slot % LANES, int(field["frontX"]) if slot < 3 else int(field["backX"]))
 		dragon["slot"] = slot
+		dragon["range"] = int(field.get("frontRange" if slot < 3 else "backRange", 0))
 		dragon["lifesteal"] = int(unit["lifestealPct"])
 		dragon["tier"] = unit.get("tier", "")
 		dragon["ultNeed"] = int(cfg.get("ultimate", {}).get("chargeHits", {}).get(dragon["tier"], 0))
@@ -358,9 +369,14 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 			guard["owner"] = dragon["id"]
 			units.append(guard)
 	for item: Dictionary in enemies:
+		var foe_speed: int = int(item.get("speed", 0))
+		if item["kind"] == "dragon":
+			foe_speed = maxi(foe_speed, int(field.get("dragonSpeed", 0)))
 		var foe: Dictionary = _make(units.size(), "enemy", item["kind"], item["id"], item["elements"],
-			maxi(1, Rng.fdiv(int(item["hp"]) * hp_scale, 100)), int(item["atk"]), int(item["cooldownTicks"]), int(item.get("speed", 0)),
+			maxi(1, Rng.fdiv(int(item["hp"]) * hp_scale, 100)), int(item["atk"]), int(item["cooldownTicks"]), foe_speed,
 			int(item["lane"]), int(item["x"]))
+		if item["kind"] == "dragon":
+			foe["range"] = int(field.get("leaderRange", 0))
 		foe["stage"] = int(item.get("stage", 0))
 		foe["elite"] = bool(item.get("elite", false))
 		foe["active"] = foe["stage"] == 0
@@ -377,7 +393,7 @@ static func _make(
 		"hp": hp, "maxHp": hp, "atk": atk, "cd": cd, "timer": 0, "speed": speed,
 		"lane": lane, "x": x, "laneTimer": 0, "slot": -1, "owner": -1, "lifesteal": 0,
 		"stage": 0, "active": true, "tier": "", "ultNeed": 0, "charge": 0, "elite": false,
-		"ultPower": 0, "critBonus": 0, "guard": 0,
+		"ultPower": 0, "critBonus": 0, "guard": 0, "range": 0,
 	}
 
 
@@ -420,18 +436,46 @@ static func _nearest_many(field: Dictionary, units: Array, me: Dictionary, count
 	return found.slice(0, maxi(1, count))
 
 
+## 누구를 칠지. 사거리가 있는 드래곤은 제 줄의 적을 먼저 보고(가까운 순, 같으면 id), 제 줄이 비면 가장 가까운 적.
+static func _target(field: Dictionary, units: Array, me: Dictionary) -> Variant:
+	if me["kind"] != "dragon" or int(me["range"]) <= 0:
+		return _nearest(field, units, me)
+	var best: Variant = null
+	var best_d: int = 0
+	for other: Dictionary in units:
+		if other["side"] == me["side"] or other["hp"] <= 0 or not other["active"] or other["lane"] != me["lane"]:
+			continue
+		var d: int = absi(int(me["x"]) - int(other["x"]))
+		if best == null or d < best_d:
+			best = other
+			best_d = d
+	return best if best != null else _nearest(field, units, me)
+
+
+## 줄 거리(0·1·2)에 따른 피해 비율. 자료가 없으면 100.
+static func _lane_pct(field: Dictionary, unit: Dictionary, target: Dictionary) -> int:
+	var table: Array = field.get("crossLanePct", [])
+	var gap: int = absi(int(unit["lane"]) - int(target["lane"]))
+	return 100 if gap >= table.size() else int(table[gap])
+
+
 static func _can_hit(field: Dictionary, unit: Dictionary, target: Dictionary) -> bool:
 	if unit["kind"] == "dragon":
-		return true
+		return int(unit["range"]) <= 0 or absi(int(unit["x"]) - int(target["x"])) <= int(unit["range"])
 	return unit["lane"] == target["lane"] and absi(int(unit["x"]) - int(target["x"])) <= int(field["meleeRange"])
 
 
 ## 걷는 유닛 한 틱 이동. 움직였으면 true.
 static func _step(field: Dictionary, units: Array, unit: Dictionary) -> bool:
-	var target: Variant = _nearest(field, units, unit)
+	var target: Variant = _target(field, units, unit)
 	if target == null or _can_hit(field, unit, target):
 		unit["laneTimer"] = 0
 		return false
+	if unit["kind"] == "dragon":
+		## 드래곤은 줄을 바꾸지 않는다. 사거리에 닿을 만큼만 다가간다.
+		var gap: int = int(target["x"]) - int(unit["x"])
+		unit["x"] += signi(gap) * mini(int(unit["speed"]), absi(gap) - int(unit["range"]))
+		return true
 	var moved: bool = false
 	var dx: int = int(target["x"]) - int(unit["x"])
 	var melee: int = int(field["meleeRange"])

@@ -44,6 +44,9 @@ static func _choose_reward(data: Dictionary, state: Dictionary) -> Dictionary:
 	for i: int in range(choices.size()):
 		var kind: String = choices[i]["reward"]["kind"]
 		var rank: int = REWARD_ORDER.find(kind)
+		## 봇이 쓸 줄 모르는 보상(전환의 룬 등)은 맨 뒤로.
+		if rank < 0:
+			rank = 50
 		if kind in ["egg", "t2egg"] and bench_full:
 			rank += 10
 		if kind == "life" and state["lives"] >= data["waves"]["startLives"]:
@@ -231,4 +234,39 @@ static func _choose_manage(data: Dictionary, state: Dictionary) -> Dictionary:
 				return {"type": "move", "from": strongest["ref"], "to": {"zone": "nest", "index": index}}
 		if not ranked_nest.is_empty() and strongest["strength"] > ranked_nest[-1]["strength"]:
 			return {"type": "move", "from": strongest["ref"], "to": ranked_nest[-1]["ref"]}
+	var lane_move: Dictionary = _lane_move(data, state)
+	if not lane_move.is_empty():
+		return lane_move
 	return {"type": "startBattle"}
+
+
+## 줄 미리보기를 읽고, 같은 열(전열·후열) 안에서 센 용을 적이 많이 몰리는 줄에 세운다. 다 맞으면 빈 사전.
+static func _lane_move(data: Dictionary, state: Dictionary) -> Dictionary:
+	var preview: Array = Waves.lane_preview(data, state["seed"], state["wave"])
+	var lanes: Array = [0, 1, 2]
+	lanes.sort_custom(func(a: int, b: int) -> bool:
+		var ta: int = int(preview[a]["minions"]) + 3 * int(preview[a]["leaders"])
+		var tb: int = int(preview[b]["minions"]) + 3 * int(preview[b]["leaders"])
+		return ta > tb if ta != tb else a < b)
+	for row: int in range(2):
+		var here: Array = []
+		for lane: int in range(3):
+			var index: int = row * 3 + lane
+			if index < int(state["nestOpen"]) and state["nest"][index] != null:
+				here.append({"index": index, "strength": strength(data, state["nest"][index]), "uid": int(state["nest"][index]["uid"])})
+		here.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			return a["strength"] > b["strength"] if a["strength"] != b["strength"] else a["uid"] < b["uid"])
+		var rank: int = 0
+		for lane: int in lanes:
+			var want: int = row * 3 + lane
+			if want >= int(state["nestOpen"]) or rank >= here.size():
+				continue
+			var dragon: Dictionary = here[rank]
+			rank += 1
+			if int(dragon["index"]) == want:
+				continue
+			var there: Variant = state["nest"][want]
+			if there != null and strength(data, there) == int(dragon["strength"]):
+				continue
+			return {"type": "move", "from": {"zone": "nest", "index": int(dragon["index"])}, "to": {"zone": "nest", "index": want}}
+	return {}

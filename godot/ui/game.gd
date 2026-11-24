@@ -29,6 +29,9 @@ const REJECT_KO: Dictionary = {
 	"noSkillPoint": "스킬 점수가 없어요. 레벨이 오르면 받아요",
 	"skillMaxed": "이미 끝까지 찍은 스킬이에요",
 	"skillLocked": "앞 스킬을 먼저 찍어야 해요",
+	"noItem": "전환의 룬이 없어요",
+	"sameElement": "이미 그 원소예요",
+	"cannotTransmute": "이 드래곤은 원소를 바꿀 수 없어요",
 }
 const FORK_DONE_KO: Dictionary = {
 	"elite": "정예 사냥! 다음 적이 강해져요.\n이기면 보상을 한 번 더 골라요.",
@@ -172,6 +175,15 @@ func _on_change(events: Array, state: Dictionary) -> void:
 					flash("경험치를 받았어요.")
 			"leveled":
 				leveled += 1
+			"item":
+				if event["id"] == "transmute" and int(event["delta"]) > 0:
+					flash("전환의 룬을 얻었어요!\n드래곤을 눌러 다른 원소의 같은 용으로 바꿀 수 있어요.")
+			"transmuted":
+				if event["ok"]:
+					store.mark_discovered(event["to"])
+					_announce("전환 성공!\n%s → %s" % [_dragon_name(event["from"]), _dragon_name(event["to"])], 1.4)
+				else:
+					flash("전환 실패… 룬이 부서졌어요.\n드래곤은 그대로이고, 다음 전환은 반드시 성공해요.")
 			"fork":
 				flash(FORK_DONE_KO.get(event["option"], ""))
 			"relic":
@@ -317,7 +329,7 @@ func _show_reward_choices(state: Dictionary) -> void:
 	var field: Rect2 = _open_choice("승리 보상을 하나 고르세요", "", GameTheme.GOLD_HI)
 	var choices: Array = state["rewardChoices"]
 	var odds: Dictionary = _reward_odds(Waves.is_boss(controller.data["waves"], int(state["wave"]) - 1))
-	var tints: Dictionary = {"mana": Color("#b197fc"), "egg": GameTheme.GOLD, "t2egg": Color("#ffe27a"), "trait": Color("#f06595"), "nudge": Color("#74c0fc"), "freeSpin": Color("#8ce99a"), "life": Color("#ff8787")}
+	var tints: Dictionary = {"mana": Color("#b197fc"), "egg": GameTheme.GOLD, "t2egg": Color("#ffe27a"), "trait": Color("#f06595"), "nudge": Color("#74c0fc"), "freeSpin": Color("#8ce99a"), "life": Color("#ff8787"), "transmute": Color("#63e6be")}
 	for i: int in range(choices.size()):
 		var choice: Dictionary = choices[i]
 		var reward: Dictionary = choice["reward"]
@@ -463,6 +475,7 @@ func _reward_preview(reward: Dictionary, detail: Variant) -> String:
 		"trait": return "드래곤 하나가 새 계승 특성을 얻어요"
 		"nudge": return "다음 웨이브에 밀기 +%d" % amount
 		"freeSpin": return "다시 돌리기 %d회 무료" % amount
+		"transmute": return "드래곤 하나를 다른 원소의 같은 용으로 바꿔요 (성공 %d%%)" % int(controller.data["waves"].get("transmute", {}).get("successPct", 100))
 		_: return "생명 +%d (가득 차 있으면 마력 +3)" % amount
 
 
@@ -492,6 +505,7 @@ func _reward_detail(reward: Dictionary, detail: Variant) -> String:
 			return "특성 「%s」 계승!" % trait_data.get("nameKo", detail)
 		"nudge": return "다음 웨이브 밀기 +%d" % amount
 		"freeSpin": return "다시 돌리기 %d회 무료" % amount
+		"transmute": return "전환의 룬 +%d · 드래곤을 눌러서 써요" % amount
 		_: return "생명 +%d (가득 차 있으면 마력 +3)" % amount
 
 

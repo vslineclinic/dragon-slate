@@ -4,6 +4,7 @@ extends Control
 const GameTheme = preload("res://godot/ui/theme.gd")
 const Controller = preload("res://godot/ui/controller.gd")
 const FusionRules = preload("res://godot/core/fusion.gd")
+const RunRules = preload("res://godot/core/run.gd")
 const BRANCHES: Array = [
 	{"id": "attack", "nameKo": "니드호그 자리", "noteKo": "발톱 · 공격", "color": Color("#ff8f7a")},
 	{"id": "defense", "nameKo": "현무 자리", "noteKo": "비늘 · 방어", "color": Color("#7cc4ff")},
@@ -70,6 +71,8 @@ class Links extends Control:
 var _ctl: Controller
 var _ref: Dictionary
 var _body: Control
+## 전환의 룬으로 원소를 고르는 화면이 열려 있는지.
+var _transmuting: bool = false
 
 
 func setup(ctl: Controller, ref: Dictionary, screen: Vector2) -> void:
@@ -93,7 +96,10 @@ func _dim_input(event: InputEvent) -> void:
 		_close()
 
 
-func _on_change(_events: Array, _state: Dictionary) -> void:
+func _on_change(events: Array, _state: Dictionary) -> void:
+	for event: Dictionary in events:
+		if event["t"] == "transmuted":
+			_transmuting = false
 	if _inst() == null:
 		_close()
 	else:
@@ -114,6 +120,7 @@ func _draw_map() -> void:
 	var spec: Dictionary = _ctl.data["dragons"][inst["speciesId"]]
 	var points: int = int(inst.get("skillPoints", 0))
 	var learned: Dictionary = inst.get("skills", {})
+	var runes: int = int(_ctl.state.get("items", {}).get("transmute", 0))
 	var back: Panel = GameTheme.frame(_body, Rect2(Vector2.ZERO, PANEL_SIZE), GameTheme.INK, GameTheme.GOLD, 14)
 	back.mouse_filter = Control.MOUSE_FILTER_STOP
 	var sky: Control = Control.new()
@@ -137,6 +144,13 @@ func _draw_map() -> void:
 	GameTheme.heading(_body, Rect2(PANEL_SIZE.x - 330, 30, 250, 46), str(points), 38, point_color, HORIZONTAL_ALIGNMENT_RIGHT, 800)
 	GameTheme.button(_body, Rect2(PANEL_SIZE.x - 64, 16, 44, 40), "✕", _close, Color("#1c1a24"), GameTheme.GOLD_DIM, 1)
 	GameTheme.divider(_body, Rect2(24, 100, PANEL_SIZE.x - 48, 8), GameTheme.GOLD_DIM)
+	if runes > 0:
+		var rune_copy: String = "별자리로 돌아가기" if _transmuting else "전환의 룬 ×%d" % runes
+		var rune_button: Button = GameTheme.cta(_body, Rect2(500, 22, 168, 40), rune_copy, _toggle_transmute, "mystic", 16)
+		rune_button.tooltip_text = "이 드래곤을 다른 원소의 같은 용으로 바꿔요"
+	if _transmuting and runes > 0:
+		_draw_transmute(inst, spec)
+		return
 	var hint: String = "레벨이 오를 때마다 스킬 점수를 1점 받아요. 별은 아래에서 위로 이어져요." if points == 0 else "금빛으로 깜빡이는 별을 누르면 한 단계 배워요. 별은 아래에서 위로 이어져요."
 	GameTheme.label(_body, Rect2(20, PANEL_SIZE.y - 32, PANEL_SIZE.x - 40, 22), hint, 13, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 
@@ -204,6 +218,59 @@ func _draw_star(center: Vector2, skill: Dictionary, inst: Dictionary, learned: D
 	tap.disabled = not can
 	tap.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if can else Control.CURSOR_ARROW
 	tap.tooltip_text = "%s: %s (단계마다)" % [skill["nameKo"], skill["descKo"]]
+
+
+func _toggle_transmute() -> void:
+	_transmuting = not _transmuting
+	_draw_map()
+
+
+## 전환의 룬: 원소마다 어떤 용이 되는지 보여 주고 고르게 한다.
+func _draw_transmute(inst: Dictionary, spec: Dictionary) -> void:
+	var chance: int = RunRules.transmute_chance(_ctl.data, _ctl.state)
+	var sure: bool = chance >= 100
+	GameTheme.heading(_body, Rect2(24, 118, PANEL_SIZE.x - 48, 34), "어느 원소로 바꿀까요?", 24, GameTheme.GOLD_HI, HORIZONTAL_ALIGNMENT_CENTER)
+	var rule: String = "레벨 · 스킬 · 계승 특성은 그대로 가져가요. 등급과 역할, 능력치도 같아요."
+	GameTheme.label(_body, Rect2(24, 152, PANEL_SIZE.x - 48, 22), rule, 14, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	var own: String = spec["elements"][0] if not spec["elements"].is_empty() else ""
+	var targets: Array = []
+	for element: String in GameData.active_elements(_ctl.data):
+		var twin: String = RunRules.transmute_target(_ctl.data, inst["speciesId"], element)
+		if element != own and not twin.is_empty():
+			targets.append([element, twin])
+	if targets.is_empty():
+		GameTheme.heading(_body, Rect2(24, 300, PANEL_SIZE.x - 48, 40), "이 드래곤은 원소를 바꿀 수 없어요", 22, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		GameTheme.label(_body, Rect2(24, 344, PANEL_SIZE.x - 48, 24), "두 원소를 가진 용과 비밀 용은 전환의 룬이 듣지 않아요.", 15, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		return
+	var gap: float = 14.0
+	var card_w: float = minf(184.0, (PANEL_SIZE.x - 48.0 - gap * (targets.size() - 1)) / targets.size())
+	var left: float = (PANEL_SIZE.x - (card_w * targets.size() + gap * (targets.size() - 1))) / 2.0
+	for i: int in range(targets.size()):
+		var element: String = targets[i][0]
+		var twin_spec: Dictionary = _ctl.data["dragons"][targets[i][1]]
+		var tint: Color = GameTheme.COLOR[element]
+		var origin: Vector2 = Vector2(left + i * (card_w + gap), 190)
+		var card: Panel = GameTheme.frame(_body, Rect2(origin, Vector2(card_w, 318)), GameTheme.PANEL, tint, 12)
+		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		GameTheme.heading(_body, Rect2(origin.x, origin.y + 12, card_w, 26), GameTheme.ELEMENT_KO.get(element, element), 20, tint.lightened(0.3), HORIZONTAL_ALIGNMENT_CENTER)
+		GameTheme.glow(_body, origin + Vector2(card_w / 2.0, 118), 78.0, Color(tint, 0.5))
+		GameTheme.dragon(_body, Rect2(origin.x + (card_w - 132) / 2.0, origin.y + 50, 132, 132), twin_spec["id"])
+		var name_label: Label = GameTheme.heading(_body, Rect2(origin.x + 6, origin.y + 190, card_w - 12, 24), twin_spec["nameKo"], 16, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER, 600)
+		name_label.clip_text = true
+		## 같은 종을 이미 가지고 있으면 바꾼 뒤 바로 합칠 수 있다.
+		var owned: bool = false
+		for other: Variant in _ctl.state["nest"] + _ctl.state["bench"]:
+			owned = owned or (other != null and other["speciesId"] == twin_spec["id"])
+		GameTheme.label(_body, Rect2(origin.x + 6, origin.y + 216, card_w - 12, 20), "같은 용이 있어 합칠 수 있어요" if owned else "", 12, GameTheme.RECOMMEND, HORIZONTAL_ALIGNMENT_CENTER)
+		GameTheme.cta(_body, Rect2(origin.x + 14, origin.y + 256, card_w - 28, 46), "%s으로" % GameTheme.ELEMENT_KO.get(element, element) if element in ["ice", "poison", "abyss"] else "%s로" % GameTheme.ELEMENT_KO.get(element, element), _transmute.bind(element), "mystic", 18)
+	var odds_color: Color = GameTheme.RECOMMEND if sure else GameTheme.GOLD_HI
+	GameTheme.heading(_body, Rect2(24, 526, PANEL_SIZE.x - 48, 36), "성공 확률 %d%%" % chance, 26, odds_color, HORIZONTAL_ALIGNMENT_CENTER, 800)
+	var fail: String = "지난번에 실패해서 이번에는 반드시 성공해요." if sure else "실패하면 룬만 부서지고 드래곤은 그대로예요. 그다음 전환은 반드시 성공해요."
+	GameTheme.label(_body, Rect2(24, 562, PANEL_SIZE.x - 48, 22), fail, 14, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+func _transmute(element: String) -> void:
+	_ctl.dispatch({"type": "transmute", "at": _ref, "element": element})
 
 
 func _learn(node: String) -> void:

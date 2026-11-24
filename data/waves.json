@@ -12,6 +12,14 @@
     "35": 110,
     "40": 108
   },
+  "transmute": {
+    "successPct": 70,
+    "afterFailPct": 100,
+    "grantAfterWaves": [
+      5,
+      20
+    ]
+  },
   "startLives": 5,
   "lossLife": 1,
   "bossLossLife": 2,
@@ -71,6 +79,24 @@
         "tiers": [
           "t1",
           "dual"
+        ]
+      }
+    ],
+    "lanePatterns": [
+      {
+        "from": 1,
+        "weights": [
+          2,
+          1,
+          1
+        ]
+      },
+      {
+        "from": 5,
+        "weights": [
+          3,
+          2,
+          1
         ]
       }
     ],

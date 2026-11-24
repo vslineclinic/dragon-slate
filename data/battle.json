@@ -38,7 +38,16 @@
     "laneChangeRange": 80,
     "laneChangeTicks": 8,
     "posEveryTicks": 4,
-    "stageTicks": 400
+    "stageTicks": 400,
+    "dragonSpeed": 3,
+    "frontRange": 260,
+    "backRange": 420,
+    "leaderRange": 300,
+    "crossLanePct": [
+      100,
+      75,
+      50
+    ]
   },
   "escort": {
     "count": {

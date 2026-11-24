@@ -10,6 +10,8 @@ var _store: Store
 var _wave: Label
 var _lives: Label
 var _mana: Label
+var _rune: Control
+var _rune_count: Label
 var _wave_bar: Panel
 var _boss: Button
 var _speeds: Dictionary = {}
@@ -26,7 +28,15 @@ func setup(store: Store, width: float = 1280.0) -> void:
 	_lives = GameTheme.label(self, Rect2(180, 0, 160, 44), "", 19, Color("#ff7b8c"))
 	GameTheme.place(self, Icons.new("mana", Color("#a58bff"), false), Rect2(336, 11, 22, 22))
 	_mana = GameTheme.heading(self, Rect2(362, 0, 108, 44), "", 20, Color("#c9b8ff"))
-	_boss = GameTheme.button(self, Rect2(470, 0, maxf(300.0, width - 404 - 470 - 8), 44), "", _show_boss_info)
+	## 전환의 룬: 가지고 있을 때만 보인다.
+	_rune = Control.new()
+	_rune.mouse_filter = Control.MOUSE_FILTER_PASS
+	_rune.tooltip_text = "전환의 룬: 드래곤을 눌러 다른 원소의 같은 용으로 바꿔요"
+	GameTheme.place(self, _rune, Rect2(466, 0, 62, 44))
+	GameTheme.place(_rune, Icons.new("transmute", Color("#63e6be"), false), Rect2(0, 10, 24, 24))
+	_rune_count = GameTheme.heading(_rune, Rect2(28, 0, 34, 44), "", 18, Color("#96f2d7"))
+	_rune.hide()
+	_boss = GameTheme.button(self, Rect2(530, 0, maxf(240.0, width - 404 - 530 - 8), 44), "", _show_boss_info)
 	_boss.clip_text = true
 	_boss.flat = true
 	_boss.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -53,6 +63,9 @@ func render(state: Dictionary, max_wave: int) -> void:
 	_lives.text = "♥".repeat(lives) if lives <= 6 else "♥ ×%d" % lives
 	_lives.tooltip_text = "생명"
 	_mana.text = "마력 %d" % state["mana"]
+	var runes: int = int(state.get("items", {}).get("transmute", 0))
+	_rune.visible = runes > 0
+	_rune_count.text = "×%d" % runes
 	_boss.visible = not _preview.is_empty()
 	if _preview.is_empty():
 		return

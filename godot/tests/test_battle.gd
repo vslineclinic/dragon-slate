@@ -486,3 +486,112 @@ func test_every_skill_kind_is_one_the_battle_understands() -> void:
 		assert_true(known.has(skill["kind"]), skill["id"])
 		for need: String in skill["requires"]:
 			assert_true(data["skills"].has(need), skill["id"])
+
+
+## 줄 규칙을 켠 설정: 드래곤이 걷고, 사거리가 있고, 다른 줄을 치면 약해진다.
+func _lane_cfg() -> Dictionary:
+	var cfg: Dictionary = _cfg.duplicate(true)
+	cfg["field"]["dragonSpeed"] = 3
+	cfg["field"]["frontRange"] = 260
+	cfg["field"]["backRange"] = 420
+	cfg["field"]["leaderRange"] = 300
+	cfg["field"]["crossLanePct"] = [100, 70, 50]
+	return cfg
+
+
+static func _first_attack_from(result: Dictionary, src: int) -> Dictionary:
+	for event: Dictionary in result["events"]:
+		if event["kind"] == "attack" and event["src"] == src:
+			return event
+	return {}
+
+
+func test_dragon_walks_forward_until_its_range_reaches_the_enemy() -> void:
+	var cfg: Dictionary = _lane_cfg()
+	var result: Dictionary = Battle.simulate_battle(cfg, _slots([_solo("fire", 100000, 10)]),
+		[_enemy("minion", "fire", 100000, 1, 1000, 0, 900)])
+	var last_x: int = int(cfg["field"]["frontX"])
+	for event: Dictionary in _of_kind(result, "pos"):
+		if event["xs"].has(0):
+			last_x = int(event["xs"][0])
+	assert_eq(last_x, 900 - 260, "앞줄 드래곤은 사거리 260까지 다가가 멈춘다")
+	var hit: Dictionary = _first_attack_from(result, 0)
+	assert_true(not hit.is_empty() and int(hit["tick"]) > 10, "닿기 전에는 치지 못한다")
+
+
+func test_back_row_dragon_stops_farther_away() -> void:
+	var cfg: Dictionary = _lane_cfg()
+	var result: Dictionary = Battle.simulate_battle(cfg, _slots([], [_solo("fire", 100000, 10)]),
+		[_enemy("minion", "fire", 100000, 1, 1000, 0, 900)])
+	var last_x: int = int(cfg["field"]["backX"])
+	for event: Dictionary in _of_kind(result, "pos"):
+		if event["xs"].has(0):
+			last_x = int(event["xs"][0])
+	assert_eq(last_x, 900 - 420)
+
+
+func test_cross_lane_attacks_are_weaker_by_distance() -> void:
+	var cfg: Dictionary = _lane_cfg()
+	var dmg: Array = []
+	for lane: int in range(3):
+		var result: Dictionary = Battle.simulate_battle(cfg, _slots([_solo("fire", 100000, 100)]),
+			[_enemy("minion", "fire", 100000, 1, 1000, lane, 400)])
+		var hit: Dictionary = _first_attack_from(result, 0)
+		dmg.append(int(hit.get("dmg", 0)))
+		assert_eq(int(hit.get("lane", 100)), [100, 70, 50][lane])
+	assert_eq(dmg, [100, 70, 50])
+
+
+func test_dragon_prefers_its_own_lane_over_a_nearer_enemy_elsewhere() -> void:
+	var cfg: Dictionary = _lane_cfg()
+	var enemies: Array = [_enemy("minion", "fire", 100000, 1, 1000, 1, 300), _enemy("minion", "ice", 100000, 1, 1000, 0, 480)]
+	var result: Dictionary = Battle.simulate_battle(cfg, _slots([_solo("fire", 100000, 10)]), enemies)
+	assert_eq(int(_first_attack_from(result, 0).get("dst", -1)), 2, "같은 줄의 적을 먼저 친다")
+
+
+func test_dragon_turns_to_other_lanes_when_its_lane_is_empty() -> void:
+	var cfg: Dictionary = _lane_cfg()
+	var result: Dictionary = Battle.simulate_battle(cfg, _slots([_solo("fire", 100000, 10)]),
+		[_enemy("minion", "fire", 100000, 1, 1000, 2, 400)])
+	assert_eq(int(_first_attack_from(result, 0).get("dst", -1)), 1)
+
+
+func test_ultimate_ignores_the_lane_penalty() -> void:
+	var cfg: Dictionary = _lane_cfg()
+	cfg["ultimate"] = {"chargeHits": {"none": 2}, "powerPct": {"none": 200}, "targets": {"none": 1}}
+	var result: Dictionary = Battle.simulate_battle(cfg, _slots([_solo("fire", 100000, 100)]),
+		[_enemy("minion", "fire", 100000, 1, 1000, 2, 400)])
+	var hits: Array = _of_kind(result, "attack").filter(func(e: Dictionary) -> bool: return e["src"] == 0)
+	assert_eq(int(hits[0]["dmg"]), 50)
+	assert_true(hits[1].get("ult", false))
+	assert_eq(int(hits[1]["dmg"]), 200)
+
+
+func test_enemy_leader_also_walks_and_pays_the_lane_penalty() -> void:
+	var cfg: Dictionary = _lane_cfg()
+	var result: Dictionary = Battle.simulate_battle(cfg, _slots([null, _solo("fire", 100000, 1, 1000)]),
+		[_enemy("dragon", "fire", 100000, 100, 10, 0, 900)])
+	var hit: Dictionary = _first_attack_from(result, 1)
+	assert_eq(int(hit.get("dmg", 0)), 70)
+	var moved: bool = false
+	for event: Dictionary in _of_kind(result, "pos"):
+		moved = moved or event["xs"].has(1)
+	assert_true(moved, "적 우두머리도 사거리까지 걸어온다")
+
+
+func test_lane_rules_are_off_without_the_field_keys() -> void:
+	var result: Dictionary = Battle.simulate_battle(_cfg, _slots([_solo("fire", 100000, 100)]),
+		[_enemy("minion", "fire", 100000, 1, 1000, 2, 900)])
+	var hit: Dictionary = _first_attack_from(result, 0)
+	assert_eq(int(hit["dmg"]), 100)
+	assert_true(not hit.has("lane"))
+	assert_eq(int(hit["tick"]), 10)
+
+
+func test_real_battle_data_turns_the_lane_rules_on() -> void:
+	var field: Dictionary = _real["field"]
+	assert_true(int(field["dragonSpeed"]) > 0)
+	assert_true(int(field["backRange"]) > int(field["frontRange"]))
+	assert_eq(field["crossLanePct"].size(), 3)
+	assert_eq(int(field["crossLanePct"][0]), 100)
+	assert_true(int(field["crossLanePct"][2]) < int(field["crossLanePct"][1]))

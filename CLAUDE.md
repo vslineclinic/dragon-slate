@@ -3,7 +3,7 @@
 설계: `docs/superpowers/specs/2026-11-23-wyrmslot-design.md` · 현재 계획: `docs/superpowers/plans/2026-11-23-phase0-prototype.md`
 
 ## 명령
-- Godot(기준): `npm run godot:test` · `npm run sim -- --runs 300 --seed 1000 [--demo] [--calamity 1] [--waves] [--margin]` · `npm run godot:export` (Windows 정식·데모) · `npm run godot:apk` (Android 테스트 APK)
+- Godot(기준): `npm run godot:test` · `npm run sim -- --runs 300 --seed 1000 [--demo] [--calamity 1] [--waves] [--margin] [--set waves.basePower=190]`(40웨이브 한 판에 약 20초라 여러 묶음을 동시에 돌린다) · `npm run godot:export` (Windows 정식·데모) · `npm run godot:apk` (Android 테스트 APK)
 - 화면 확인: `godot --audio-driver Dummy --path . --position -4000,-4000 --script res://godot/tests/capture.gd -- <장면> <png> [spin|spinmid|manage|battle|battle-late] [폭]`
 - 배경음악: `python tools/music/make_tracks.py`(A 모음) · `python tools/music/codex_tracks.py`(B 모음) → ffmpeg로 `assets/music/a|b/*.ogg`. 재생·전환은 `godot/ui/music.gd`.
 - 배경·UI 그림: `python tools/art/gen_backgrounds.py [이름...]` → `assets/backgrounds/*.png`, `assets/ui/*.png` (코드로 그림, 그림 생성 AI 안 씀). 바꾼 뒤 `godot --headless --path . --import`.
@@ -21,6 +21,10 @@
 - 화풍 "용 신전"(2026-11-24, 설계 문서 16장): 흑요석 판 · 금박 선 · 양피지색 글자. 색·판·단추·제목은 `godot/ui/theme.gd`의 도우미(panel · frame · well · heading · cta · divider · glow)로만 만든다. 화면 파일에 색 코드를 새로 박지 않는다. 제목은 명조(Noto Serif KR), 본문은 고딕(Noto Sans KR).
 - 스킬은 별자리 3개 × 별 4개(`data/skills.json` 12개). 도감은 원소별 세계수(가지 = 같은 용 둘을 합친 결과).
 - 화면 배치(2026-11-23 개정): 왼쪽 약 34% 조작 패널(석판·알 카드·대기칸), 오른쪽 전장(둥지 발판 포함).
+- 방향 B(2026-11-24, 사용자 결정): 석판 짜기 + 용 계보 + 줄 전투. 설계와 남은 순서는 `docs/superpowers/specs/2026-11-24-direction-b-design.md`. 기준은 "플레이어가 정한 것이 결과를 바꾼다". 수치만 올리는 유물·새 종·비밀 조합 추가는 얼려 둔다.
+- 줄 전투(2026-11-24): 드래곤은 제 줄을 지키며 사거리까지 걸어가 쏜다. 제 줄 100% · 옆줄 75% · 건너편 50%(`battle.field.crossLanePct`, 궁극기는 감쇠 없음). 적이 몰리는 줄은 `waves.squad.lanePatterns`와 판 씨앗으로 정해지고 전투 전에 미리 보여 준다(`Waves.lane_preview`는 실제 편성과 같아야 한다 — 시험으로 고정).
+- 전환의 룬(2026-11-24): 같은 등급·같은 형태의 다른 원소 용으로 바꾼다. 실패해도 용은 그대로이고 다음 시도는 반드시 성공한다(`waves.transmute`). 원소별 용 목록은 자료 순서가 형태 순서와 같아야 한다(`dragons.json`에 종을 넣을 때 여섯 원소를 같은 순서로).
+- 용의 공격 동작은 그림 한 장을 셰이더로 휘어 만든다(`godot/ui/dragon_pose.gdshader`, `dragon_sprite.gd`). 용 그림은 왼쪽을 보고 머리가 왼쪽 위에 오게 그린다. 숨결 모양은 `godot/ui/breath_fx.gd`.
 
 ## 레인 소유권 (설계 8.1)
 | Claude | Codex (`C:\claude\dragon-game-codex`, 브랜치 `codex/*`) |

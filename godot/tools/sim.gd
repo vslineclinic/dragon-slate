@@ -14,6 +14,10 @@ func _init() -> void:
 	var calamity: int = int(_arg(args, "--calamity", "0"))
 	var demo: bool = args.has("--demo")
 	var data: Dictionary = Build.apply(GameData.load_all(), demo)
+	## --set waves.basePower=190 처럼 자료 값을 바꿔 가며 잰다(여러 번 쓸 수 있다). 배열 칸은 숫자로: battle.field.crossLanePct.1=80
+	for i: int in range(args.size() - 1):
+		if args[i] == "--set":
+			_override(data, args[i + 1])
 	if args.has("--solo"):
 		_solo_first_wave(data, runs, first_seed)
 		quit()
@@ -119,6 +123,20 @@ func _init() -> void:
 		losses.append("%d:%d" % [wave, game_over_wave[wave]])
 	print("gameOverWave: " + " ".join(losses))
 	quit()
+
+
+static func _override(data: Dictionary, spec: String) -> void:
+	var parts: PackedStringArray = spec.split("=")
+	var keys: PackedStringArray = parts[0].split(".")
+	var node: Variant = data
+	for i: int in range(keys.size() - 1):
+		node = node[int(keys[i])] if node is Array else node[keys[i]]
+	var last: String = keys[keys.size() - 1]
+	if node is Array:
+		node[int(last)] = int(parts[1])
+	else:
+		node[last] = int(parts[1])
+	print("set %s" % spec)
 
 
 ## 지금 편성으로 이길 수 있는 가장 큰 적 전투력 배율(%). 100이면 딱 맞는 난이도.
