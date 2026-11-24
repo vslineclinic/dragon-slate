@@ -166,6 +166,9 @@ func _show_lane_preview(state: Dictionary) -> void:
 	var table: Array = _data["battle"]["field"].get("crossLanePct", [])
 	if table.size() >= 3:
 		var rule: String = "용의 공격: 제 줄 %d%% · 옆줄 %d%% · 건너편 줄 %d%%" % [int(table[0]), int(table[1]), int(table[2])]
+		var archer: Array = _data["battle"]["field"].get("roleLanePct", {}).get("back", [])
+		if archer.size() >= 3:
+			rule += "  |  사수: 옆줄 %d%% · 건너편 %d%%" % [int(archer[1]), int(archer[2])]
 		var wide: float = GameTheme.korean_font().get_string_size(rule, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x * 1.12 + 32.0
 		var note: Panel = GameTheme.panel(_units_layer, Rect2(size.x - wide - 12, size.y - 38, wide, 28), Color("#0b0b10c7"), Color(GameTheme.PANEL_LINE, 0.8), 1, 8, "flat")
 		note.mouse_filter = Control.MOUSE_FILTER_IGNORE

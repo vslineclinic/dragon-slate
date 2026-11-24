@@ -16,6 +16,41 @@ static func find_recipe(data: Dictionary, a: String, b: String) -> Variant:
 	return data["_recipeIndex"].get(a + "|" + b)
 
 
+## 그 등급 · 그 원소(한 원소)의 종을 자료 순서대로. role을 주면 그 역할만.
+static func _ladder(data: Dictionary, tier: String, element: String, role: String = "") -> Array:
+	var out: Array = []
+	for spec: Dictionary in data["dragons"].values():
+		if spec["tier"] == tier and spec["elements"].size() == 1 and spec["elements"][0] == element and (role.is_empty() or spec.get("role", "") == role):
+			out.append(spec["id"])
+	return out
+
+
+## 계보 선택: 이 둘을 합치면 될 수 있는 종. [조합표의 결과] 또는 [조합표의 결과, 받는 쪽(main)의 갈래].
+## 둘째 갈래: 두 재료의 역할이 다르면 main의 역할을 잇는 종, 같으면 그 역할의 다음 종.
+## 조합이 없으면 빈 배열. 이중 · 비밀 결과와, 재료의 원소나 등급이 서로 다른 조합은 갈래가 없다.
+static func merge_options(data: Dictionary, main: Dictionary, material: Dictionary) -> Array:
+	var first: Variant = find_recipe(data, main["speciesId"], material["speciesId"])
+	if first == null:
+		return []
+	var dragons: Dictionary = data["dragons"]
+	var result: Dictionary = dragons[first]
+	var a: Dictionary = dragons[main["speciesId"]]
+	var b: Dictionary = dragons[material["speciesId"]]
+	if result["tier"] in ["dual", "secret"] or result["elements"].size() != 1:
+		return [first]
+	if a["tier"] != b["tier"] or a["elements"].size() != 1 or a["elements"] != b["elements"]:
+		return [first]
+	var from: Array = _ladder(data, a["tier"], a["elements"][0])
+	var group: Array = _ladder(data, result["tier"], result["elements"][0], a.get("role", ""))
+	if group.is_empty():
+		return [first]
+	var turn: int = from.find(a["id"]) + from.find(b["id"])
+	if a.get("role", "") == b.get("role", ""):
+		turn += 1
+	var second: String = group[turn % group.size()]
+	return [first] if second == first else [first, second]
+
+
 static func level_of(inst: Dictionary) -> int:
 	return maxi(1, int(inst.get("level", 1)))
 
@@ -67,7 +102,7 @@ static func merge_preview(data: Dictionary, main: Dictionary, material: Dictiona
 	if result != null:
 		var need: int = evolve_level(data, result)
 		if maxi(level_of(main), level_of(material)) >= need:
-			return {"kind": "evolve", "result": result}
+			return {"kind": "evolve", "result": result, "options": merge_options(data, main, material)}
 		blocked = {"result": result, "needLevel": need}
 	return {
 		"kind": "absorb", "trait": _absorbed_trait(data, main, material),
@@ -75,13 +110,16 @@ static func merge_preview(data: Dictionary, main: Dictionary, material: Dictiona
 	}
 
 
-static func merge(data: Dictionary, main: Dictionary, material: Dictionary, new_uid: int) -> Dictionary:
+## choice = 계보 선택(merge_preview의 options에서 몇 번째). 범위를 벗어나면 첫째.
+static func merge(data: Dictionary, main: Dictionary, material: Dictionary, new_uid: int, choice: int = 0) -> Dictionary:
 	var preview: Dictionary = merge_preview(data, main, material)
 	if preview["kind"] == "evolve":
+		var options: Array = preview["options"]
+		var species: String = options[choice] if choice >= 0 and choice < options.size() else preview["result"]
 		## 레벨이 높은 쪽의 성장(레벨·스킬·특성)을 이어받는다. 같으면 주 드래곤.
 		var carrier: Dictionary = material if level_of(material) > level_of(main) else main
 		var evolved: Dictionary = {
-			"uid": new_uid, "speciesId": preview["result"], "traits": carrier["traits"].duplicate(),
+			"uid": new_uid, "speciesId": species, "traits": carrier["traits"].duplicate(),
 			"bonusPct": int(carrier.get("bonusPct", 0)),
 			"skills": carrier.get("skills", {}).duplicate(), "skillPoints": int(carrier.get("skillPoints", 0)),
 			"level": level_of(carrier), "xp": int(carrier.get("xp", 0)),

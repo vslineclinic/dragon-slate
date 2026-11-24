@@ -119,7 +119,7 @@ static func apply_command(data: Dictionary, state: Dictionary, cmd: Dictionary) 
 		"pick":
 			reason = _do_pick(data, next, cmd["index"], rng, events)
 		"merge":
-			reason = _do_merge(data, next, cmd["main"], cmd["material"], events)
+			reason = _do_merge(data, next, cmd["main"], cmd["material"], events, cmd.get("choice", 0))
 		"move":
 			reason = _do_move(next, cmd["from"], cmd["to"])
 		"release":
@@ -337,7 +337,7 @@ static func _do_pick(data: Dictionary, state: Dictionary, index: Variant, rng: R
 	return ""
 
 
-static func _do_merge(data: Dictionary, state: Dictionary, main: Dictionary, material: Dictionary, events: Array) -> String:
+static func _do_merge(data: Dictionary, state: Dictionary, main: Dictionary, material: Dictionary, events: Array, choice: Variant = 0) -> String:
 	var reason: String = _arrange_rejection(state, main, material)
 	if not reason.is_empty():
 		return reason
@@ -349,7 +349,11 @@ static func _do_merge(data: Dictionary, state: Dictionary, main: Dictionary, mat
 	var b: Variant = material_zone[material_index]
 	if a == null or b == null:
 		return "emptySlot"
-	var result: Dictionary = Fusion.merge(data, a, b, state["nextUid"])
+	## 계보 선택: 진화할 때만 본다. 없는 갈래를 고르면 거절한다.
+	var preview: Dictionary = Fusion.merge_preview(data, a, b)
+	if preview["kind"] == "evolve" and not _valid_index(choice, preview["options"].size()):
+		return "emptySlot"
+	var result: Dictionary = Fusion.merge(data, a, b, state["nextUid"], int(choice) if preview["kind"] == "evolve" else 0)
 	var inst: Dictionary = result["inst"]
 	main_zone[main_index] = inst
 	material_zone[material_index] = null

@@ -67,7 +67,7 @@ func test_recipe_order_does_not_matter() -> void:
 
 func test_t2_pair_evolves_to_t1() -> void:
 	var preview: Dictionary = Fusion.merge_preview(_data(), _grown(_inst(1, "xiuhcoatl"), 3, 0, 0), _inst(2, "fafnir"))
-	assert_eq(preview, {"kind": "evolve", "result": "zhulong"})
+	assert_eq(preview, {"kind": "evolve", "result": "zhulong", "options": ["zhulong"]})
 
 
 func test_evolution_waits_for_level_and_absorbs_meanwhile() -> void:

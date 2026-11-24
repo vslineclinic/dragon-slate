@@ -81,6 +81,7 @@ static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary =
 	var unit: Dictionary = {
 		"speciesId": spec["id"],
 		"tier": spec["tier"],
+		"role": spec.get("role", ""),
 		"elements": spec["elements"].duplicate(),
 		"hp": Rng.fdiv(int(stats["hp"]) * (100 + bonus_pct + hp_pct), 100),
 		"atk": Rng.fdiv(int(stats["atk"]) * (100 + bonus_pct + atk_pct), 100),
@@ -346,7 +347,8 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 			int(field.get("dragonSpeed", 0)),
 			slot % LANES, int(field["frontX"]) if slot < 3 else int(field["backX"]))
 		dragon["slot"] = slot
-		dragon["range"] = int(field.get("frontRange" if slot < 3 else "backRange", 0))
+		dragon["role"] = unit.get("role", "")
+		dragon["range"] = _role_range(field, int(field.get("frontRange" if slot < 3 else "backRange", 0)), dragon["role"])
 		dragon["lifesteal"] = int(unit["lifestealPct"])
 		dragon["tier"] = unit.get("tier", "")
 		dragon["ultNeed"] = int(cfg.get("ultimate", {}).get("chargeHits", {}).get(dragon["tier"], 0))
@@ -376,7 +378,8 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 			maxi(1, Rng.fdiv(int(item["hp"]) * hp_scale, 100)), int(item["atk"]), int(item["cooldownTicks"]), foe_speed,
 			int(item["lane"]), int(item["x"]))
 		if item["kind"] == "dragon":
-			foe["range"] = int(field.get("leaderRange", 0))
+			foe["role"] = item.get("role", "")
+			foe["range"] = _role_range(field, int(field.get("leaderRange", 0)), foe["role"])
 		foe["stage"] = int(item.get("stage", 0))
 		foe["elite"] = bool(item.get("elite", false))
 		foe["active"] = foe["stage"] == 0
@@ -393,7 +396,7 @@ static func _make(
 		"hp": hp, "maxHp": hp, "atk": atk, "cd": cd, "timer": 0, "speed": speed,
 		"lane": lane, "x": x, "laneTimer": 0, "slot": -1, "owner": -1, "lifesteal": 0,
 		"stage": 0, "active": true, "tier": "", "ultNeed": 0, "charge": 0, "elite": false,
-		"ultPower": 0, "critBonus": 0, "guard": 0, "range": 0,
+		"ultPower": 0, "critBonus": 0, "guard": 0, "range": 0, "role": "",
 	}
 
 
@@ -475,9 +478,14 @@ static func _strike_target(field: Dictionary, units: Array, me: Dictionary) -> V
 	return best if best != null else _target(field, units, me)
 
 
-## 줄 거리(0·1·2)에 따른 피해 비율. 자료가 없으면 100.
+## 사거리에 역할 보너스를 더한다(사수는 더 멀리 쏜다). 사거리 규칙이 꺼져 있으면(0) 그대로 0.
+static func _role_range(field: Dictionary, base: int, role: String) -> int:
+	return base if base <= 0 else base + int(field.get("roleRangeAdd", {}).get(role, 0))
+
+
+## 줄 거리(0·1·2)에 따른 피해 비율. 역할마다 표가 다를 수 있다(roleLanePct). 자료가 없으면 100.
 static func _lane_pct(field: Dictionary, unit: Dictionary, target: Dictionary) -> int:
-	var table: Array = field.get("crossLanePct", [])
+	var table: Array = field.get("roleLanePct", {}).get(unit["role"], field.get("crossLanePct", []))
 	var gap: int = absi(int(unit["lane"]) - int(target["lane"]))
 	return 100 if gap >= table.size() else int(table[gap])
 

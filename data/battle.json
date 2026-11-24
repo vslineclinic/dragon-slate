@@ -47,7 +47,17 @@
       100,
       75,
       50
-    ]
+    ],
+    "roleLanePct": {
+      "back": [
+        100,
+        90,
+        75
+      ]
+    },
+    "roleRangeAdd": {
+      "back": 80
+    }
   },
   "escort": {
     "count": {

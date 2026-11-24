@@ -112,6 +112,7 @@ func _build_panels() -> void:
 	_slot.setup(controller, store)
 	_board.setup(controller, _areas)
 	_board.inspect.connect(_open_skills)
+	_board.lineage.connect(_show_lineage)
 	_battle.finished.connect(_battle_finished)
 	_hud.boss_info.connect(flash)
 	_dex_button = GameTheme.button(_hud, Rect2(width - 328, 0, 80, 44), "도감", _open_dex)
@@ -445,6 +446,58 @@ func _show_fork_choices(state: Dictionary) -> void:
 		if option == "merchant" and int(state["mana"]) < cost:
 			card.disabled = true
 			GameTheme.label(card, Rect2(8, 236, card.size.x - 16, 20), "마력이 모자라요 (지금 %d)" % int(state["mana"]), 13, Color("#ff8787"), HORIZONTAL_ALIGNMENT_CENTER)
+
+
+## 계보 선택: 합쳐서 진화할 때 갈래가 둘이면 어느 종이 될지 고른다. 성장(레벨 · 스킬 · 계승 특성)은 어느 쪽이든 같다.
+func _show_lineage(command: Dictionary) -> void:
+	var state: Dictionary = controller.state
+	var main: Variant = state[command["main"]["zone"]][command["main"]["index"]]
+	var material: Variant = state[command["material"]["zone"]][command["material"]["index"]]
+	## 다른 선택 화면(보상 · 유물 · 석판 · 시작 묶음)이 떠 있으면 그 선택이 먼저다.
+	if main == null or material == null or controller.busy or is_instance_valid(_reward_overlay):
+		return
+	var preview: Dictionary = Fusion.merge_preview(controller.data, main, material)
+	if preview["kind"] != "evolve" or preview["options"].size() < 2:
+		controller.dispatch(command)
+		return
+	_clear_reward()
+	var carrier: Dictionary = material if Fusion.level_of(material) > Fusion.level_of(main) else main
+	var kept: PackedStringArray = PackedStringArray(["레벨 %d" % Fusion.level_of(carrier)])
+	var skill_total: int = 0
+	for learned: Variant in carrier.get("skills", {}).values():
+		skill_total += int(learned)
+	if skill_total > 0:
+		kept.append("스킬 %d단계" % skill_total)
+	for trait_id: String in carrier["traits"]:
+		kept.append("계승 특성 「%s」" % controller.data["traits"].get(trait_id, {}).get("nameKo", trait_id))
+	var field: Rect2 = _open_choice("어느 계보로 이을까요?", "이어받는 것: %s (어느 쪽을 골라도 같아요)" % " · ".join(kept), GameTheme.GOLD_HI)
+	var labels: Array = ["조합의 갈래", "%s의 갈래" % _dragon_name(main["speciesId"])]
+	for i: int in range(preview["options"].size()):
+		var id: String = preview["options"][i]
+		var spec: Dictionary = controller.data["dragons"][id]
+		var tint: Color = GameTheme.COLOR.get(spec["elements"][0], GameTheme.GOLD)
+		var role: String = spec.get("role", "")
+		var chosen: Dictionary = command.duplicate(true)
+		chosen["choice"] = i
+		var body: String = "%s · %s" % [GameTheme.ROLE_KO.get(role, ""), GameTheme.ROLE_NOTE.get(role, "")]
+		var card: Button = _choice_card(i, preview["options"].size(), field, {}, tint, spec["nameKo"], body, 300.0, _choose_lineage.bind(chosen))
+		var card_w: float = card.size.x
+		GameTheme.dragon(card, Rect2((card_w - 116) / 2.0, 18, 116, 116), id)
+		GameTheme.label(card, Rect2(8, 4, card_w - 16, 18), labels[i], 12, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		var stats: Dictionary = spec["stats"]
+		GameTheme.label(card, Rect2(8, 236, card_w - 16, 20), "체력 %d · 공격력 %d" % [int(stats["hp"]), int(stats["atk"])], 13, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+		var own: Dictionary = controller.data["traits"].get(spec["traitId"], {})
+		GameTheme.label(card, Rect2(8, 258, card_w - 16, 32), "고유 특성 「%s」" % own.get("nameKo", ""), 12, tint.lightened(0.4), HORIZONTAL_ALIGNMENT_CENTER)
+		card.tooltip_text = "%s: %s\n고유 특성 「%s」 %s" % [GameTheme.ROLE_KO.get(role, ""), GameTheme.ROLE_NOTE.get(role, ""), own.get("nameKo", ""), own.get("descKo", "")]
+		if not store.discovered().has(id):
+			GameTheme.new_badge(card, card.size)
+	var mid: float = field.size.x / 2.0
+	GameTheme.cta(_reward_overlay, Rect2(mid - 110, 520, 220, 44), "그만두기", _clear_reward, "mystic", 17)
+
+
+func _choose_lineage(command: Dictionary) -> void:
+	_clear_reward()
+	controller.dispatch(command)
 
 
 ## 새 판의 시작 묶음 고르기: 이번 판에 나온 원소 묶음 셋(용 한 마리와 함께) 또는 기본 묶음.

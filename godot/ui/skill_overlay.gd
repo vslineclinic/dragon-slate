@@ -137,7 +137,10 @@ func _draw_map() -> void:
 	GameTheme.heading(_body, Rect2(112, 14, 520, 34), "%s  Lv.%d" % [spec["nameKo"], level], 26)
 	var unit: Dictionary = Battle.to_unit(_ctl.data, inst)
 	var escorts: int = int(_ctl.data["battle"]["escort"]["count"].get(spec["tier"], 0)) + int(unit["escortBonus"])
-	GameTheme.label(_body, Rect2(112, 50, 560, 22), "체력 %d · 공격력 %d · 호위 %d마리" % [unit["hp"], unit["atk"], escorts], 15, GameTheme.TEXT)
+	var role: String = spec.get("role", "")
+	var stats_line: Label = GameTheme.label(_body, Rect2(112, 50, 380, 22), "%s · 체력 %d · 공격력 %d · 호위 %d마리" % [GameTheme.ROLE_KO.get(role, ""), unit["hp"], unit["atk"], escorts], 15, GameTheme.TEXT)
+	stats_line.mouse_filter = Control.MOUSE_FILTER_STOP
+	stats_line.tooltip_text = "%s: %s" % [GameTheme.ROLE_KO.get(role, ""), GameTheme.ROLE_NOTE.get(role, "")]
 	GameTheme.label(_body, Rect2(112, 72, 560, 20), growth + " · 싸우거나 다른 드래곤을 흡수하면 올라요", 13, GameTheme.DIM)
 	var point_color: Color = GameTheme.RECOMMEND if points > 0 else GameTheme.DIM
 	GameTheme.label(_body, Rect2(PANEL_SIZE.x - 330, 14, 250, 18), "스킬 점수", 13, GameTheme.DIM, HORIZONTAL_ALIGNMENT_RIGHT)

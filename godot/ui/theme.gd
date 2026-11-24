@@ -81,6 +81,13 @@ const COLOR: Dictionary = {
 const ELEMENT_KO: Dictionary = {
 	"fire": "불", "ice": "얼음", "lightning": "번개", "poison": "독", "steel": "강철", "abyss": "심연",
 }
+## 역할 이름과 한 줄 설명. 전열·후열(놓는 자리)과 헷갈리지 않게 수호·사수·지원이라 부른다.
+const ROLE_KO: Dictionary = {"front": "수호", "back": "사수", "support": "지원"}
+const ROLE_NOTE: Dictionary = {
+	"front": "체력이 높아 앞에서 버텨요",
+	"back": "멀리 쏘고, 다른 줄을 쳐도 덜 약해져요",
+	"support": "고루 갖췄어요",
+}
 const SYMBOL_LABEL: Dictionary = {
 	"fire": "불", "ice": "얼음", "lightning": "번개", "poison": "독", "steel": "강철", "abyss": "심연",
 	"gold": "금", "wild": "여의주",

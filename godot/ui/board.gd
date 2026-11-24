@@ -24,6 +24,8 @@ var _fighting: bool = false
 var _press_point: Vector2
 
 signal inspect(ref: Dictionary)
+## 합치면 진화하는데 갈래가 둘이다: 어느 쪽으로 갈지 물어야 한다.
+signal lineage(command: Dictionary)
 var _last_state: Dictionary = {}
 var _team_bonus: Dictionary = {}
 
@@ -234,7 +236,20 @@ func _input(event: InputEvent) -> void:
 		if tapped:
 			inspect.emit(from)
 		elif not command.is_empty():
-			_ctl.dispatch(command)
+			if command["type"] == "merge" and _branches(command).size() > 1:
+				lineage.emit(command)
+			else:
+				_ctl.dispatch(command)
+
+
+## 그 합치기가 진화라면 고를 수 있는 종(계보 선택). 흡수면 빈 배열.
+func _branches(command: Dictionary) -> Array:
+	var main: Variant = _at(_ctl.state, command["main"])
+	var material: Variant = _at(_ctl.state, command["material"])
+	if main == null or material == null or _ctl.busy:
+		return []
+	var preview: Dictionary = FusionRules.merge_preview(_ctl.data, main, material)
+	return preview["options"] if preview["kind"] == "evolve" else []
 
 
 func _notification(what: int) -> void:
@@ -270,7 +285,10 @@ func _show_preview(point: Vector2) -> void:
 		"merge":
 			var preview: Dictionary = FusionRules.merge_preview(_ctl.data, _at(state, command["main"]), inst)
 			if preview["kind"] == "evolve":
-				message = "진화 → " + _ctl.data["dragons"][preview["result"]]["nameKo"]
+				var names: PackedStringArray = PackedStringArray()
+				for option: String in preview["options"]:
+					names.append(_ctl.data["dragons"][option]["nameKo"])
+				message = "진화 → " + " 또는 ".join(names) + ("\n(놓으면 갈래를 골라요)" if names.size() > 1 else "")
 			else:
 				message = "흡수: 경험치 +%d" % int(preview["xp"])
 				var trait_id: Variant = preview["trait"]

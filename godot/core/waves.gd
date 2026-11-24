@@ -234,6 +234,7 @@ static func _spec_unit(spec: Dictionary) -> Dictionary:
 	return {
 		"kind": "dragon", "id": spec["id"],
 		"elements": spec["elements"].duplicate(),
+		"role": spec.get("role", ""),
 		"hp": int(stats["hp"]),
 		"atk": int(stats["atk"]),
 		"cooldownTicks": int(stats["cooldownTicks"]),

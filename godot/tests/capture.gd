@@ -42,7 +42,7 @@ func _init() -> void:
 		ctl.dispatch({"type": "spin"})
 		for i in (12 if mode == "spinmid" else 90):
 			await process_frame
-		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "slab", "erase", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
+		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "lineage", "slab", "erase", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -108,6 +108,13 @@ func _init() -> void:
 			ctl.state["runePending"] = "fire" if mode == "slab" else "erase"
 			ctl.state["slab"][2] = "fire"
 			scene.call("_render", [], ctl.state)
+			for i in 40:
+				await process_frame
+		if mode == "lineage":
+			ctl.state["nest"][0] = {"uid": 901, "speciesId": "fire_drake", "traits": ["tr_fire_wyvern"], "bonusPct": 0, "skills": {"fang": 2}, "skillPoints": 0, "level": 6, "xp": 1}
+			ctl.state["bench"][0] = {"uid": 902, "speciesId": "fire_wyvern", "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": 0, "level": 2, "xp": 0}
+			scene.call("_render", [], ctl.state)
+			scene.call("_show_lineage", {"type": "merge", "main": {"zone": "nest", "index": 0}, "material": {"zone": "bench", "index": 0}})
 			for i in 40:
 				await process_frame
 		if mode == "transmute":

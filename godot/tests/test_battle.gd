@@ -188,7 +188,7 @@ func test_to_unit_applies_bonus_and_stat_traits() -> void:
 	data["traits"]["tr_ls"] = {"id": "tr_ls", "nameKo": "l", "kind": "lifestealPct", "value": 15}
 	var inst: Dictionary = {"uid": 1, "speciesId": "fire_drake", "traits": ["tr_hp", "tr_ls"], "bonusPct": 10}
 	assert_eq(Battle.to_unit(data, inst), {
-		"speciesId": "fire_drake", "tier": "base", "elements": ["fire"], "hp": 169, "atk": 9,
+		"speciesId": "fire_drake", "tier": "base", "role": "front", "elements": ["fire"], "hp": 169, "atk": 9,
 		"cooldownTicks": 20, "lifestealPct": 15, "escortBonus": 0, "escortPct": 0,
 	})
 
@@ -620,3 +620,72 @@ func test_dragon_keeps_shooting_other_lanes_while_its_own_lane_target_is_far() -
 		if event["xs"].has(0):
 			last_x = int(event["xs"][0])
 	assert_eq(last_x, 990 - 260, "그러면서도 제 줄 적 쪽으로 걸어간다")
+
+
+## ── 역할(사수)의 줄 규칙 ──
+
+func _role_cfg() -> Dictionary:
+	var cfg: Dictionary = _lane_cfg()
+	cfg["field"]["roleLanePct"] = {"back": [100, 100, 80]}
+	cfg["field"]["roleRangeAdd"] = {"back": 80}
+	return cfg
+
+
+static func _with_role(unit: Dictionary, role: String) -> Dictionary:
+	unit["role"] = role
+	return unit
+
+
+func test_archer_role_keeps_full_damage_into_the_next_lane() -> void:
+	var cfg: Dictionary = _role_cfg()
+	var dmg: Dictionary = {}
+	for role: String in ["back", "front", ""]:
+		dmg[role] = []
+		for lane: int in range(3):
+			var result: Dictionary = Battle.simulate_battle(cfg, _slots([_with_role(_solo("fire", 100000, 100), role)]),
+				[_enemy("minion", "fire", 100000, 1, 1000, lane, 400)])
+			dmg[role].append(int(_first_attack_from(result, 0).get("dmg", 0)))
+	assert_eq(dmg["back"], [100, 100, 80], "사수는 옆줄도 제 힘으로")
+	assert_eq(dmg["front"], [100, 70, 50])
+	assert_eq(dmg[""], [100, 70, 50], "역할이 없는 유닛은 기본 표")
+
+
+func test_archer_role_reaches_farther_in_either_row() -> void:
+	var cfg: Dictionary = _role_cfg()
+	for row: int in range(2):
+		var archer: Dictionary = _with_role(_solo("fire", 100000, 10), "back")
+		var allies: Array = _slots([archer]) if row == 0 else _slots([], [archer])
+		var result: Dictionary = Battle.simulate_battle(cfg, allies, [_enemy("minion", "fire", 100000, 1, 1000, 0, 990)])
+		var last_x: int = -1
+		for event: Dictionary in _of_kind(result, "pos"):
+			if event["xs"].has(0):
+				last_x = int(event["xs"][0])
+		assert_eq(last_x, 990 - ([260, 420][row] + 80))
+
+
+func test_enemy_leader_with_the_archer_role_gets_the_same_table() -> void:
+	var cfg: Dictionary = _role_cfg()
+	var leader: Dictionary = _enemy("dragon", "fire", 100000, 100, 10, 0, 900)
+	leader["role"] = "back"
+	var result: Dictionary = Battle.simulate_battle(cfg, _slots([null, _solo("fire", 100000, 1, 1000)]), [leader])
+	assert_eq(int(_first_attack_from(result, 1).get("dmg", 0)), 100)
+
+
+func test_units_carry_their_species_role_into_battle() -> void:
+	var data: Dictionary = GameData.load_all()
+	var archer: Dictionary = Battle.to_unit(data, {"speciesId": "fire_wyvern", "traits": [], "bonusPct": 0})
+	assert_eq(archer["role"], "back")
+	assert_eq(Battle.to_unit(data, {"speciesId": "fire_drake", "traits": [], "bonusPct": 0})["role"], "front")
+	for enemy: Dictionary in Waves.generate_enemies(data, 12, Rng.new(3), 3):
+		if enemy["kind"] == "dragon":
+			assert_eq(enemy["role"], data["dragons"][enemy["id"]]["role"])
+
+
+func test_real_data_gives_archers_a_softer_lane_table() -> void:
+	var field: Dictionary = _real["field"]
+	var archer: Array = field["roleLanePct"]["back"]
+	assert_eq(archer.size(), 3)
+	assert_eq(int(archer[0]), 100)
+	assert_true(int(archer[1]) > int(field["crossLanePct"][1]))
+	assert_true(int(archer[2]) > int(field["crossLanePct"][2]))
+	assert_true(int(field["roleRangeAdd"]["back"]) > 0)

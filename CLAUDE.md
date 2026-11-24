@@ -25,6 +25,8 @@
 - 줄 전투(2026-11-24): 드래곤은 제 줄을 지키며 사거리까지 걸어가 쏜다. 제 줄 100% · 옆줄 75% · 건너편 50%(`battle.field.crossLanePct`, 궁극기는 감쇠 없음). 적이 몰리는 줄은 `waves.squad.lanePatterns`와 판 씨앗으로 정해지고 전투 전에 미리 보여 준다(`Waves.lane_preview`는 실제 편성과 같아야 한다 — 시험으로 고정).
 - 전환의 룬(2026-11-24): 같은 등급·같은 형태의 다른 원소 용으로 바꾼다. 실패해도 용은 그대로이고 다음 시도는 반드시 성공한다(`waves.transmute`). 원소별 용 목록은 자료 순서가 형태 순서와 같아야 한다(`dragons.json`에 종을 넣을 때 여섯 원소를 같은 순서로).
 - 내 석판(2026-11-24): 석판의 칸은 내 룬 묶음(`state.slab`, 시작은 `slot.slab.start`)에서 고르게 뽑는다. 보상 "룬 한 장"으로 묶음의 룬 하나를 바꾼다(차례 `slab`, 명령 `replaceRune`·`skipRune`). `slot.weights`는 묶음이 없는 옛 저장과 기준 자료 시험에만 쓴다. 새 판은 시작 묶음(원소 셋 중 하나 + 그 원소 용 한 마리, `Run.start_options`)을 고르고 시작한다. 화면을 자동으로 조작하는 도구는 시작 화면을 닫아야 한다(`_start_open`, capture.gd 참고).
+- 역할(2026-11-24): 화면에서는 front · back · support를 **수호 · 사수 · 지원**이라 부른다(`GameTheme.ROLE_KO`, 전열·후열은 놓는 자리 이름). 사수는 줄 감쇠가 100 · 90 · 75이고 사거리 +80(`battle.field.roleLanePct` · `roleRangeAdd`).
+- 계보 선택(2026-11-24): 진화 후보가 둘이면 고른다. 첫째는 조합표의 결과, 둘째는 받는 쪽 드래곤의 역할을 잇는 종(`Fusion.merge_options`, `merge` 명령의 `choice`). 조합표의 첫째 결과는 바꾸지 않는다.
 - 용의 공격 동작은 그림 한 장을 셰이더로 휘어 만든다(`godot/ui/dragon_pose.gdshader`, `dragon_sprite.gd`). 용 그림은 왼쪽을 보고 머리가 왼쪽 위에 오게 그린다. 숨결 모양은 `godot/ui/breath_fx.gd`.
 
 ## 레인 소유권 (설계 8.1)
