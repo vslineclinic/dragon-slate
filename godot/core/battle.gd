@@ -209,6 +209,8 @@ static func simulate_battle(
 	var crit_pct: int = int(crit.get("pct", 0))
 	var crit_rng: Rng = Rng.new(int(rules.get("critSeed", 0)))
 	var abilities: Dictionary = cfg.get("abilities", {})
+	## 유물 "매의 눈": 후열에 선 우리 용은 줄 감쇠를 받지 않는다.
+	var keen_back: bool = bool(rules.get("backRowNoLane", false))
 
 	var events: Array = []
 	var tick: int = 0
@@ -320,7 +322,7 @@ static func simulate_battle(
 						dmg = Rng.fdiv(dmg * int(enrage["atkPct"]), 100)
 					## 줄 감쇠: 드래곤이 제 줄 밖을 치면 줄 거리만큼 약해진다(궁극기는 그대로).
 					var lane_pct: int = 100
-					if unit["kind"] == "dragon" and not is_ult:
+					if unit["kind"] == "dragon" and not is_ult and not (keen_back and side == "ally" and int(unit["slot"]) >= 3):
 						lane_pct = _lane_pct(field, unit, victim)
 						if lane_pct != 100:
 							dmg = maxi(1, Rng.fdiv(dmg * lane_pct, 100))

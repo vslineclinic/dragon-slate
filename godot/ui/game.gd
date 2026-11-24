@@ -185,7 +185,7 @@ func _on_change(events: Array, state: Dictionary) -> void:
 				])
 			"runeReplaced":
 				var slab: Array = state.get("slab", [])
-				flash("석판의 %s 룬을 %s 룬으로 바꿨어요.\n이제 %s 룬이 %d칸 중 %d칸이에요." % [
+				flash(("한 장 더 바꿀 수 있어요.\n" if state.get("runePending") != null else "") + "석판의 %s 룬을 %s 룬으로 바꿨어요.\n이제 %s 룬이 %d칸 중 %d칸이에요." % [
 					GameTheme.SYMBOL_LABEL.get(event["from"], event["from"]), GameTheme.SYMBOL_LABEL.get(event["to"], event["to"]),
 					GameTheme.SYMBOL_LABEL.get(event["to"], event["to"]), slab.size(), slab.count(event["to"]),
 				])

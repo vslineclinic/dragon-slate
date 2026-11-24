@@ -313,6 +313,11 @@ static func _do_pick(data: Dictionary, state: Dictionary, index: Variant, rng: R
 				_add_mana(state, data["slot"]["goldLineMana"], "goldLine", events)
 			"wild":
 				_add_mana(state, data["slot"]["wildLineMana"], "wildLine", events)
+				## 유물 "여의주 왕관": 여의주 줄을 맞추면 2티어 알도 받는다(대기칸이 꽉 찼으면 마력).
+				if relic_bonus(data, state).has("wildLineEgg"):
+					var crowned: Array = _species_of_tier(data, "t2")
+					if not crowned.is_empty() and not _add_to_bench(state, Slot.pick_species(data, rng, crowned), "bonus", events):
+						converted += 2
 			_:
 				var tier: String = "t2" if group["lines"].size() >= 2 else "base"
 				var pool: Array = _species_of_tier(data, tier, group["element"])
@@ -489,9 +494,14 @@ static func _do_rune(data: Dictionary, state: Dictionary, index: Variant, rng: R
 		else:
 			events.append({"t": "runeReplaced", "index": int(index), "from": slab[int(index)], "to": rune})
 			slab[int(index)] = rune
+			state["runeUses"] = int(state.get("runeUses", 1)) - 1
+			if int(state["runeUses"]) > 0:
+				## 아직 더 바꿀 수 있다: 석판 차례에 머문다.
+				return ""
 	else:
 		events.append({"t": "runeSkipped", "rune": rune})
 	state["runePending"] = null
+	state["runeUses"] = 0
 	_after_reward(data, state, rng, events)
 	return ""
 
@@ -589,6 +599,9 @@ static func _do_choose_relic(data: Dictionary, state: Dictionary, index: Variant
 			events.append({"t": "lives", "lives": state["lives"]})
 		elif relic["kind"] == "nudge":
 			state["nudgesLeft"] += int(relic["value"])
+		elif relic["kind"] == "transmuteSure":
+			## 현자의 돌: 전환의 룬 하나와 함께 온다.
+			_add_item(state, "transmute", int(relic["value"]), events)
 	events.append({"t": "relic", "id": id})
 	_proceed(data, state, rng, events)
 	return ""
@@ -616,6 +629,8 @@ static func transmute_target(data: Dictionary, species_id: String, element: Stri
 ## 지금 전환이 성공할 확률(%). 직전에 실패했으면 afterFailPct.
 static func transmute_chance(data: Dictionary, state: Dictionary) -> int:
 	var cfg: Dictionary = data["waves"].get("transmute", {})
+	if relic_bonus(data, state).has("transmuteSure"):
+		return 100
 	return int(cfg.get("afterFailPct", 100)) if int(state.get("transmuteFails", 0)) > 0 else int(cfg.get("successPct", 100))
 
 
@@ -703,6 +718,8 @@ static func _apply_reward(data: Dictionary, state: Dictionary, rng: Rng, reward:
 		"rune":
 			if detail != null and not state.get("slab", []).is_empty():
 				state["runePending"] = detail
+				## 유물 "쌍둥이 끌": 룬 한 장으로 두 장까지 바꾼다.
+				state["runeUses"] = 1 + int(relic_bonus(data, state).get("runeEdits", 0))
 			else:
 				_add_mana(state, 3, "reward", events)
 		"erase":
@@ -763,6 +780,8 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 	var rules: Dictionary = {} if boss == null else boss.get("rules", {}).duplicate()
 	if relics.has("strongAddPct"):
 		rules["strongAddPct"] = relics["strongAddPct"]
+	if relics.has("backRowNoLane"):
+		rules["backRowNoLane"] = true
 	rules["critSeed"] = rng.next_int(1000000007)
 	var result: Dictionary = Battle.simulate_battle(data["battle"], allies, enemies, rules)
 	events.append({"t": "battle", "result": result})

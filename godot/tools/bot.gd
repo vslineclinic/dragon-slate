@@ -34,7 +34,7 @@ static func choose(data: Dictionary, state: Dictionary) -> Dictionary:
 
 
 const REWARD_ORDER: Array = ["t2egg", "trait", "egg", "life", "mana", "freeSpin", "nudge"]
-const RELIC_ORDER: Array = ["sword", "shell", "horn", "banner", "feather", "fang", "seal", "tome", "scale", "dice", "phoenix", "kiln"]
+const RELIC_ORDER: Array = ["sword", "shell", "horn", "hawkeye", "banner", "feather", "fang", "seal", "crown", "tome", "scale", "dice", "phoenix", "kiln", "chisel", "philosopher"]
 const SKILL_ORDER: Array = ["fang", "scale", "pack", "alpha", "frenzy", "leech"]
 
 
@@ -113,7 +113,10 @@ static func _choose_relic(state: Dictionary) -> Dictionary:
 	var choices: Array = state["relicChoices"]
 	var best: int = 0
 	for i: int in range(choices.size()):
-		if RELIC_ORDER.find(choices[i]) < RELIC_ORDER.find(choices[best]):
+		## 목록에 없는 유물은 맨 뒤로.
+		var mine: int = RELIC_ORDER.find(choices[i])
+		var top: int = RELIC_ORDER.find(choices[best])
+		if (mine if mine >= 0 else 99) < (top if top >= 0 else 99):
 			best = i
 	return {"type": "chooseRelic", "index": best}
 
