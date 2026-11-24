@@ -50,6 +50,8 @@ func setup(ctl: Controller, areas: Dictionary) -> void:
 	_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_layer)
 	move_child(_layer, 0)
+	## 대기칸 띠의 배경은 카드 층보다 더 뒤에 둔다(앞에 있으면 카드를 덮어 어둡게 보인다).
+	move_child(strip, 0)
 	_preview = GameTheme.panel(self, Rect2(), Color("#000000cc"), GameTheme.PANEL_LINE, 0, 4)
 	_preview.z_index = 42
 	_preview_text = GameTheme.label(_preview, Rect2(6, 3, 0, 0), "", 17, Color("#fff3bf"))
@@ -201,8 +203,8 @@ func _draw_card(rect: Rect2, inst: Dictionary, ref: Dictionary, draggable: bool,
 		GameTheme.label(card, Rect2(8, 46, 75, 20), "Lv.%d · %s" % [level, GameTheme.TIER_KO[tier]], 12, tier_color)
 	var points: int = int(inst.get("skillPoints", 0))
 	if points > 0:
-		var badge: Panel = GameTheme.panel(card, Rect2(34, -12, 86, 20), Color("#5c4a00"), GameTheme.RECOMMEND, 2, 8)
-		GameTheme.label(badge, Rect2(0, 0, 86, 20), "스킬 +%d · 눌러요" % points, 11, Color("#ffe066"), HORIZONTAL_ALIGNMENT_CENTER)
+		var badge: Panel = GameTheme.panel(card, Rect2(12, -12, 108, 20), Color("#5c4a00"), GameTheme.RECOMMEND, 2, 8)
+		GameTheme.label(badge, Rect2(0, 0, 108, 20), "스킬 +%d · 눌러요" % points, 11, Color("#ffe066"), HORIZONTAL_ALIGNMENT_CENTER)
 		badge.create_tween().set_loops().tween_property(badge, "modulate:a", 0.5, 0.5).from(1.0)
 	if draggable:
 		card.mouse_filter = Control.MOUSE_FILTER_STOP

@@ -51,6 +51,9 @@ func _init() -> void:
 				if offer["kind"] == "egg":
 					ctl.state["bench"][0] = {"uid": 950, "speciesId": offer["speciesId"], "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": 0, "level": 5, "xp": 0}
 					break
+			## 대기칸이 찬 모습도 함께 본다.
+			for slot in range(1, 4):
+				ctl.state["bench"][slot] = {"uid": 951 + slot, "speciesId": ["ice_wyvern", "poison_horned", "abyss_sage"][slot - 1], "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": 1, "level": 2, "xp": 0}
 			scene.call("_render", [], ctl.state)
 			for i in 20:
 				await process_frame

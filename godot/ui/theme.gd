@@ -42,7 +42,7 @@ static func areas(width: float) -> Dictionary:
 		"spin": Rect2(16, HUD_H + SPIN_TOP, inner, 54),
 		"offers": Rect2(16, HUD_H + OFFER_TOP, inner, OFFER_STEP * 3 - 6),
 		"bench": Rect2(bench_x, BENCH_Y, bench_w, CARD_SIZE.y),
-		"release": Rect2(bench_x + bench_w + 12, BENCH_Y, 168, CARD_SIZE.y),
+		"release": Rect2(bench_x + bench_w + 12, BENCH_Y, 150, CARD_SIZE.y),
 	}
 
 

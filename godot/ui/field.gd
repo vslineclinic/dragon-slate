@@ -166,16 +166,18 @@ func _show_lane_preview(state: Dictionary) -> void:
 	var table: Array = _data["battle"]["field"].get("crossLanePct", [])
 	if table.size() >= 3:
 		## 줄 규칙 쪽지: 대기칸 띠 오른쪽 빈 자리에 세 줄로.
-		var rule: String = "용의 공격 피해\n제 줄 %d%% · 옆줄 %d%%\n건너편 줄 %d%%" % [int(table[0]), int(table[1]), int(table[2])]
+		## 짧은 표로: 제 줄 · 옆줄 · 건너편 순서의 피해 비율. 칸 폭을 넘지 않게 한 줄을 짧게 쓴다.
+		var rule: String = "줄 거리에 따른 피해\n(제 줄 · 옆줄 · 건너편)\n용  %d · %d · %d%%" % [int(table[0]), int(table[1]), int(table[2])]
 		var archer: Array = _data["battle"]["field"].get("roleLanePct", {}).get("back", [])
 		if archer.size() >= 3:
-			rule += "\n사수는 옆줄 %d%% · 건너편 %d%%" % [int(archer[1]), int(archer[2])]
+			rule += "\n사수  %d · %d · %d%%" % [int(archer[0]), int(archer[1]), int(archer[2])]
 		var strip_end: float = GameTheme.areas(_width)["release"].end.x - position.x
 		var room: float = size.x - strip_end - 28.0
 		if room >= 180.0:
 			var note: Panel = GameTheme.panel(_units_layer, Rect2(strip_end + 16, GameTheme.BENCH_Y - position.y - 4, room, 96), Color("#0b0b10c7"), Color(GameTheme.PANEL_LINE, 0.8), 1, 8, "flat")
 			note.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			var note_text: Label = GameTheme.label(note, Rect2(6, 0, room - 12, 96), rule, 12, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+			var note_text: Label = GameTheme.label(note, Rect2(6, 0, room - 12, 96), rule, 12, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+			note_text.clip_text = true
 			note_text.add_theme_constant_override("line_spacing", 2)
 
 
