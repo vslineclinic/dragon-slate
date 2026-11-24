@@ -16,8 +16,8 @@ const CARD_SIZE: Vector2 = Vector2(120, 88)
 ## 왼쪽 패널 안의 세로 배치(패널 맨 위에서 잰 값): 석판, 알 카드 3장, 돌리기 단추.
 const SLAB_TOP: float = 136.0
 const OFFER_TOP: float = 384.0
-const OFFER_STEP: float = 70.0
-const SPIN_TOP: float = 598.0
+const OFFER_STEP: float = 76.0
+const SPIN_TOP: float = 616.0
 ## 대기칸 띠: 전장 맨 아래.
 const BENCH_Y: float = 622.0
 

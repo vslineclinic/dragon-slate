@@ -44,6 +44,16 @@ func _init() -> void:
 		ctl.dispatch({"type": "spin"})
 		for i in (12 if mode == "spinmid" else 90):
 			await process_frame
+		if mode == "offer":
+			## 추천이 붙은 알 카드를 보려고, 나온 알과 같은 종을 대기칸에 미리 둔다(합치면 진화 → 추천).
+			ctl.busy = false
+			for offer in Slot.offers_from(ctl.data, ctl.state["grid"]):
+				if offer["kind"] == "egg":
+					ctl.state["bench"][0] = {"uid": 950, "speciesId": offer["speciesId"], "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": 0, "level": 5, "xp": 0}
+					break
+			scene.call("_render", [], ctl.state)
+			for i in 20:
+				await process_frame
 		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "lineage", "slab", "erase", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
