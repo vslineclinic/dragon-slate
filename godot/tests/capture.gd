@@ -13,6 +13,10 @@ func _init() -> void:
 		await process_frame
 	var scene: Node = (load(scene_path) as PackedScene).instantiate()
 	root.add_child(scene)
+	## 타이틀은 첫 실행 때 창을 화면 가운데로 옮기므로 다시 화면 밖으로 보낸다.
+	await process_frame
+	DisplayServer.window_set_size(Vector2i(int(args[3]) if args.size() > 3 else 1280, 720))
+	DisplayServer.window_set_position(Vector2i(-4000, -4000))
 	for i in 30:
 		await process_frame
 	if mode != "" and scene.get("controller") != null:
