@@ -392,7 +392,7 @@ func test_fork_appears_after_listed_waves_and_rest_heals() -> void:
 	var state: Dictionary = _strong_nest(3)
 	state["lives"] = 3
 	var after: Dictionary = _apply(state, {"type": "startBattle"})["state"]
-	_assert_fields(after, {"phase": "fork", "wave": 4, "forkChoices": ["elite", "rest", "merchant"]})
+	_assert_fields(after, {"phase": "fork", "wave": 4, "forkChoices": ["elite", "rest", "merchant", "pact"]})
 	var rested: Dictionary = _apply(after, {"type": "chooseFork", "option": "rest"})
 	_assert_fields(rested["state"], {"phase": "spin", "lives": 4, "forkChoices": []})
 	assert_true(rested["events"].any(func(event: Dictionary) -> bool: return event["t"] == "waveStart" and event["wave"] == 4))

@@ -53,6 +53,12 @@
   "startLives": 5,
   "lossLife": 1,
   "bossLossLife": 2,
+  "leak": {
+    "minion": 1,
+    "leader": 4,
+    "perLife": 5,
+    "max": 3
+  },
   "nestUnlockAfter": [
     5,
     12,
@@ -111,6 +117,12 @@
           "dual"
         ]
       }
+    ],
+    "plainWeight": 5,
+    "minionTypes": [
+      {"id": "runner", "nameKo": "돌격병", "fromWave": 2, "weight": 2, "hpPct": 60, "atkPct": 110, "speedPct": 170},
+      {"id": "guard", "nameKo": "방패병", "fromWave": 4, "weight": 2, "hpPct": 180, "atkPct": 70, "speedPct": 80},
+      {"id": "archer", "nameKo": "궁병", "fromWave": 6, "weight": 2, "hpPct": 65, "atkPct": 100, "speedPct": 100, "reach": 220}
     ],
     "lanePatterns": [
       {
@@ -175,6 +187,7 @@
     "elitePowerPct": 40,
     "restLives": 1,
     "restXp": 4,
-    "merchantCost": 12
+    "merchantCost": 12,
+    "pactPowerPct": 15
   }
 }

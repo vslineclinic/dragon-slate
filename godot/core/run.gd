@@ -51,7 +51,8 @@ static func start_options(data: Dictionary, seed: int) -> Array:
 
 
 ## start = 시작 묶음의 원소. 이번 판에 내놓은 묶음이 아니면(빈 글 포함) 기본 묶음으로, 용 없이 시작한다.
-static func create_run(data: Dictionary, seed: int, calamity: int = 0, start: String = "") -> Dictionary:
+## carry = 앞 지역에서 데려온 용({"speciesId", "traits"}). 레벨 1로 대기칸에 들어온다.
+static func create_run(data: Dictionary, seed: int, calamity: int = 0, start: String = "", carry: Dictionary = {}) -> Dictionary:
 	var mods: Dictionary = Calamity.mods(data, calamity)
 	var chosen: Dictionary = {}
 	for option: Dictionary in start_options(data, seed):
@@ -94,9 +95,20 @@ static func create_run(data: Dictionary, seed: int, calamity: int = 0, start: St
 		"slab": data["slot"].get("slab", {}).get("start", []).duplicate(),
 		"runePending": null,
 		"start": "",
+		"carry": "",
+		"cursePct": 0,
+		"livesLost": 0,
 		"log": [],
 	}
 	var events: Array = []
+	if data["dragons"].has(carry.get("speciesId", "")):
+		var kept: Array = []
+		for trait_id: Variant in carry.get("traits", []):
+			if data["traits"].has(trait_id) and kept.size() < int(data["battle"]["maxTraits"]) and trait_id not in kept:
+				kept.append(trait_id)
+		if _add_to_bench(state, carry["speciesId"], "carry", events):
+			state["bench"][0]["traits"] = kept
+			state["carry"] = carry["speciesId"]
 	if not chosen.is_empty():
 		state["slab"] = chosen["runes"].duplicate()
 		state["start"] = chosen["id"]
@@ -125,7 +137,7 @@ static func apply_command(data: Dictionary, state: Dictionary, cmd: Dictionary) 
 		"release":
 			reason = _do_release(data, next, cmd["from"], events)
 		"startBattle":
-			reason = _do_battle(data, next, rng, events)
+			reason = _do_battle(data, next, rng, events, cmd)
 		"chooseReward":
 			reason = _do_choose_reward(data, next, cmd["index"], rng, events)
 		"skill":
@@ -521,7 +533,7 @@ static func _proceed(data: Dictionary, state: Dictionary, rng: Rng, events: Arra
 		return
 	if state.get("forkPending", false):
 		state["forkPending"] = false
-		state["forkChoices"] = ["elite", "rest", "merchant"]
+		state["forkChoices"] = ["elite", "rest", "merchant"] + (["pact"] if int(data["waves"].get("fork", {}).get("pactPowerPct", 0)) > 0 else [])
 		state["phase"] = "fork"
 		events.append({"t": "forkChoices", "choices": state["forkChoices"]})
 		return
@@ -553,6 +565,10 @@ static func _do_choose_fork(data: Dictionary, state: Dictionary, option: Variant
 			if int(state["mana"]) < cost:
 				return "notEnoughMana"
 			_add_mana(state, -cost, "merchant", events)
+			state["relicPending"] = true
+		"pact":
+			## 저주: 판이 끝날 때까지 적이 세지는 대신 유물을 바로 하나 고른다.
+			state["cursePct"] = int(state.get("cursePct", 0)) + int(fork.get("pactPowerPct", 0))
 			state["relicPending"] = true
 	state["forkChoices"] = []
 	events.append({"t": "fork", "option": option})
@@ -769,29 +785,87 @@ static func _reward_trait(data: Dictionary, state: Dictionary, rng: Rng) -> Vari
 	return trait_id
 
 
-static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Array) -> String:
-	if state["phase"] != "manage":
-		return "wrongPhase"
+## 다음 전투의 편성과 규칙을 미리 만든다(상태를 바꾸지 않는다). 화면이 수동 궁극기 전투를 직접 돌릴 때 쓴다.
+## 같은 상태에서 startBattle을 보내면 core가 똑같은 편성으로 다시 계산한다. 둥지가 비었으면 {}.
+static func battle_setup(data: Dictionary, state: Dictionary, manual: bool = false) -> Dictionary:
+	var probe: Dictionary = state.duplicate(true)
+	var setup: Dictionary = _battle_setup(data, probe, Rng.new(probe["seed"], probe["rngState"]))
+	if not setup.is_empty() and manual:
+		setup["rules"]["manualUlt"] = true
+	return setup
+
+
+## 편성과 규칙. rng를 실제 전투와 같은 순서로 쓴다(적 뽑기 → 치명타 씨앗).
+static func _battle_setup(data: Dictionary, state: Dictionary, rng: Rng) -> Dictionary:
 	var relics: Dictionary = relic_bonus(data, state)
 	var allies: Array = Battle.team(data, state["nest"], state["nestOpen"], relics)
 	if allies.all(func(unit: Variant) -> bool: return unit == null):
-		return "nestEmpty"
+		return {}
 	var wave: int = state["wave"]
 	var waves: Dictionary = data["waves"]
 	var mods: Dictionary = Calamity.mods(data, state["calamity"]).duplicate()
 	var wave_mod: Dictionary = state.get("waveMod", {})
-	mods["enemyPowerPct"] = int(mods["enemyPowerPct"]) + int(wave_mod.get("powerPct", 0))
-	state["waveMod"] = {}
+	## 정예 사냥(이번 웨이브만)과 저주(판이 끝날 때까지)가 적을 더 세게 한다.
+	mods["enemyPowerPct"] = int(mods["enemyPowerPct"]) + int(wave_mod.get("powerPct", 0)) + int(state.get("cursePct", 0))
 	var enemies: Array = Waves.generate_enemies(data, wave, rng, state["seed"], mods)
 	var is_boss: bool = Waves.is_boss(waves, wave)
-	var strong_wave: bool = is_boss or Waves.is_elite(waves, wave)
 	var boss: Variant = _boss_spec(data, wave) if is_boss else null
-	var rules: Dictionary = {} if boss == null else boss.get("rules", {}).duplicate()
+	## 지역 규칙(waves.battleRules)이 바탕이고, 보스의 규칙이 그 위에 덮인다.
+	var rules: Dictionary = waves.get("battleRules", {}).duplicate(true)
+	if boss != null:
+		rules.merge(boss.get("rules", {}).duplicate(true), true)
 	if relics.has("strongAddPct"):
 		rules["strongAddPct"] = relics["strongAddPct"]
 	if relics.has("backRowNoLane"):
 		rules["backRowNoLane"] = true
 	rules["critSeed"] = rng.next_int(1000000007)
+	return {
+		"allies": allies, "enemies": enemies, "rules": rules, "relics": relics, "mods": mods, "waveMod": wave_mod,
+		"boss": is_boss, "strong": is_boss or Waves.is_elite(waves, wave),
+	}
+
+
+## 졌을 때 잃는 생명: 전장에 살아남은 적이 많을수록 더 잃는다(waves.leak). 자료가 없으면 예전처럼 고정값.
+static func leak_lives(waves: Dictionary, left: Dictionary, is_boss: bool) -> int:
+	var floor_loss: int = int(waves["bossLossLife"]) if is_boss else int(waves["lossLife"])
+	var leak: Dictionary = waves.get("leak", {})
+	if leak.is_empty():
+		return floor_loss
+	var points: int = int(left.get("minions", 0)) * int(leak.get("minion", 1)) + int(left.get("leaders", 0)) * int(leak.get("leader", 1))
+	var per_life: int = maxi(1, int(leak.get("perLife", 1)))
+	return clampi(Rng.fdiv(points + per_life - 1, per_life), floor_loss, maxi(floor_loss, int(leak.get("max", floor_loss))))
+
+
+static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Array, cmd: Dictionary = {}) -> String:
+	if state["phase"] != "manage":
+		return "wrongPhase"
+	var setup: Dictionary = _battle_setup(data, state, rng)
+	if setup.is_empty():
+		return "nestEmpty"
+	var relics: Dictionary = setup["relics"]
+	var allies: Array = setup["allies"]
+	var enemies: Array = setup["enemies"]
+	var rules: Dictionary = setup["rules"]
+	var mods: Dictionary = setup["mods"]
+	var wave_mod: Dictionary = setup["waveMod"]
+	var is_boss: bool = setup["boss"]
+	var strong_wave: bool = setup["strong"]
+	var wave: int = state["wave"]
+	var waves: Dictionary = data["waves"]
+	state["waveMod"] = {}
+	## 수동 궁극기: 화면이 직접 돌린 전투에서 궁극기를 쏜 틱의 기록을 받아 똑같이 다시 계산한다.
+	if bool(cmd.get("manual", false)):
+		rules["manualUlt"] = true
+		var ult_at: Dictionary = {}
+		var given: Variant = cmd.get("ults", {})
+		if given is Dictionary:
+			for key: Variant in given:
+				if given[key] is Array:
+					var ids: Array = []
+					for id: Variant in given[key]:
+						ids.append(int(id))
+					ult_at[int(key)] = ids
+		rules["ultAt"] = ult_at
 	var result: Dictionary = Battle.simulate_battle(data["battle"], allies, enemies, rules)
 	events.append({"t": "battle", "result": result})
 	var won: bool = result["winner"] == "ally"
@@ -806,9 +880,10 @@ static func _do_battle(data: Dictionary, state: Dictionary, rng: Rng, events: Ar
 		if wave in waves.get("transmute", {}).get("grantAfterWaves", []):
 			_add_item(state, "transmute", 1, events)
 	else:
-		var loss: int = waves["bossLossLife"] if is_boss else waves["lossLife"]
+		var loss: int = leak_lives(waves, result.get("left", {}), is_boss)
 		state["lives"] = maxi(0, int(state["lives"]) - loss)
-		events.append({"t": "lives", "lives": state["lives"]})
+		state["livesLost"] = int(state.get("livesLost", 0)) + loss
+		events.append({"t": "lives", "lives": state["lives"], "lost": loss, "left": result.get("left", {})})
 		_add_mana(state, waves["lossMana"], "loss", events)
 	if wave in waves["nestUnlockAfter"] and state["nestOpen"] < NEST_SIZE:
 		state["nestOpen"] += 1

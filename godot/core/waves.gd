@@ -115,16 +115,66 @@ static func lane_sequence(plan: Dictionary, count: int) -> Array:
 	return out
 
 
-## 전투 전에 보여 줄 줄별 적 수(줄 번호 순): {"minions": 졸병 수, "leaders": 우두머리 수}.
+## 졸병 count마리의 종류(""는 보통 졸병). 판 씨앗과 웨이브만으로 정해져서 미리보기와 실제 편성이 같다.
+## squad.minionTypes: [{"id", "fromWave", "weight", "hpPct", "atkPct", "speedPct", "reach"?}], squad.plainWeight = 보통 졸병의 비중.
+static func minion_types(cfg: Dictionary, run_seed: int, wave: int, count: int) -> Array:
+	var squad: Dictionary = cfg["squad"]
+	var pool: Array = [""]
+	var weights: Array = [maxi(1, int(squad.get("plainWeight", 1)))]
+	for row: Dictionary in squad.get("minionTypes", []):
+		if wave >= int(row.get("fromWave", 1)) and int(row.get("weight", 0)) > 0:
+			pool.append(row["id"])
+			weights.append(int(row["weight"]))
+	var out: Array = []
+	if pool.size() == 1:
+		out.resize(count)
+		out.fill("")
+		return out
+	var rng: Rng = Rng.new((run_seed ^ Rng.imul(wave, 15485863)) & Rng.M32)
+	for i: int in range(count):
+		out.append(rng.pick_weighted(pool, weights))
+	return out
+
+
+static func minion_type(cfg: Dictionary, id: String) -> Dictionary:
+	for row: Dictionary in cfg["squad"].get("minionTypes", []):
+		if row["id"] == id:
+			return row
+	return {}
+
+
+## 졸병 count마리가 서는 자리: i번째 졸병의 {"stage", "lane", "order"(그 무리 · 그 줄에서 몇 번째)}.
+static func minion_layout(cfg: Dictionary, plan: Dictionary, wave: int, count: int) -> Array:
+	var stages: int = stage_count(cfg, wave)
+	var lanes: Array = lane_sequence(plan, count)
+	var out: Array = []
+	out.resize(count)
+	var turn: int = 0
+	for stage: int in range(stages):
+		var placed: Array = [0, 0, 0]
+		for i: int in range(stage, count, stages):
+			var lane: int = int(lanes[turn])
+			turn += 1
+			out[i] = {"stage": stage, "lane": lane, "order": int(placed[lane])}
+			placed[lane] += 1
+	return out
+
+
+## 전투 전에 보여 줄 줄별 적 수(줄 번호 순): {"minions": 졸병 수, "leaders": 우두머리 수, "types": {종류: 수}}.
 static func lane_preview(data: Dictionary, run_seed: int, wave: int) -> Array:
 	var cfg: Dictionary = data["waves"]
 	var plan: Dictionary = lane_plan(cfg, run_seed, wave)
 	var out: Array = []
 	for lane: int in range(3):
-		out.append({"minions": 0, "leaders": 0})
+		out.append({"minions": 0, "leaders": 0, "types": {}})
 	var minions: int = 0 if data["minions"].is_empty() else minion_count(cfg, wave)
-	for lane: int in lane_sequence(plan, minions):
+	var kinds: Array = minion_types(cfg, run_seed, wave, minions)
+	var layout: Array = minion_layout(cfg, plan, wave, minions)
+	for i: int in range(minions):
+		var lane: int = int(layout[i]["lane"])
 		out[lane]["minions"] += 1
+		if not str(kinds[i]).is_empty():
+			out[lane]["types"][kinds[i]] = int(out[lane]["types"].get(kinds[i], 0)) + 1
 	var leaders: int = 1 if is_elite(cfg, wave) else leader_count(cfg, wave)
 	for i: int in range(leaders):
 		out[int(plan["order"][i])]["leaders"] += 1
@@ -163,6 +213,7 @@ static func generate_enemies(
 	var minion_specs: Array = data["minions"].values()
 	minion_specs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["id"] < b["id"])
 	var minions: Array = []
+	var kinds: Array = minion_types(cfg, run_seed, wave, 0 if minion_specs.is_empty() else minion_count(cfg, wave))
 	if not minion_specs.is_empty():
 		for i: int in range(minion_count(cfg, wave)):
 			var leader: Dictionary = leaders[rng.next_int(leaders.size())]
@@ -172,7 +223,7 @@ static func generate_enemies(
 				if spec["element"] == element:
 					chosen = spec
 					break
-			minions.append(_minion_unit(chosen))
+			minions.append(_minion_unit(chosen, minion_type(cfg, str(kinds[i]))))
 
 	var target: int = enemy_power(cfg, wave, mods)
 	var elite: bool = is_elite(cfg, wave)
@@ -193,18 +244,13 @@ static func generate_enemies(
 		leaders[i]["x"] = int(squad["leaderX"]) if i == 0 else int(squad["extraLeaderX"])
 		leaders[i]["stage"] = maxi(0, stages - 1 - (i % 2))
 	## 졸병: 무리(stage) 순서대로 줄 비중에 맞춰 세운다. 같은 무리의 같은 줄에서는 뒤로 한 칸씩 물러선다.
-	var lanes: Array = lane_sequence(plan, minions.size())
-	var turn: int = 0
-	for stage: int in range(stages):
-		var placed: Array = [0, 0, 0]
-		var base_x: int = int(squad["minionX"]) if stage == 0 else int(squad.get("lateMinionX", squad["minionX"]))
-		for i: int in range(stage, minions.size(), stages):
-			var lane: int = int(lanes[turn])
-			turn += 1
-			minions[i]["stage"] = stage
-			minions[i]["lane"] = lane
-			minions[i]["x"] = mini(1000, base_x + int(placed[lane]) * int(squad["minionSpacingX"]))
-			placed[lane] += 1
+	var layout: Array = minion_layout(cfg, plan, wave, minions.size())
+	for i: int in range(minions.size()):
+		var spot: Dictionary = layout[i]
+		var base_x: int = int(squad["minionX"]) if int(spot["stage"]) == 0 else int(squad.get("lateMinionX", squad["minionX"]))
+		minions[i]["stage"] = spot["stage"]
+		minions[i]["lane"] = spot["lane"]
+		minions[i]["x"] = mini(1000, base_x + int(spot["order"]) * int(squad["minionSpacingX"]))
 	return leaders + minions
 
 
@@ -220,12 +266,15 @@ static func _scale_to(units: Array, budget: int) -> void:
 		unit["atk"] = maxi(1, Rng.fdiv(unit["atk"] * scale_pct, 100))
 
 
-static func _minion_unit(spec: Dictionary) -> Dictionary:
+## kind_spec = 졸병 종류(방패병 · 돌격병 · 궁병). 비어 있으면 보통 졸병.
+static func _minion_unit(spec: Dictionary, kind_spec: Dictionary = {}) -> Dictionary:
 	return {
 		"kind": "minion", "id": spec["id"], "elements": [spec["element"]],
-		"hp": int(spec["hp"]), "atk": int(spec["atk"]),
-		"cooldownTicks": int(spec["cooldownTicks"]), "speed": int(spec["speed"]),
-		"lane": 0, "x": 0, "stage": 0,
+		"hp": maxi(1, Rng.fdiv(int(spec["hp"]) * int(kind_spec.get("hpPct", 100)), 100)),
+		"atk": maxi(1, Rng.fdiv(int(spec["atk"]) * int(kind_spec.get("atkPct", 100)), 100)),
+		"cooldownTicks": int(spec["cooldownTicks"]),
+		"speed": maxi(1, Rng.fdiv(int(spec["speed"]) * int(kind_spec.get("speedPct", 100)), 100)),
+		"lane": 0, "x": 0, "stage": 0, "type": str(kind_spec.get("id", "")), "reach": int(kind_spec.get("reach", 0)),
 	}
 
 
@@ -236,6 +285,7 @@ static func _spec_unit(spec: Dictionary, data: Dictionary = {}) -> Dictionary:
 		"kind": "dragon", "id": spec["id"],
 		"elements": spec["elements"].duplicate(),
 		"role": spec.get("role", ""),
+		"tier": spec.get("tier", ""),
 		"hp": int(stats["hp"]),
 		"atk": int(stats["atk"]),
 		"cooldownTicks": int(stats["cooldownTicks"]),
