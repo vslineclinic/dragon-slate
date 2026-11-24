@@ -324,17 +324,17 @@ static func nudge_cost(data: Dictionary, state: Dictionary) -> int:
 static func _do_nudge(data: Dictionary, state: Dictionary, col: int, dir: int, events: Array) -> String:
 	if state["phase"] != "pick" or state["grid"] == null:
 		return "wrongPhase"
-	var cost: int = nudge_cost(data, state)
-	if cost < 0:
-		return "noNudgeLeft"
-	if int(state["mana"]) < cost:
-		return "notEnoughMana"
 	if col < 0 or col > 2 or dir not in [-1, 1]:
 		return "cannotNudge"
 	var grid: Dictionary = Slot.nudge(state["grid"], col, dir)
 	## 끝까지 밀린 열은 더 움직이지 않는다: 밀기도 마력도 쓰지 않고 거절한다.
 	if grid["offsets"] == state["grid"]["offsets"]:
 		return "cannotNudge"
+	var cost: int = nudge_cost(data, state)
+	if cost < 0:
+		return "noNudgeLeft"
+	if int(state["mana"]) < cost:
+		return "notEnoughMana"
 	state["grid"] = grid
 	if int(state["nudgesLeft"]) > 0:
 		state["nudgesLeft"] -= 1

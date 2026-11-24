@@ -270,6 +270,28 @@ func test_shop_survives_a_save_and_plays_on() -> void:
 	assert_eq(Store.unpack_run(Store.pack_run(broken, "standard", false), _data, false), {})
 
 
+func test_erase_and_half_used_chisel_purchases_survive_a_save() -> void:
+	## 룬 지우기를 사서 고르는 중에 저장: 이어 한 뒤 물러도 값을 돌려받는다.
+	var state: Dictionary = _shop(30)
+	var erasing: Dictionary = _apply(state, {"type": "buy", "index": _item(state, "erase")})["state"]
+	var loaded: Dictionary = Store.unpack_run(Store.pack_run(erasing, "standard", false), _data, false)["state"]
+	var back: Dictionary = _apply(loaded, {"type": "skipRune"})["state"]
+	assert_eq([back["phase"], int(back["mana"]), back["shop"]["items"][_item(back, "erase")]["sold"]], ["shop", 30, false])
+	## 쌍둥이 끌로 한 장 바꾼 뒤에 저장: 이어 해서 그만둬도 값은 돌려받지 않는다.
+	var chisel: Dictionary = _shop(30, 4, {"relics": ["chisel"]})
+	var index: int = _item(chisel, "rune")
+	var rune: String = chisel["shop"]["items"][index]["detail"]
+	var buying: Dictionary = _apply(chisel, {"type": "buy", "index": index})["state"]
+	var at: int = 0
+	while buying["slab"][at] == rune:
+		at += 1
+	var once: Dictionary = _apply(buying, {"type": "replaceRune", "index": at})["state"]
+	assert_eq(once["phase"], "slab")
+	var again: Dictionary = Store.unpack_run(Store.pack_run(once, "standard", false), _data, false)["state"]
+	var stopped: Dictionary = _apply(again, {"type": "skipRune"})["state"]
+	assert_eq([stopped["phase"], int(stopped["mana"]), stopped["shop"]["items"][index]["sold"]], ["shop", 30 - _cost("rune"), true])
+
+
 func _loads(state: Dictionary) -> bool:
 	return not Store.unpack_run(Store.pack_run(state, "standard", false), _data, false).is_empty()
 
@@ -386,6 +408,9 @@ func test_a_nudge_that_cannot_move_costs_nothing() -> void:
 	_assert_rejected(state, {"type": "nudge", "col": 0, "dir": 1}, "cannotNudge")
 	_assert_rejected(state, {"type": "nudge", "col": 5, "dir": 1}, "cannotNudge")
 	_assert_rejected(state, {"type": "nudge", "col": 0, "dir": 2}, "cannotNudge")
+	## 마력이 없거나 횟수를 다 썼어도 까닭은 같다.
+	state["mana"] = 0
+	_assert_rejected(state, {"type": "nudge", "col": 0, "dir": 1}, "cannotNudge")
 
 
 func test_replacing_a_rune_with_the_same_rune_is_refused_and_keeps_the_refund() -> void:
