@@ -7,34 +7,42 @@ const HEIGHT: float = 720.0
 const MIN_WIDTH: float = 1280.0
 const MAX_WIDTH: float = 1600.0
 const HUD_H: float = 44.0
-const LEFT_RATIO: float = 0.34
-const LEFT_MIN: float = 440.0
-const LEFT_MAX: float = 544.0
+## 왼쪽 조작 패널의 폭(석판 한 장과 알 카드가 들어갈 만큼만). 나머지는 모두 전장이다.
+const LEFT_W: float = 316.0
 const FIELD_MARGIN: float = 30.0
-const LANE_Y: Array = [194.0, 382.0, 570.0]
+## 세 줄의 높이. 전장 아래쪽은 대기칸 띠가 쓴다.
+const LANE_Y: Array = [176.0, 340.0, 504.0]
 const CARD_SIZE: Vector2 = Vector2(120, 88)
+## 왼쪽 패널 안의 세로 배치(패널 맨 위에서 잰 값): 석판, 알 카드 3장, 돌리기 단추.
+const SLAB_TOP: float = 136.0
+const OFFER_TOP: float = 384.0
+const OFFER_STEP: float = 60.0
+const SPIN_TOP: float = 566.0
+## 대기칸 띠: 전장 맨 아래.
+const BENCH_Y: float = 622.0
 
 
-static func left_width(width: float) -> float:
-	return clampf(roundf(clampf(width, MIN_WIDTH, MAX_WIDTH) * LEFT_RATIO), LEFT_MIN, LEFT_MAX)
+static func left_width(_width: float) -> float:
+	return LEFT_W
 
 
-## 화면 폭(1280~1600)에 맞춘 배치. 위 HUD, 왼쪽 조작 패널(약 34%), 오른쪽 전장.
+## 화면 폭(1280~1600)에 맞춘 배치(2026-11-24 개정). 위 HUD, 왼쪽 조작 패널(석판 · 알 카드 · 돌리기), 오른쪽 전장.
+## 대기칸과 놓아주기 칸은 전장 아래쪽 띠에 있다.
 static func areas(width: float) -> Dictionary:
 	var w: float = clampf(width, MIN_WIDTH, MAX_WIDTH)
 	var left: float = left_width(w)
 	var inner: float = left - 32.0
-	var bench_y: float = HUD_H + 430.0
-	var bench_w: float = CARD_SIZE.x * 2 + 8
+	var bench_x: float = left + 52.0
+	var bench_w: float = CARD_SIZE.x * 4 + 8 * 3
 	return {
 		"width": w,
 		"hud": Rect2(0, 0, w, HUD_H),
 		"left": Rect2(0, HUD_H, left, HEIGHT - HUD_H),
 		"field": Rect2(left, HUD_H, w - left, HEIGHT - HUD_H),
-		"spin": Rect2(16, HUD_H + 346, inner, 54),
-		"offers": Rect2(238, HUD_H + 98, left - 238 - 16, 206),
-		"bench": Rect2(16, bench_y, bench_w, CARD_SIZE.y * 2 + 8),
-		"release": Rect2(16 + bench_w + 8, bench_y, inner - bench_w - 8, CARD_SIZE.y * 2 + 8),
+		"spin": Rect2(16, HUD_H + SPIN_TOP, inner, 54),
+		"offers": Rect2(16, HUD_H + OFFER_TOP, inner, OFFER_STEP * 3 - 6),
+		"bench": Rect2(bench_x, BENCH_Y, bench_w, CARD_SIZE.y),
+		"release": Rect2(bench_x + bench_w + 12, BENCH_Y, 168, CARD_SIZE.y),
 	}
 
 

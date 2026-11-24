@@ -12,9 +12,8 @@ const HintRules = preload("res://godot/core/hints.gd")
 const CELL: int = 64
 const STRIDE_X: int = 70
 const STRIDE_Y: int = 70
-const SLAB_X: int = 16
-const SLAB_Y: int = 98
-const OFFER_X: float = 238.0
+const SLAB_X: int = 53
+const SLAB_Y: int = int(GameTheme.SLAB_TOP)
 const SPIN_EXTRA: int = 10
 
 class LineOverlay extends Control:
@@ -63,7 +62,7 @@ func setup(ctl: Controller, store: Store) -> void:
 	_reward = GameTheme.label(self, Rect2(16, 26, _right_w, 18), "", 12, Color("#ffe066"))
 	GameTheme.wrap(_reward)
 	_reward.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	_spin = GameTheme.cta(self, Rect2(16, 346, _right_w, 54), "", _dispatch.bind({"type": "spin"}), "gold", 21)
+	_spin = GameTheme.cta(self, Rect2(16, GameTheme.SPIN_TOP, _right_w, 54), "", _dispatch.bind({"type": "spin"}), "gold", 21)
 
 
 func render(state: Dictionary, events: Array) -> void:
@@ -113,16 +112,18 @@ func _draw_slab_strip(state: Dictionary) -> void:
 	var slab: Array = state.get("slab", [])
 	if slab.is_empty():
 		return
-	var x: float = SLAB_X + 6.0
+	## 석판 틀 위쪽에 따로 한 줄(틀 안의 밀기 단추와 겹치지 않게).
+	var stride: float = (size.x - 32.0) / 8.0
+	var x: float = 16.0 + (stride - 30.0) / 2.0
 	for symbol: String in GameData.active_elements(_ctl.data) + ["gold", "wild"]:
 		var count: int = slab.count(symbol)
 		var mark: Marks = Marks.new(symbol)
 		mark.modulate.a = 1.0 if count > 0 else 0.3
 		mark.mouse_filter = Control.MOUSE_FILTER_PASS
 		mark.tooltip_text = "내 석판: %s 룬 %d칸 (모두 %d칸). 칸마다 이 묶음에서 하나가 나와요." % [GameTheme.SYMBOL_LABEL.get(symbol, symbol), count, slab.size()]
-		GameTheme.place(_layer, mark, Rect2(x, SLAB_Y - 27, 15, 15))
-		GameTheme.label(_layer, Rect2(x + 16, SLAB_Y - 30, 12, 20), str(count), 12, GameTheme.TEXT if count > 0 else GameTheme.DIM)
-		x += 25.0
+		GameTheme.place(_layer, mark, Rect2(x, SLAB_Y - 56, 16, 16))
+		GameTheme.label(_layer, Rect2(x + 18, SLAB_Y - 59, 14, 20), str(count), 13, GameTheme.TEXT if count > 0 else GameTheme.DIM)
+		x += stride
 
 
 func _draw_grid(state: Dictionary, grid: Dictionary, recommendation: Variant, animate: bool) -> void:
@@ -242,36 +243,37 @@ func _nudge_button(col: int, direction: int, symbol: String, recommendation: Var
 func _draw_offers(state: Dictionary) -> void:
 	var offers: Array = [] if state["grid"] == null else SlotRules.offers_from(_ctl.data, state["grid"])
 	var reco: Variant = HintRules.recommend_offer(_ctl.data, state) if state["phase"] == "pick" else null
-	var card_w: float = size.x - OFFER_X - 16.0
+	## 알 카드 3장: 석판 바로 아래에 세로로.
+	var card_w: float = size.x - 32.0
 	for i: int in range(3):
-		var rect: Rect2 = Rect2(OFFER_X, SLAB_Y + i * 70, card_w, 66)
+		var rect: Rect2 = Rect2(16, GameTheme.OFFER_TOP + i * GameTheme.OFFER_STEP, card_w, GameTheme.OFFER_STEP - 6.0)
 		if i >= offers.size():
 			GameTheme.well(_offers_layer, rect, 8)
 			continue
 		var is_reco: bool = reco != null and reco["index"] == i
 		var card: Button = GameTheme.button(_offers_layer, rect, "", _dispatch.bind({"type": "pick", "index": i}), GameTheme.CARD, GameTheme.RECOMMEND if is_reco else GameTheme.PANEL_LINE, 3 if is_reco else 1)
 		var offer: Dictionary = offers[i]
-		var text_w: float = card_w - 66.0
+		var text_w: float = card_w - 64.0
 		if offer["kind"] == "egg":
 			var id: String = offer["speciesId"]
 			var spec: Dictionary = _ctl.data["dragons"][id]
 			var element: String = spec["elements"][0]
-			if GameTheme.dragon(card, Rect2(4, 5, 56, 56), id) == null:
-				GameTheme.place(card, Marks.new(element, true), Rect2(8, 9, 48, 48))
-			var title: Label = GameTheme.label(card, Rect2(62, 5, text_w, 22), spec["nameKo"] + " 알", 14)
+			if GameTheme.dragon(card, Rect2(4, 2, 50, 50), id) == null:
+				GameTheme.place(card, Marks.new(element, true), Rect2(8, 5, 44, 44))
+			var title: Label = GameTheme.label(card, Rect2(58, 2, text_w, 20), spec["nameKo"] + " 알", 14)
 			title.clip_text = true
 			var odds: int = SlotRules.species_odds(_ctl.data, id, state.get("slab", []))
 			var rarity: Array = GameTheme.rarity(SlotRules.species_weight(_ctl.data, id))
-			GameTheme.label(card, Rect2(62, 26, text_w, 16), "%s · 등장 %s" % [rarity[0], GameTheme.percent(odds)], 11, rarity[1])
+			GameTheme.label(card, Rect2(58, 21, text_w, 16), "%s · 등장 %s" % [rarity[0], GameTheme.percent(odds)], 11, rarity[1])
 			if not _store.discovered().has(id):
 				GameTheme.new_badge(card, rect.size)
 		else:
-			GameTheme.place(card, Marks.new("gold", true), Rect2(8, 9, 48, 48))
-			GameTheme.label(card, Rect2(62, 16, text_w, 32), "마력 +%d" % offer["amount"], 17)
+			GameTheme.place(card, Marks.new("gold", true), Rect2(8, 5, 44, 44))
+			GameTheme.label(card, Rect2(58, 11, text_w, 32), "마력 +%d" % offer["amount"], 17)
 		if is_reco:
 			var spec: Dictionary = _ctl.data["dragons"].get(reco.get("result"), {})
 			var why: String = "추천 · 합치면 " + spec.get("nameKo", "진화") if reco["reason"] == "recipe" else "추천 · 같은 원소"
-			var tag: Label = GameTheme.label(card, Rect2(62, 44, text_w, 16), why, 11, Color("#ffe066"))
+			var tag: Label = GameTheme.label(card, Rect2(58, 36, text_w, 16), why, 11, Color("#ffe066"))
 			tag.clip_text = true
 
 

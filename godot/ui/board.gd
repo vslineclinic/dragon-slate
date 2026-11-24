@@ -34,11 +34,15 @@ func setup(ctl: Controller, areas: Dictionary) -> void:
 	_ctl = ctl
 	_areas = areas
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	## 대기칸 띠: 전장 맨 아래. 왼쪽에 세로 이름표, 카드 4칸, 오른쪽에 놓아주기 칸.
 	var bench: Rect2 = areas["bench"]
-	GameTheme.heading(self, Rect2(bench.position.x, bench.position.y - 26, 200, 24), "대기칸", 15, GameTheme.GOLD, HORIZONTAL_ALIGNMENT_LEFT, 600)
 	var release: Rect2 = areas["release"]
+	var strip: Panel = GameTheme.panel(self, Rect2(bench.position.x - 40, bench.position.y - 8, release.end.x - bench.position.x + 48, bench.size.y + 16),
+		Color("#0b0b10c7"), Color(GameTheme.GOLD_DIM, 0.7), 1, 12, "flat")
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	GameTheme.heading(self, Rect2(bench.position.x - 34, bench.position.y + 6, 22, bench.size.y - 12), "대\n기\n칸", 14, GameTheme.GOLD, HORIZONTAL_ALIGNMENT_CENTER, 600)
 	var zone: Panel = GameTheme.panel(self, release, Color("#2a1416d9"), Color("#ff878766"), 1, 8, "flat")
-	var zone_text: Label = GameTheme.label(zone, Rect2(Vector2(6, 0), release.size - Vector2(12, 0)), "여기에 놓으면 놓아주고 마력을 받아요", 13, Color("#ffc9c9"), HORIZONTAL_ALIGNMENT_CENTER)
+	var zone_text: Label = GameTheme.label(zone, Rect2(Vector2(6, 0), release.size - Vector2(12, 0)), "여기에 놓으면\n놓아주고 마력을 받아요", 12, Color("#ffc9c9"), HORIZONTAL_ALIGNMENT_CENTER)
 	GameTheme.wrap(zone_text)
 	zone.name = "Release"
 	_battle = GameTheme.cta(self, areas["spin"], "전투 시작", _start_battle, "ember", 23)
@@ -114,9 +118,10 @@ func render(state: Dictionary) -> void:
 
 ## 전장 위쪽에 원소 시너지를 보여 준다. 발동한 것은 밝게, 모으는 중인 것은 흐리게.
 func _draw_synergies(state: Dictionary) -> void:
+	## 대기칸 띠 바로 위 한 줄. 넘치면 위로 쌓인다.
 	var field: Rect2 = _areas["field"]
 	var x: float = field.position.x + 12
-	var y: float = field.end.y - 40
+	var y: float = _areas["bench"].position.y - 44
 	for row: Dictionary in Battle.synergies(_ctl.data, Battle.fielded(state["nest"], state["nestOpen"])):
 		var active: bool = row["level"] > 0
 		var goal: int = int(row["nextCount"]) if not active else int(row["count"])
@@ -321,7 +326,7 @@ func _slot_rect(ref: Dictionary) -> Rect2:
 	var i: int = ref["index"]
 	if ref["zone"] == "bench":
 		var bench: Rect2 = _areas["bench"]
-		return Rect2(bench.position + Vector2(i % 2 * (CARD_SIZE.x + 8), i / 2 * (CARD_SIZE.y + 8)), CARD_SIZE)
+		return Rect2(bench.position + Vector2(i * (CARD_SIZE.x + 8), 0), CARD_SIZE)
 	return GameTheme.pad_rect(_areas["width"], _ctl.data["battle"]["field"], i)
 
 
