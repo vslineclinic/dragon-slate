@@ -16,6 +16,19 @@ static func element_mult(cfg: Dictionary, atk: Variant, def: Variant) -> int:
 	return 100
 
 
+## 형태별 능력: 종 id에서 원소 머리말을 뗀 형태 이름(lancer · sage …)으로 찾는다. 없으면 "".
+static func ability_of(data: Dictionary, species_id: String) -> String:
+	var cut: int = species_id.find("_")
+	if cut < 0:
+		return ""
+	var form: String = species_id.substr(cut + 1)
+	var abilities: Dictionary = data["battle"].get("abilities", {})
+	for id: String in abilities:
+		if form in abilities[id].get("forms", []):
+			return id
+	return ""
+
+
 ## 종 고유 특성과 계승 특성을 모두 적용한다.
 static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary = {}) -> Dictionary:
 	var species_id: String = inst["speciesId"]
@@ -93,6 +106,9 @@ static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary =
 	## 배운 것만 싣는다(안 배웠으면 키가 없다).
 	for kind: String in extra:
 		unit[kind] = extra[kind]
+	var ability: String = ability_of(data, species_id)
+	if not ability.is_empty():
+		unit["ability"] = ability
 	return unit
 
 
@@ -192,6 +208,7 @@ static func simulate_battle(
 	var crit: Dictionary = cfg.get("crit", {})
 	var crit_pct: int = int(crit.get("pct", 0))
 	var crit_rng: Rng = Rng.new(int(rules.get("critSeed", 0)))
+	var abilities: Dictionary = cfg.get("abilities", {})
 
 	var events: Array = []
 	var tick: int = 0
@@ -274,13 +291,29 @@ static func simulate_battle(
 						power_pct = int(ultimate["powerPct"].get(unit["tier"], 100)) + int(unit["ultPower"])
 						victims = _nearest_many(field, units, unit, int(ultimate["targets"].get(unit["tier"], 1)))
 						events.append({"tick": tick, "kind": "ult", "src": unit["id"]})
+				## 형태별 능력(보통 공격에만): 꿰뚫기는 같은 줄의 다음 적도, 연속 공격은 같은 적을 한 번 더.
+				var strikes: Array = []
 				for victim: Dictionary in victims:
+					strikes.append([victim, 100, ""])
+				var ability: String = unit["ability"]
+				var ability_pct: int = 0 if ability.is_empty() or is_ult else int(abilities.get(ability, {}).get("pct", 0))
+				if ability_pct > 0 and ability == "pierce":
+					var behind: Variant = _next_in_lane(field, units, unit, target)
+					if behind != null:
+						strikes.append([behind, ability_pct, "pierce"])
+				elif ability_pct > 0 and ability == "twin":
+					strikes.append([target, ability_pct, "twin"])
+				for strike: Array in strikes:
+					var victim: Dictionary = strike[0]
+					var via: String = strike[2]
+					if not via.is_empty() and victim["hp"] <= 0:
+						continue
 					var mult: int = element_mult(cfg, _primary(unit), _primary(victim))
 					if side == "ally" and mult > 100:
 						mult += strong_add
-					var dmg: int = maxi(1, Rng.fdiv(int(unit["atk"]) * mult * power_pct, 10000))
+					var dmg: int = maxi(1, Rng.fdiv(int(unit["atk"]) * mult * power_pct * int(strike[1]), 1000000))
 					var crit_chance: int = crit_pct + int(unit["critBonus"])
-					var is_crit: bool = crit_chance > 0 and not is_ult and unit["kind"] == "dragon" and crit_rng.next_int(100) < crit_chance
+					var is_crit: bool = crit_chance > 0 and not is_ult and via.is_empty() and unit["kind"] == "dragon" and crit_rng.next_int(100) < crit_chance
 					if is_crit:
 						dmg = Rng.fdiv(dmg * int(crit["dmgPct"]), 100)
 					if side == "enemy" and enraged:
@@ -291,6 +324,13 @@ static func simulate_battle(
 						lane_pct = _lane_pct(field, unit, victim)
 						if lane_pct != 100:
 							dmg = maxi(1, Rng.fdiv(dmg * lane_pct, 100))
+					## 맞대결: 제 줄의 적을 칠 때 더 세다.
+					if ability_pct > 0 and ability == "duel" and unit["lane"] == victim["lane"]:
+						dmg = Rng.fdiv(dmg * (100 + ability_pct), 100)
+					## 방패막: 같은 줄에 방패막 용이 살아 있으면 다른 용이 보통 공격을 덜 맞는다(궁극기는 그대로).
+					var warded: bool = not is_ult and victim["kind"] == "dragon" and _warded(units, victim)
+					if warded:
+						dmg = maxi(1, Rng.fdiv(dmg * (100 - int(abilities.get("ward", {}).get("pct", 0))), 100))
 					if int(victim["guard"]) > 0:
 						dmg = maxi(1, Rng.fdiv(dmg * (100 - int(victim["guard"])), 100))
 					victim["hp"] -= dmg
@@ -311,9 +351,24 @@ static func simulate_battle(
 						hit["crit"] = true
 					if lane_pct != 100:
 						hit["lane"] = lane_pct
+					if not via.is_empty():
+						hit["via"] = via
+					if warded:
+						hit["ward"] = true
 					events.append(hit)
 					if victim["hp"] <= 0:
 						_kill(units, victim, tick, "hit", events)
+				## 돌봄: 공격할 때마다 제 줄·옆줄에서 가장 다친 아군 용을 고친다.
+				if ability_pct > 0 and ability == "mend":
+					var patient: Variant = _most_hurt(units, unit)
+					if patient != null:
+						var mend: int = Rng.fdiv(int(unit["atk"]) * ability_pct, 100)
+						if side == "ally" and heal_cut_pct != 0 and tick >= heal_cut_from:
+							mend = Rng.fdiv(mend * (100 - heal_cut_pct), 100)
+						mend = mini(mend, int(patient["maxHp"]) - int(patient["hp"]))
+						if mend > 0:
+							patient["hp"] += mend
+							events.append({"tick": tick, "kind": "heal", "src": unit["id"], "dst": patient["id"], "amount": mend})
 
 		if pos_every > 0 and tick % pos_every == 0 and not dirty.is_empty():
 			_record_pos(units, dirty, tick, events)
@@ -348,6 +403,7 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 			slot % LANES, int(field["frontX"]) if slot < 3 else int(field["backX"]))
 		dragon["slot"] = slot
 		dragon["role"] = unit.get("role", "")
+		dragon["ability"] = unit.get("ability", "")
 		dragon["range"] = _role_range(field, int(field.get("frontRange" if slot < 3 else "backRange", 0)), dragon["role"])
 		dragon["lifesteal"] = int(unit["lifestealPct"])
 		dragon["tier"] = unit.get("tier", "")
@@ -379,6 +435,7 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 			int(item["lane"]), int(item["x"]))
 		if item["kind"] == "dragon":
 			foe["role"] = item.get("role", "")
+			foe["ability"] = item.get("ability", "")
 			foe["range"] = _role_range(field, int(field.get("leaderRange", 0)), foe["role"])
 		foe["stage"] = int(item.get("stage", 0))
 		foe["elite"] = bool(item.get("elite", false))
@@ -396,7 +453,7 @@ static func _make(
 		"hp": hp, "maxHp": hp, "atk": atk, "cd": cd, "timer": 0, "speed": speed,
 		"lane": lane, "x": x, "laneTimer": 0, "slot": -1, "owner": -1, "lifesteal": 0,
 		"stage": 0, "active": true, "tier": "", "ultNeed": 0, "charge": 0, "elite": false,
-		"ultPower": 0, "critBonus": 0, "guard": 0, "range": 0, "role": "",
+		"ultPower": 0, "critBonus": 0, "guard": 0, "range": 0, "role": "", "ability": "",
 	}
 
 
@@ -488,6 +545,45 @@ static func _lane_pct(field: Dictionary, unit: Dictionary, target: Dictionary) -
 	var table: Array = field.get("roleLanePct", {}).get(unit["role"], field.get("crossLanePct", []))
 	var gap: int = absi(int(unit["lane"]) - int(target["lane"]))
 	return 100 if gap >= table.size() else int(table[gap])
+
+
+## 꿰뚫기: target과 같은 줄에서 target 다음으로 가까운(가로 거리) 살아 있는 적. 내 사거리 안이어야 한다. 없으면 null.
+static func _next_in_lane(field: Dictionary, units: Array, me: Dictionary, target: Dictionary) -> Variant:
+	var best: Variant = null
+	var best_d: int = 0
+	for other: Dictionary in units:
+		if other["side"] == me["side"] or other["hp"] <= 0 or not other["active"] or other["lane"] != target["lane"] or other["id"] == target["id"]:
+			continue
+		if not _can_hit(field, me, other):
+			continue
+		var d: int = absi(int(other["x"]) - int(target["x"]))
+		if best == null or d < best_d:
+			best = other
+			best_d = d
+	return best
+
+
+## 방패막: victim과 같은 편·같은 줄에 방패막 능력을 가진 다른 용이 살아 있는가.
+static func _warded(units: Array, victim: Dictionary) -> bool:
+	for other: Dictionary in units:
+		if other["ability"] == "ward" and other["side"] == victim["side"] and other["lane"] == victim["lane"] \
+				and other["id"] != victim["id"] and other["hp"] > 0 and other["active"] and other["kind"] == "dragon":
+			return true
+	return false
+
+
+## 돌봄: 제 줄과 옆줄의 같은 편 용 가운데 체력 비율이 가장 낮은(다친) 용. 다친 용이 없으면 null.
+static func _most_hurt(units: Array, me: Dictionary) -> Variant:
+	var best: Variant = null
+	for other: Dictionary in units:
+		if other["side"] != me["side"] or other["kind"] != "dragon" or other["hp"] <= 0 or not other["active"]:
+			continue
+		if int(other["hp"]) >= int(other["maxHp"]) or absi(int(other["lane"]) - int(me["lane"])) > 1:
+			continue
+		## hp/maxHp를 나눗셈 없이 견준다.
+		if best == null or int(other["hp"]) * int(best["maxHp"]) < int(best["hp"]) * int(other["maxHp"]):
+			best = other
+	return best
 
 
 static func _can_hit(field: Dictionary, unit: Dictionary, target: Dictionary) -> bool:

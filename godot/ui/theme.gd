@@ -81,6 +81,15 @@ const COLOR: Dictionary = {
 const ELEMENT_KO: Dictionary = {
 	"fire": "불", "ice": "얼음", "lightning": "번개", "poison": "독", "steel": "강철", "abyss": "심연",
 }
+## 그 종의 형태별 능력을 "「이름」 설명"으로. 능력이 없으면 빈 글.
+static func ability_text(data: Dictionary, species_id: String) -> String:
+	var id: String = Battle.ability_of(data, species_id)
+	if id.is_empty():
+		return ""
+	var spec: Dictionary = data["battle"]["abilities"][id]
+	return "「%s」 %s" % [spec.get("nameKo", id), spec.get("descKo", "")]
+
+
 ## 역할 이름과 한 줄 설명. 전열·후열(놓는 자리)과 헷갈리지 않게 수호·사수·지원이라 부른다.
 const ROLE_KO: Dictionary = {"front": "수호", "back": "사수", "support": "지원"}
 const ROLE_NOTE: Dictionary = {

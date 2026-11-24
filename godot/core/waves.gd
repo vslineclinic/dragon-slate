@@ -147,7 +147,7 @@ static func generate_enemies(
 		var boss_tier: String = "apex" if wave >= int(squad.get("bossApexFromWave", 9999)) else "t1"
 		for spec: Dictionary in specs:
 			if spec["tier"] == boss_tier and not spec["elements"].is_empty() and spec["elements"][0] == element:
-				leaders.append(_spec_unit(spec))
+				leaders.append(_spec_unit(spec, data))
 				break
 	var tiers: Array = ["base"] if wave <= 5 else ["base", "t2"]
 	for band: Dictionary in squad.get("leaderTiers", []):
@@ -158,7 +158,7 @@ static func generate_enemies(
 		if spec["tier"] in tiers:
 			pool.append(spec)
 	while leaders.size() < leaders_wanted:
-		leaders.append(_spec_unit(pool[rng.next_int(pool.size())]))
+		leaders.append(_spec_unit(pool[rng.next_int(pool.size())], data))
 
 	var minion_specs: Array = data["minions"].values()
 	minion_specs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["id"] < b["id"])
@@ -229,9 +229,10 @@ static func _minion_unit(spec: Dictionary) -> Dictionary:
 	}
 
 
-static func _spec_unit(spec: Dictionary) -> Dictionary:
+static func _spec_unit(spec: Dictionary, data: Dictionary = {}) -> Dictionary:
 	var stats: Dictionary = spec["stats"]
 	return {
+		"ability": "" if data.is_empty() else Battle.ability_of(data, spec["id"]),
 		"kind": "dragon", "id": spec["id"],
 		"elements": spec["elements"].duplicate(),
 		"role": spec.get("role", ""),

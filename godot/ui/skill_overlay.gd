@@ -134,14 +134,16 @@ func _draw_map() -> void:
 	var level: int = FusionRules.level_of(inst)
 	var need: int = FusionRules.xp_needed(_ctl.data, level)
 	var growth: String = "최고 레벨" if need == 0 else "경험치 %d / %d" % [int(inst.get("xp", 0)), need]
-	GameTheme.heading(_body, Rect2(112, 14, 520, 34), "%s  Lv.%d" % [spec["nameKo"], level], 26)
+	GameTheme.heading(_body, Rect2(112, 8, 520, 34), "%s  Lv.%d" % [spec["nameKo"], level], 26)
 	var unit: Dictionary = Battle.to_unit(_ctl.data, inst)
 	var escorts: int = int(_ctl.data["battle"]["escort"]["count"].get(spec["tier"], 0)) + int(unit["escortBonus"])
 	var role: String = spec.get("role", "")
-	var stats_line: Label = GameTheme.label(_body, Rect2(112, 50, 380, 22), "%s · 체력 %d · 공격력 %d · 호위 %d마리" % [GameTheme.ROLE_KO.get(role, ""), unit["hp"], unit["atk"], escorts], 15, GameTheme.TEXT)
+	var stats_line: Label = GameTheme.label(_body, Rect2(112, 42, 380, 22), "%s · 체력 %d · 공격력 %d · 호위 %d마리" % [GameTheme.ROLE_KO.get(role, ""), unit["hp"], unit["atk"], escorts], 15, GameTheme.TEXT)
 	stats_line.mouse_filter = Control.MOUSE_FILTER_STOP
 	stats_line.tooltip_text = "%s: %s" % [GameTheme.ROLE_KO.get(role, ""), GameTheme.ROLE_NOTE.get(role, "")]
-	GameTheme.label(_body, Rect2(112, 72, 560, 20), growth + " · 싸우거나 다른 드래곤을 흡수하면 올라요", 13, GameTheme.DIM)
+	var ability: String = GameTheme.ability_text(_ctl.data, inst["speciesId"])
+	GameTheme.label(_body, Rect2(112, 62, 560, 20), "능력 " + ability if not ability.is_empty() else "형태 능력 없음", 13, tint.lightened(0.45) if not ability.is_empty() else GameTheme.DIM)
+	GameTheme.label(_body, Rect2(112, 80, 560, 20), growth + " · 싸우거나 다른 드래곤을 흡수하면 올라요", 13, GameTheme.DIM)
 	var point_color: Color = GameTheme.RECOMMEND if points > 0 else GameTheme.DIM
 	GameTheme.label(_body, Rect2(PANEL_SIZE.x - 330, 14, 250, 18), "스킬 점수", 13, GameTheme.DIM, HORIZONTAL_ALIGNMENT_RIGHT)
 	GameTheme.heading(_body, Rect2(PANEL_SIZE.x - 330, 30, 250, 46), str(points), 38, point_color, HORIZONTAL_ALIGNMENT_RIGHT, 800)

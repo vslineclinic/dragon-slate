@@ -479,20 +479,24 @@ func _show_lineage(command: Dictionary) -> void:
 		var role: String = spec.get("role", "")
 		var chosen: Dictionary = command.duplicate(true)
 		chosen["choice"] = i
+		var ability: String = GameTheme.ability_text(controller.data, id)
 		var body: String = "%s · %s" % [GameTheme.ROLE_KO.get(role, ""), GameTheme.ROLE_NOTE.get(role, "")]
-		var card: Button = _choice_card(i, preview["options"].size(), field, {}, tint, spec["nameKo"], body, 300.0, _choose_lineage.bind(chosen))
+		var card: Button = _choice_card(i, preview["options"].size(), field, {}, tint, spec["nameKo"], body, 346.0, _choose_lineage.bind(chosen))
 		var card_w: float = card.size.x
 		GameTheme.dragon(card, Rect2((card_w - 116) / 2.0, 18, 116, 116), id)
 		GameTheme.label(card, Rect2(8, 4, card_w - 16, 18), labels[i], 12, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 		var stats: Dictionary = spec["stats"]
 		GameTheme.label(card, Rect2(8, 236, card_w - 16, 20), "체력 %d · 공격력 %d" % [int(stats["hp"]), int(stats["atk"])], 13, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 		var own: Dictionary = controller.data["traits"].get(spec["traitId"], {})
-		GameTheme.label(card, Rect2(8, 258, card_w - 16, 32), "고유 특성 「%s」" % own.get("nameKo", ""), 12, tint.lightened(0.4), HORIZONTAL_ALIGNMENT_CENTER)
+		GameTheme.label(card, Rect2(8, 256, card_w - 16, 18), "고유 특성 「%s」" % own.get("nameKo", ""), 12, tint.lightened(0.4), HORIZONTAL_ALIGNMENT_CENTER)
+		var ability_line: Label = GameTheme.label(card, Rect2(10, 276, card_w - 20, 60), "능력 " + ability if not ability.is_empty() else "형태 능력 없음", 12, GameTheme.GOLD_HI if not ability.is_empty() else GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		ability_line.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		GameTheme.wrap(ability_line)
 		card.tooltip_text = "%s: %s\n고유 특성 「%s」 %s" % [GameTheme.ROLE_KO.get(role, ""), GameTheme.ROLE_NOTE.get(role, ""), own.get("nameKo", ""), own.get("descKo", "")]
 		if not store.discovered().has(id):
 			GameTheme.new_badge(card, card.size)
 	var mid: float = field.size.x / 2.0
-	GameTheme.cta(_reward_overlay, Rect2(mid - 110, 520, 220, 44), "그만두기", _clear_reward, "mystic", 17)
+	GameTheme.cta(_reward_overlay, Rect2(mid - 110, 560, 220, 44), "그만두기", _clear_reward, "mystic", 17)
 
 
 func _choose_lineage(command: Dictionary) -> void:

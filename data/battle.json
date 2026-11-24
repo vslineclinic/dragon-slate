@@ -134,6 +134,38 @@
       "abyss": "심연의 일식"
     }
   },
+  "abilities": {
+    "pierce": {
+      "nameKo": "꿰뚫기",
+      "descKo": "보통 공격이 같은 줄의 다음 적도 60%로 쳐요",
+      "pct": 60,
+      "forms": ["raptor", "lancer", "meteor"]
+    },
+    "twin": {
+      "nameKo": "연속 공격",
+      "descKo": "보통 공격 뒤에 50%로 한 번 더 쳐요",
+      "pct": 50,
+      "forms": ["wyvern", "twinhead", "skylord"]
+    },
+    "mend": {
+      "nameKo": "돌봄",
+      "descKo": "보통 공격할 때마다 제 줄·옆줄의 가장 다친 우리 용을 고쳐요(공격력의 40%)",
+      "pct": 40,
+      "forms": ["fairy", "sage", "elder"]
+    },
+    "ward": {
+      "nameKo": "방패막",
+      "descKo": "같은 줄의 다른 우리 용이 보통 공격으로 받는 피해 -20%",
+      "pct": 20,
+      "forms": ["tortoise", "armored", "guardian"]
+    },
+    "duel": {
+      "nameKo": "맞대결",
+      "descKo": "제 줄의 적을 보통 공격으로 칠 때 피해 +25%",
+      "pct": 25,
+      "forms": ["horned", "brawler"]
+    }
+  },
   "crit": {
     "pct": 12,
     "dmgPct": 175

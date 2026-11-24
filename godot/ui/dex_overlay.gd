@@ -456,6 +456,9 @@ func _show_detail(dragon: Dictionary) -> void:
 		if trait_spec != null:
 			GameTheme.label(_detail, Rect2(24, y, w - 48, 20), "특성 「%s」" % trait_spec["nameKo"], 14, GameTheme.GOLD)
 			y += 26.0
+		var ability: String = GameTheme.ability_text(_data, id)
+		if not ability.is_empty():
+			y = _paragraph("능력 " + ability, y, GameTheme.GOLD_HI) + 6.0
 		y = _paragraph(entry.get("loreKo", ""), y, GameTheme.TEXT) + 8.0
 		if _owned.has(id):
 			GameTheme.label(_detail, Rect2(24, y, w - 48, 20), "지금 가지고 있어요 · 레벨 %d" % int(_owned[id]), 14, OWNED)

@@ -378,6 +378,15 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				_say("광폭화! 적의 공격력이 올라가요")
 				_flash.color.a = 0.3
 				_flash.create_tween().tween_property(_flash, "color:a", 0.0, 0.3)
+		"heal":
+			## 돌봄: 다친 용 머리 위로 초록 숫자와 빛.
+			var patient: UnitView = _views.get(int(event["dst"]))
+			if patient == null or patient.dead:
+				return
+			_change_hp(patient, int(event["amount"]))
+			if animate and not patient.dead:
+				_number(patient, "+%d" % int(event["amount"]), 17, Color("#8ce99a"), 0)
+				_impact(patient.center, Color("#8ce99a"), 0)
 		"hazard":
 			var victim: UnitView = _views.get(int(event["id"]))
 			if victim == null:
@@ -417,6 +426,10 @@ func _apply(event: Dictionary, animate: bool) -> void:
 			if animate:
 				var strong: bool = int(event["mult"]) > 100
 				var glancing: bool = event.has("lane")
+				## 연속 공격의 두 번째 숨결은 조금 늦게 나간다. 방패막이 막으면 맞은 용에 강철빛 고리.
+				var follow: float = 0.1 / _store.speed if event.get("via", "") == "twin" else 0.0
+				if event.get("ward", false):
+					_impact(defender.center, GameTheme.COLOR["steel"], 0)
 				if event.get("ult", false):
 					_breath(attacker, defender, true, int(event["dmg"]), 2)
 				elif event.get("crit", false):
@@ -426,7 +439,7 @@ func _apply(event: Dictionary, animate: bool) -> void:
 					_pause = maxf(_pause, 0.07)
 					_breath(attacker, defender, true, int(event["dmg"]), 1, glancing)
 				elif attacker.kind == "dragon":
-					_breath(attacker, defender, strong, int(event["dmg"]), 0, glancing)
+					_breath(attacker, defender, strong, int(event["dmg"]), 0, glancing, follow)
 				else:
 					_lunge(attacker, defender)
 					_hit(defender, int(event["dmg"]), Color("#ffe066") if strong else Color.WHITE, strong)
@@ -497,7 +510,7 @@ func _impact(at: Vector2, tint: Color, power: int) -> void:
 
 ## 용의 공격: 고개를 젖혔다가 머리를 내밀며 원소 숨결을 쏜다. 숨결이 닿을 때 숫자가 뜬다.
 ## power: 0 보통, 1 치명타, 2 궁극기. glancing = 다른 줄을 쳐서 약해진 공격.
-func _breath(attacker: UnitView, defender: UnitView, strong: bool, damage: int, power: int = 0, glancing: bool = false) -> void:
+func _breath(attacker: UnitView, defender: UnitView, strong: bool, damage: int, power: int = 0, glancing: bool = false, follow: float = 0.0) -> void:
 	var sprite: DragonSprite = attacker.body as DragonSprite
 	var wait: float = 0.0
 	var mouth: Vector2 = Vector2.ZERO
@@ -510,8 +523,12 @@ func _breath(attacker: UnitView, defender: UnitView, strong: bool, damage: int, 
 		ink = GLANCE
 	var tint: Color = GameTheme.COLOR[attacker.element]
 	var shot: Tween = attacker.root.create_tween()
-	shot.tween_interval(maxf(0.001, wait))
-	shot.tween_callback(func() -> void: BreathFx.cast(_fx_layer, attacker.element, attacker.center + mouth, defender.center, travel, power))
+	shot.tween_interval(maxf(0.001, wait + follow))
+	shot.tween_callback(func() -> void:
+		## 연속 공격의 두 번째 숨결: 그사이 쓰러졌으면 쏘지 않는다(피해 표시는 그대로 뜬다).
+		if follow > 0.0 and attacker.dead:
+			return
+		BreathFx.cast(_fx_layer, attacker.element, attacker.center + mouth, defender.center, travel, power))
 	shot.tween_interval(travel)
 	shot.tween_callback(_hit.bind(defender, damage, ink, strong, power, tint))
 
