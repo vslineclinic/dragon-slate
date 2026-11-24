@@ -44,9 +44,11 @@ func _init() -> void:
 	var want_margin: bool = args.has("--margin")
 	for i: int in range(runs):
 		var start: String = ""
-		if args.has("--start"):
+		## --start: 그 판에 나온 첫째 시작 묶음으로. --start-index N: N번째 묶음으로(같은 씨앗에서 선택만 바꿔 견줄 때).
+		if args.has("--start") or args.has("--start-index"):
 			var options: Array = Run.start_options(data, first_seed + i)
-			start = "" if options.is_empty() else options[0]["id"]
+			var pick: int = int(_arg(args, "--start-index", "0"))
+			start = "" if options.is_empty() else options[pick % options.size()]["id"]
 		var state: Dictionary = Run.create_run(data, first_seed + i, calamity, start)["state"]
 		var seen_waves: Dictionary = {}
 		for step: int in range(COMMAND_LIMIT):
@@ -92,6 +94,13 @@ func _init() -> void:
 							rec[1] += 1 if won else 0
 							boss_first[wave] = rec
 		waves_reached += int(state["wave"])
+		## --each: 판마다 한 줄(씨앗, 시작 묶음, 결과, 남은 생명, 둥지의 용).
+		if args.has("--each"):
+			var roost: PackedStringArray = PackedStringArray()
+			for inst: Variant in state["nest"]:
+				if inst != null:
+					roost.append("%s(%s)" % [inst["speciesId"], data["dragons"][inst["speciesId"]].get("role", "")])
+			print("RUN seed=%d start=%s %s wave=%d lives=%d roost=%s" % [first_seed + i, start, state["phase"], int(state["wave"]), int(state["lives"]), ",".join(roost)])
 		if state["phase"] == "victory":
 			clears += 1
 			lives_on_clear += int(state["lives"])
