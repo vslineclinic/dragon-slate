@@ -5,8 +5,39 @@
     "scene": "plains_ruins",
     "ambience": "pollen",
     "ruleKo": "지역 규칙 없음. 석판과 줄을 익히는 곳이에요.",
-    "bosses": [5, 10, 15, 20],
-    "waves": {},
+    "bosses": [
+      5,
+      10,
+      15,
+      20
+    ],
+    "waves": {
+      "growthBands": [
+        {
+          "from": 2,
+          "pct": 125
+        },
+        {
+          "from": 9,
+          "pct": 120
+        },
+        {
+          "from": 15,
+          "pct": 118
+        }
+      ],
+      "bossPct": {
+        "5": 113,
+        "10": 122,
+        "15": 120,
+        "20": 110
+      },
+      "elitePct": {
+        "7": 115,
+        "13": 110,
+        "17": 105
+      }
+    },
     "battleRules": {}
   },
   {
@@ -15,8 +46,35 @@
     "scene": "ice_canyon",
     "ambience": "snow",
     "ruleKo": "눈보라: 줄 하나는 적이 미리 보이지 않아요.",
-    "bosses": [15, 25, 30, 35],
-    "waves": {"fogLanes": 1},
+    "bosses": [
+      15,
+      25,
+      30,
+      35
+    ],
+    "waves": {
+      "fogLanes": 1,
+      "growthBands": [
+        {
+          "from": 2,
+          "pct": 125
+        },
+        {
+          "from": 9,
+          "pct": 125
+        },
+        {
+          "from": 15,
+          "pct": 119
+        }
+      ],
+      "bossPct": {
+        "5": 113,
+        "10": 122,
+        "15": 128,
+        "20": 106
+      }
+    },
     "battleRules": {}
   },
   {
@@ -25,9 +83,40 @@
     "scene": "volcano",
     "ambience": "embers",
     "ruleKo": "화산재: 전열과 후열이 번갈아 화상을 입어요.",
-    "bosses": [10, 5, 25, 35],
-    "waves": {},
-    "battleRules": {"rowBlast": {"everyTicks": 160, "pct": 4}}
+    "bosses": [
+      10,
+      5,
+      25,
+      35
+    ],
+    "waves": {
+      "growthBands": [
+        {
+          "from": 2,
+          "pct": 125
+        },
+        {
+          "from": 9,
+          "pct": 125
+        },
+        {
+          "from": 15,
+          "pct": 119
+        }
+      ],
+      "bossPct": {
+        "5": 113,
+        "10": 122,
+        "15": 128,
+        "20": 106
+      }
+    },
+    "battleRules": {
+      "rowBlast": {
+        "everyTicks": 160,
+        "pct": 4
+      }
+    }
   },
   {
     "id": "abyss",
@@ -35,8 +124,36 @@
     "scene": "abyss",
     "ambience": "motes",
     "ruleKo": "심연의 메아리: 적 우두머리도 궁극기를 써요.",
-    "bosses": [20, 30, 35, 40],
-    "waves": {},
-    "battleRules": {"enemyUlt": true}
+    "bosses": [
+      20,
+      30,
+      35,
+      40
+    ],
+    "waves": {
+      "growthBands": [
+        {
+          "from": 2,
+          "pct": 125
+        },
+        {
+          "from": 9,
+          "pct": 125
+        },
+        {
+          "from": 15,
+          "pct": 116
+        }
+      ],
+      "bossPct": {
+        "5": 113,
+        "10": 122,
+        "15": 128,
+        "20": 100
+      }
+    },
+    "battleRules": {
+      "enemyUlt": true
+    }
   }
 ]
