@@ -57,7 +57,16 @@ func _init() -> void:
 			scene.call("_render", [], ctl.state)
 			for i in 20:
 				await process_frame
-		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "lineage", "slab", "erase", "live", "wave7", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear"]:
+		if mode in ["nudgebuy", "nudgepoor"]:
+			## 무료 밀기를 다 쓴 뒤: 밀기 단추에 값이 보인다. nudgepoor는 마력이 모자라 눌리지 않는 모습.
+			ctl.busy = false
+			ctl.state["nudgesLeft"] = 0
+			ctl.state["nudgesBought"] = 1
+			ctl.state["mana"] = 9 if mode == "nudgebuy" else 1
+			scene.call("_render", [], ctl.state)
+			for i in 20:
+				await process_frame
+		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "lineage", "slab", "erase", "live", "wave7", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear", "shop", "shoppoor", "shopslab", "reroll", "rerollpoor", "rerollused"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -138,6 +147,47 @@ func _init() -> void:
 				if mode == "dexmixed":
 					dex.call("_show_page", "mixed")
 			for i in 30:
+				await process_frame
+		if mode in ["shop", "shoppoor", "shopslab"]:
+			## 상점: 갈림길의 상인으로 실제 진열을 연 뒤, 글이 가장 긴 유물로 바꿔 꽉 찬 모습을 본다.
+			ctl.state["phase"] = "fork"
+			ctl.state["forkChoices"] = ["elite", "rest", "merchant"]
+			ctl.state["mana"] = 40 if mode != "shoppoor" else 5
+			ctl.state["lives"] = 3 if mode != "shoppoor" else int(ctl.data["waves"]["startLives"])
+			if mode == "shoppoor":
+				ctl.state["slab"] = ctl.state["slab"].slice(0, int(ctl.data["slot"]["slab"]["minSize"]))
+			ctl.dispatch({"type": "chooseFork", "option": "merchant"})
+			for item in ctl.state["shop"]["items"]:
+				if item["kind"] == "relic":
+					item["detail"] = "hawkeye"
+				if item["kind"] == "rune":
+					item["detail"] = "lightning"
+			if mode == "shop":
+				## 하나 산 뒤의 모습(산 물건은 흐리게, 아래에 한 줄).
+				for i in range(ctl.state["shop"]["items"].size()):
+					if ctl.state["shop"]["items"][i]["kind"] == "transmute":
+						ctl.dispatch({"type": "buy", "index": i})
+			elif mode == "shopslab":
+				for i in range(ctl.state["shop"]["items"].size()):
+					if ctl.state["shop"]["items"][i]["kind"] == "rune":
+						ctl.dispatch({"type": "buy", "index": i})
+			else:
+				scene.call("_render", [], ctl.state)
+			for i in 50:
+				await process_frame
+		if mode in ["reroll", "rerollpoor", "rerollused"]:
+			## 보상 화면의 다시 뽑기 단추: 글이 긴 보상 석 장으로.
+			var picks: Array = []
+			for kind in ["t2egg", "transmute", "rune"]:
+				for reward in ctl.data["rewards"]:
+					if reward["kind"] == kind:
+						picks.append({"reward": reward, "detail": {"t2egg": "fafnir", "rune": "lightning"}.get(kind)})
+			ctl.state["phase"] = "reward"
+			ctl.state["rewardChoices"] = picks
+			ctl.state["mana"] = 1 if mode == "rerollpoor" else 9
+			ctl.state["rewardRerolls"] = 1 if mode == "rerollused" else 0
+			scene.call("_render", [], ctl.state)
+			for i in 50:
 				await process_frame
 		if mode in ["slab", "erase"]:
 			ctl.state["phase"] = "slab"

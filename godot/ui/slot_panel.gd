@@ -4,6 +4,7 @@ extends Control
 
 const GameTheme = preload("res://godot/ui/theme.gd")
 const Marks = preload("res://godot/ui/marks.gd")
+const Icons = preload("res://godot/ui/icons.gd")
 const Controller = preload("res://godot/ui/controller.gd")
 const Store = preload("res://godot/ui/store.gd")
 const RunRules = preload("res://godot/core/run.gd")
@@ -77,7 +78,10 @@ func render(state: Dictionary, events: Array) -> void:
 	var spun: bool = events.any(func(event: Dictionary) -> bool: return event["t"] == "spun")
 	var grid: Variant = state["grid"]
 	var phase: String = state["phase"]
-	var recommendation: Variant = HintRules.best_nudge(grid, state["nudgesLeft"]) if phase == "pick" else null
+	## 밀기 값: 0 = 무료, 양수 = 마력을 내고 한 번 더, -1 = 이번 웨이브에는 끝. 낼 수 있을 때만 추천한다.
+	var nudge_cost: int = RunRules.nudge_cost(_ctl.data, state) if phase == "pick" else -1
+	var can_nudge: bool = nudge_cost >= 0 and int(state["mana"]) >= nudge_cost
+	var recommendation: Variant = HintRules.best_nudge(grid, 1 if can_nudge else 0) if phase == "pick" else null
 	if grid == null:
 		for col: int in range(3):
 			for row: int in range(3):
@@ -140,11 +144,13 @@ func _draw_grid(state: Dictionary, grid: Dictionary, recommendation: Variant, an
 		else:
 			for row: int in range(3):
 				_cell_egg(_layer, _cell(col, row), finals[row])
-		if state["phase"] == "pick" and state["nudgesLeft"] > 0:
+		## 무료 밀기가 남았거나 마력으로 더 밀 수 있으면 단추를 그린다.
+		var nudge_cost: int = RunRules.nudge_cost(_ctl.data, state) if state["phase"] == "pick" else -1
+		if nudge_cost >= 0:
 			if offset > -1:
-				_nudge_button(col, -1, reel[offset]["symbol"], recommendation)
+				_nudge_button(col, -1, reel[offset]["symbol"], recommendation, nudge_cost, int(state["mana"]))
 			if offset < 1:
-				_nudge_button(col, 1, reel[offset + 4]["symbol"], recommendation)
+				_nudge_button(col, 1, reel[offset + 4]["symbol"], recommendation, nudge_cost, int(state["mana"]))
 	var lines: LineOverlay = LineOverlay.new()
 	lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for group: Dictionary in SlotRules.evaluate_lines(grid):
@@ -229,13 +235,32 @@ func _unlock(skip: Button) -> void:
 		skip.queue_free()
 
 
-func _nudge_button(col: int, direction: int, symbol: String, recommendation: Variant) -> void:
+## cost가 0이면 무료 밀기, 양수면 마력을 내고 미는 밀기(값을 단추에 적는다). 마력이 모자라면 눌리지 않는다.
+func _nudge_button(col: int, direction: int, symbol: String, recommendation: Variant, cost: int = 0, mana: int = 0) -> void:
 	var x: float = _cell(col, 0).x
 	var y: float = SLAB_Y - 30.0 if direction == -1 else SLAB_Y + STRIDE_Y * 3 - 4.0
 	var recommended: bool = recommendation != null and recommendation["col"] == col and recommendation["dir"] == direction
 	var tap: Button = GameTheme.button(_layer, Rect2(x, y, CELL, 28), "", _dispatch.bind({"type": "nudge", "col": col, "dir": direction}), Color("#5c4a00") if recommended else GameTheme.CARD, GameTheme.RECOMMEND if recommended else Color("#5a4d38"), 2)
-	GameTheme.label(tap, Rect2(12, 0, 18, 28), "▼" if direction == -1 else "▲", 16)
-	GameTheme.place(tap, Marks.new(symbol), Rect2(34, 4, 20, 20))
+	var arrow: String = "▼" if direction == -1 else "▲"
+	if cost > 0:
+		## 산 밀기: 화살표 · 들어올 그림 · 마력 값.
+		var buy: Dictionary = _ctl.data["slot"].get("nudgeBuy", {})
+		var left: int = int(buy.get("perWave", 0)) - int(_ctl.state.get("nudgesBought", 0))
+		var mana_tint: Color = GameTheme.MYSTIC.lightened(0.55)
+		GameTheme.label(tap, Rect2(3, 0, 13, 28), arrow, 12)
+		GameTheme.place(tap, Marks.new(symbol), Rect2(16, 5, 18, 18))
+		GameTheme.place(tap, Icons.new("mana", mana_tint, false), Rect2(33, 4, 20, 20))
+		var price: Label = GameTheme.label(tap, Rect2(51, 0, 12, 28), str(cost), 13, mana_tint)
+		price.add_theme_font_override("font", GameTheme.bold_font())
+		tap.tooltip_text = "밀기 한 번 더: 마력 %d (이번 웨이브 %d번 남음)" % [cost, left]
+		if mana < cost:
+			tap.disabled = true
+			tap.mouse_default_cursor_shape = Control.CURSOR_ARROW
+			tap.modulate = Color(0.6, 0.6, 0.62)
+			tap.tooltip_text = "마력이 모자라요. 밀기 한 번 더: 마력 %d (지금 %d)" % [cost, mana]
+	else:
+		GameTheme.label(tap, Rect2(12, 0, 18, 28), arrow, 16)
+		GameTheme.place(tap, Marks.new(symbol), Rect2(34, 4, 20, 20))
 	if recommended:
 		tap.create_tween().set_loops().tween_property(tap, "modulate:a", 0.55, 0.45).from(1.0)
 
@@ -322,14 +347,22 @@ func _reward_text(state: Dictionary, recommendation: Variant) -> String:
 		return "%s 맞춤! 알을 고르면 함께 받아요: %s.%s" % [
 			", ".join(groups), _describe(reward), " 분홍 여의주는 어떤 그림으로든 쳐요." if wild else "",
 		]
+	var nudge_cost: int = RunRules.nudge_cost(_ctl.data, state)
 	if recommendation != null:
 		var col: int = recommendation["col"]
 		var direction: int = recommendation["dir"]
 		var after: Dictionary = HintRules.line_rewards(_ctl.data, SlotRules.nudge(grid, col, direction), crown)
+		if nudge_cost > 0:
+			return "추천: %d번째 줄 %s (마력 %d) → 줄이 맞아요(보너스: %s)." % [
+				col + 1, "▼" if direction == -1 else "▲", nudge_cost, _describe(after),
+			]
 		return "추천: %d번째 줄의 %s를 누르면 줄이 맞아요(보너스: %s)." % [
 			col + 1, "▼" if direction == -1 else "▲", _describe(after),
 		]
 	var gold: String = "황금 칸 보너스: 마력 +%d. " % reward["mana"] if reward["mana"] > 0 else ""
+	if nudge_cost > 0:
+		var buy: Dictionary = _ctl.data["slot"].get("nudgeBuy", {})
+		return gold + "밀기 한 번 더: 마력 %d (이번 웨이브 %d번 남음)." % [nudge_cost, int(buy.get("perWave", 0)) - int(state.get("nudgesBought", 0))]
 	return gold + ("▼▲를 누르면 숨은 알이 들어오며 줄이 한 칸 밀려요(웨이브당 1번)." if state["nudgesLeft"] > 0 else "")
 
 

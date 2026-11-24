@@ -32,11 +32,15 @@ const REJECT_KO: Dictionary = {
 	"noItem": "전환의 룬이 없어요",
 	"sameElement": "이미 그 원소예요",
 	"cannotTransmute": "이 드래곤은 원소를 바꿀 수 없어요",
+	"soldOut": "이미 샀어요",
+	"livesFull": "생명이 가득 차 있어요",
+	"slabMin": "묶음을 더 줄일 수 없어요",
+	"noRerollLeft": "이 보상은 이미 다시 뽑았어요",
 }
 const FORK_DONE_KO: Dictionary = {
 	"elite": "정예 사냥! 다음 적이 강해져요.\n이기면 보상을 한 번 더 골라요.",
 	"rest": "쉼터에서 쉬었어요.",
-	"merchant": "상인에게 마력을 냈어요.",
+	"merchant": "떠돌이 상인의 상점이에요.",
 	"pact": "저주의 계약을 맺었어요.\n이 판이 끝날 때까지 적이 더 강해요.",
 }
 const BONUS_REASONS: Array[String] = ["line", "goldLine", "wildLine", "goldCells", "benchFull"]
@@ -77,6 +81,8 @@ var _live_battle: bool = false
 var _live_done: bool = false
 var _ult_button: Button
 var _ult_toggle: Button
+## 상점 화면 아래에 띄우는 한 줄(방금 산 것 · 무른 것). 상점이 닫히면 비운다.
+var _shop_note: String = ""
 
 
 func _ready() -> void:
@@ -192,8 +198,20 @@ func _on_change(events: Array, state: Dictionary) -> void:
 	var mana: int = 0
 	var converted: bool = false
 	var leveled: int = 0
+	var shop_opened: bool = false
+	var relic_gained: String = ""
 	for event: Dictionary in events:
 		match event["t"]:
+			"shop":
+				shop_opened = true
+			"shopClosed":
+				_shop_note = ""
+			"bought":
+				var item: Dictionary = event["item"]
+				if item["kind"] in ["transmute", "life", "relic"]:
+					_shop_note = "샀어요: %s" % _shop_view(item, state)["title"]
+			"refunded":
+				_shop_note = "사지 않고 돌아왔어요. 값(마력 %d)은 돌려받았어요." % int(event["item"]["cost"])
 			"rejected":
 				flash(REJECT_KO.get(event["reason"], "할 수 없어요"))
 			"evolved", "gained":
@@ -222,12 +240,16 @@ func _on_change(events: Array, state: Dictionary) -> void:
 				flash("석판에서 %s 룬을 뺐어요.\n이제 묶음은 %d장이에요. 남은 룬이 더 자주 나와요." % [
 					GameTheme.SYMBOL_LABEL.get(event["from"], event["from"]), state.get("slab", []).size(),
 				])
+				if state.get("shop") != null:
+					_shop_note = "석판에서 %s 룬을 뺐어요. 이제 묶음은 %d장이에요." % [GameTheme.SYMBOL_LABEL.get(event["from"], event["from"]), state.get("slab", []).size()]
 			"runeReplaced":
 				var slab: Array = state.get("slab", [])
 				flash(("한 장 더 바꿀 수 있어요.\n" if state.get("runePending") != null else "") + "석판의 %s 룬을 %s 룬으로 바꿨어요.\n이제 %s 룬이 %d칸 중 %d칸이에요." % [
 					GameTheme.SYMBOL_LABEL.get(event["from"], event["from"]), GameTheme.SYMBOL_LABEL.get(event["to"], event["to"]),
 					GameTheme.SYMBOL_LABEL.get(event["to"], event["to"]), slab.size(), slab.count(event["to"]),
 				])
+				if state.get("shop") != null:
+					_shop_note = "석판의 %s 룬을 %s 룬으로 바꿨어요." % [GameTheme.SYMBOL_LABEL.get(event["from"], event["from"]), GameTheme.SYMBOL_LABEL.get(event["to"], event["to"])]
 			"item":
 				if event["id"] == "transmute" and int(event["delta"]) > 0:
 					flash("전환의 룬을 얻었어요!\n드래곤을 눌러 다른 원소의 같은 용으로 바꿀 수 있어요.")
@@ -242,7 +264,11 @@ func _on_change(events: Array, state: Dictionary) -> void:
 			"relic":
 				for relic: Dictionary in controller.data.get("relics", []):
 					if relic["id"] == event["id"]:
+						relic_gained = relic["nameKo"]
 						flash("유물 획득: %s\n%s" % [relic["nameKo"], relic["descKo"]])
+	## 유물을 고르자마자 상점이 열리면 알림이 상점 화면에 가린다: 상점 화면 안에 한 줄로 남긴다.
+	if shop_opened:
+		_shop_note = "유물 획득: %s" % relic_gained if not relic_gained.is_empty() else ""
 	if leveled > 0:
 		flash("드래곤 %d마리가 레벨 업!\n눌러서 스킬을 찍어요." % leveled)
 	if mana != 0:
@@ -307,6 +333,8 @@ func _render(events: Array, state: Dictionary) -> void:
 		_show_relic_choices(state)
 	elif state["phase"] == "fork":
 		_show_fork_choices(state)
+	elif state["phase"] == "shop":
+		_show_shop(state)
 	if state["phase"] in ["gameOver", "victory"]:
 		store.clear_run()
 		_show_result(state)
@@ -482,6 +510,7 @@ func _return_to_title() -> void:
 func _show_reward_choices(state: Dictionary) -> void:
 	var field: Rect2 = _open_choice("승리 보상을 하나 고르세요", "", GameTheme.GOLD_HI)
 	var choices: Array = state["rewardChoices"]
+	var rerolled: bool = int(state.get("rewardRerolls", 0)) > 0
 	var odds: Dictionary = _reward_odds(Waves.is_boss(controller.data["waves"], int(state["wave"]) - 1))
 	var tints: Dictionary = {"mana": Color("#b197fc"), "egg": GameTheme.GOLD, "t2egg": Color("#ffe27a"), "trait": Color("#f06595"), "nudge": Color("#74c0fc"), "freeSpin": Color("#8ce99a"), "life": Color("#ff8787"), "transmute": Color("#63e6be"), "erase": Color("#ff8787")}
 	for i: int in range(choices.size()):
@@ -503,15 +532,40 @@ func _show_reward_choices(state: Dictionary) -> void:
 			GameTheme.place(card, Marks.new(choice["detail"]), Rect2((card_w - 88) / 2.0, 32, 88, 88))
 		elif art == null:
 			GameTheme.place(card, Icons.new(reward["kind"], tint), Rect2((card_w - 104) / 2.0, 24, 104, 104))
-		var chance: String = "이 보상이 나올 확률 %d%%" % roundi(odds.get(reward["id"], 0.0) * 100.0)
+		## 다시 뽑은 석 장은 방금 본 보상을 빼고 뽑아서 확률이 다르다: 보상 확률 줄은 적지 않는다.
+		var chance: String = "" if rerolled else "이 보상이 나올 확률 %d%%" % roundi(odds.get(reward["id"], 0.0) * 100.0)
 		var chance_color: Color = GameTheme.DIM
 		if is_egg:
 			var share: float = _species_share(choice["detail"])
-			chance += "\n그중 이 용일 확률 %.1f%%" % (share * 100.0)
+			chance += ("" if chance.is_empty() else "\n그중 ") + "이 용일 확률 %.1f%%" % (share * 100.0)
 			chance_color = GameTheme.rarity(Slot.species_weight(controller.data, choice["detail"]))[1] if reward["kind"] == "egg" else GameTheme.DIM
 			if not store.discovered().has(choice["detail"]):
 				GameTheme.new_badge(card, card.size)
 		GameTheme.label(card, Rect2(8, 232, card_w - 16, 40), chance, 12, chance_color, HORIZONTAL_ALIGNMENT_CENTER)
+	_reward_reroll_button(state, field)
+
+
+## 보상 다시 뽑기 단추: 마력을 내고 세 장을 새로 뽑는다. 한 보상 화면에서 한 번만.
+func _reward_reroll_button(state: Dictionary, field: Rect2) -> void:
+	var cfg: Dictionary = controller.data["waves"].get("rewardReroll", {})
+	if int(cfg.get("perScreen", 0)) <= 0:
+		return
+	var cost: int = Run.reward_reroll_cost(controller.data, state)
+	var mid: float = field.size.x / 2.0
+	var button: Button = GameTheme.cta(_reward_overlay, Rect2(mid - 150, 496, 300, 44), "세 장 다시 뽑기 (마력 %d)" % int(cfg.get("cost", 0)), controller.dispatch.bind({"type": "rerollRewards"}), "mystic", 17)
+	var note: String = "방금 본 보상은 빼고 새로 뽑아요. 한 번만 할 수 있어요."
+	var note_color: Color = GameTheme.DIM
+	if cost < 0:
+		button.disabled = true
+		button.text = "다시 뽑기를 이미 썼어요"
+		note = ""
+	elif int(state["mana"]) < cost:
+		button.disabled = true
+		note = "마력이 모자라요 (지금 %d)" % int(state["mana"])
+		note_color = GameTheme.EMBER.lightened(0.4)
+	if button.disabled:
+		button.mouse_default_cursor_shape = Control.CURSOR_ARROW
+	GameTheme.label(_reward_overlay, Rect2(0, 546, field.size.x, 20), note, 13, note_color, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _reward_odds(boss: bool) -> Dictionary:
@@ -562,11 +616,10 @@ func _show_relic_choices(state: Dictionary) -> void:
 ## 갈림길: 세 길 가운데 하나를 고른다.
 func _show_fork_choices(state: Dictionary) -> void:
 	var fork: Dictionary = controller.data["waves"].get("fork", {})
-	var cost: int = int(fork.get("merchantCost", 0))
 	var cards: Dictionary = {
 		"elite": ["정예 사냥", "다음 웨이브의 적이 %d%% 강해져요. 이기면 보상을 한 번 더 골라요." % int(fork.get("elitePowerPct", 0)), Color("#e8573a")],
 		"rest": ["쉼터", "생명 +%d(가득 차 있으면 그대로), 모든 드래곤 경험치 +%d." % [int(fork.get("restLives", 0)), int(fork.get("restXp", 0))], Color("#6fcf7a")],
-		"merchant": ["떠돌이 상인", "마력 %d을 내고 유물 3개 가운데 하나를 골라요." % cost, GameTheme.GOLD],
+		"merchant": ["떠돌이 상인", "상점이 한 번 더 열려요. 마력으로 룬 · 유물 · 생명을 사요.", GameTheme.GOLD],
 		"pact": ["저주의 계약", "유물을 바로 하나 골라요. 대신 이 판이 끝날 때까지 적이 %d%% 강해져요." % int(fork.get("pactPowerPct", 0)), GameTheme.MYSTIC.lightened(0.25)],
 	}
 	var field: Rect2 = _open_choice("갈림길이에요. 어느 길로 갈까요?", "", GameTheme.GOLD_HI)
@@ -576,9 +629,75 @@ func _show_fork_choices(state: Dictionary) -> void:
 		var info: Array = cards[option]
 		var card: Button = _choice_card(i, choices.size(), field, {"type": "chooseFork", "option": option}, info[2], info[0], info[1], 262.0)
 		GameTheme.place(card, Icons.new(option, info[2]), Rect2((card.size.x - 108) / 2.0, 22, 108, 108))
-		if option == "merchant" and int(state["mana"]) < cost:
+
+
+## 상점 물건 한 칸에 적을 것: 이름 · 설명 · 색 · 그림(유물 id나 보상 종류).
+func _shop_view(item: Dictionary, state: Dictionary) -> Dictionary:
+	var detail: Variant = item.get("detail")
+	var amount: int = int(item.get("amount", 1))
+	match item["kind"]:
+		"rune":
+			return {"title": item["nameKo"], "tint": GameTheme.COLOR.get(detail, GameTheme.GOLD), "icon": "", "rune": detail,
+				"body": "내 석판의 룬 하나를 %s 룬으로 바꿔요" % GameTheme.SYMBOL_LABEL.get(detail, "새")}
+		"erase":
+			return {"title": item["nameKo"], "tint": GameTheme.EMBER.lightened(0.3), "icon": "erase",
+				"body": "내 석판에서 룬 하나를 빼요. 남은 룬이 더 자주 나와요"}
+		"transmute":
+			return {"title": item["nameKo"], "tint": GameTheme.NEW_COLOR, "icon": "transmute",
+				"body": "드래곤 하나를 다른 원소의 같은 용으로 바꿔요 (성공 %d%%)" % Run.transmute_chance(controller.data, state)}
+		"life":
+			return {"title": item["nameKo"], "tint": GameTheme.EMBER.lightened(0.4), "icon": "life",
+				"body": "생명 +%d\n(지금 %d / %d)" % [amount, int(state["lives"]), int(controller.data["waves"]["startLives"])]}
+		"relic":
+			for relic: Dictionary in controller.data.get("relics", []):
+				if relic["id"] == detail:
+					return {"title": relic["nameKo"], "tint": GameTheme.GOLD, "icon": relic["id"], "body": relic["descKo"], "tag": "유물"}
+	return {"title": str(item.get("nameKo", "")), "tint": GameTheme.GOLD, "icon": "", "body": ""}
+
+
+## 상점: 마력으로 물건을 산다. 한 물건은 한 번만, 여러 개를 살 수 있고 "나가기"로 닫는다.
+func _show_shop(state: Dictionary) -> void:
+	var items: Array = state["shop"]["items"]
+	var mana_tint: Color = GameTheme.MYSTIC.lightened(0.55)
+	var warn: Color = GameTheme.EMBER.lightened(0.4)
+	var card_h: float = 318.0
+	var field: Rect2 = _open_choice("상점", "가진 마력 %d · 한 물건은 한 번만 살 수 있어요." % int(state["mana"]), GameTheme.GOLD_HI)
+	## 알림 글은 상점 화면 뒤에 비쳐 글자와 겹친다: 바로 지우고, 방금 일은 아래 한 줄(_shop_note)로 보여 준다.
+	if _toast_animation != null:
+		_toast_animation.kill()
+	_toast.modulate.a = 0.0
+	for i: int in range(items.size()):
+		var item: Dictionary = items[i]
+		var view: Dictionary = _shop_view(item, state)
+		var tint: Color = view["tint"]
+		var reason: String = Run.shop_rejection(controller.data, state, i)
+		var sold: bool = bool(item.get("sold", false))
+		var card: Button = _choice_card(i, items.size(), field, {"type": "buy", "index": i}, tint, view["title"], "", card_h)
+		var card_w: float = card.size.x
+		if view.has("tag"):
+			GameTheme.label(card, Rect2(8, 4, card_w - 16, 18), view["tag"], 12, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		if view.get("rune") != null:
+			GameTheme.place(card, Marks.new(view["rune"]), Rect2((card_w - 84) / 2.0, 34, 84, 84))
+		else:
+			GameTheme.place(card, Icons.new(view["icon"], tint), Rect2((card_w - 100) / 2.0, 26, 100, 100))
+		## 설명은 좁은 카드에서 넉 줄까지 들어간다(가장 긴 유물 설명 기준).
+		var body: Label = GameTheme.label(card, Rect2(12, 184, card_w - 24, 76), view["body"], 13, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+		body.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		GameTheme.wrap(body)
+		GameTheme.divider(card, Rect2(30, 262, card_w - 60, 6), Color(tint, 0.5))
+		GameTheme.heading(card, Rect2(8, 268, card_w - 16, 24), "샀어요" if sold else "마력 %d" % int(item["cost"]), 18,
+			GameTheme.DIM if sold else (mana_tint if reason.is_empty() else warn), HORIZONTAL_ALIGNMENT_CENTER)
+		if not reason.is_empty():
 			card.disabled = true
-			GameTheme.label(card, Rect2(8, 236, card.size.x - 16, 20), "마력이 모자라요 (지금 %d)" % int(state["mana"]), 13, Color("#ff8787"), HORIZONTAL_ALIGNMENT_CENTER)
+			card.mouse_default_cursor_shape = Control.CURSOR_ARROW
+			card.tooltip_text = REJECT_KO.get(reason, "")
+			if sold:
+				card.modulate = Color(0.5, 0.5, 0.55, card.modulate.a)
+			else:
+				GameTheme.label(card, Rect2(4, 292, card_w - 8, 18), REJECT_KO.get(reason, ""), 12, warn, HORIZONTAL_ALIGNMENT_CENTER)
+	var mid: float = field.size.x / 2.0
+	GameTheme.label(_reward_overlay, Rect2(0, 198 + card_h + 8, field.size.x, 22), _shop_note, 15, GameTheme.GOLD_HI, HORIZONTAL_ALIGNMENT_CENTER)
+	GameTheme.cta(_reward_overlay, Rect2(mid - 120, 198 + card_h + 38, 240, 46), "나가기", controller.dispatch.bind({"type": "leaveShop"}), "gold", 19)
 
 
 ## 계보 선택: 합쳐서 진화할 때 갈래가 둘이면 어느 종이 될지 고른다. 성장(레벨 · 스킬 · 계승 특성)은 어느 쪽이든 같다.
@@ -734,7 +853,12 @@ func _show_slab_edit(state: Dictionary) -> void:
 			button.tooltip_text = "이미 %s 룬이에요" % rune_name
 		GameTheme.label(_reward_overlay, Rect2(rect.position.x - 5, rect.position.y + tile + 1, tile + 10, 18), symbol_name, 12, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 	var rows: int = (cells.size() + per_row - 1) / per_row
-	GameTheme.cta(_reward_overlay, Rect2(mid - 120, top + rows * 86.0 + 10, 240, 46), "그대로 두기", controller.dispatch.bind({"type": "skipRune"}), "mystic", 18)
+	## 상점에서 산 룬이면: 아직 쓰지 않았을 때는 무르고(값을 돌려받고) 돌아간다.
+	var shop: Variant = state.get("shop")
+	var skip_text: String = "그대로 두기"
+	if shop is Dictionary:
+		skip_text = "사지 않고 돌아가기" if int(shop.get("refund", -1)) >= 0 else "그만 바꾸고 돌아가기"
+	GameTheme.cta(_reward_overlay, Rect2(mid - 120, top + rows * 86.0 + 10, 240, 46), skip_text, controller.dispatch.bind({"type": "skipRune"}), "mystic", 18)
 
 
 ## 보상 · 유물 · 갈림길이 함께 쓰는 선택 화면 바탕과 제목.
