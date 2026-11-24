@@ -26,7 +26,7 @@ func _init() -> void:
 		ctl.dispatch({"type": "spin"})
 		for i in (12 if mode == "spinmid" else 90):
 			await process_frame
-		if mode in ["manage", "battle", "battle-late", "crit", "reward", "skills", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
+		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -42,9 +42,12 @@ func _init() -> void:
 					ctl.dispatch({"type": "move", "from": {"zone": "bench", "index": b}, "to": {"zone": "nest", "index": b % 3}})
 			for i in 20:
 				await process_frame
-		if mode in ["battle", "battle-late", "crit", "reward"]:
+		if mode in ["battle", "battle-late", "crit", "ult", "reward"]:
 			if mode == "crit":
 				ctl.data["battle"]["crit"]["pct"] = 100
+			if mode == "ult":
+				for tier in ctl.data["battle"]["ultimate"]["chargeHits"]:
+					ctl.data["battle"]["ultimate"]["chargeHits"][tier] = 1
 			ctl.dispatch({"type": "startBattle"})
 			for i in (50 if mode == "battle" else (int(args[4]) if args.size() > 4 else 160)):
 				await process_frame

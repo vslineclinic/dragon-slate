@@ -126,6 +126,11 @@ static func korean_font() -> Font:
 	return _font(FONT_PATH, FONT_WEIGHT, ["Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo"])
 
 
+## 피해 숫자처럼 굵게 눈에 띄어야 하는 글자.
+static func bold_font() -> Font:
+	return _font(FONT_PATH, 900, ["Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo"])
+
+
 ## 제목용 명조: Noto Serif KR(OFL, godot/fonts/OFL-NotoSerifKR.txt).
 static func serif_font(weight: int = 700) -> Font:
 	return _font(SERIF_PATH, weight, ["Noto Serif KR", "Batang", "AppleMyungjo"])

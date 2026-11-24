@@ -12,6 +12,11 @@ const HAZARD_KO: Dictionary = {
 const TICK_SECONDS: float = 0.05
 const SIZE_BY_KIND: Dictionary = {"dragon": 112.0, "escort": 62.0, "minion": 64.0}
 
+## 한꺼번에 떠 있을 수 있는 보통 피해 숫자 수(치명타·궁극기 숫자는 늘 뜬다).
+const MAX_NUMBERS: int = 70
+## 치명타 컷인이 끝난 뒤 다음 치명타 컷인까지 쉬는 시간.
+const CRIT_CUT_GAP_MS: int = 900
+
 signal finished
 ## 전투 도중 적 무리가 더 나타났다(음악을 급박하게 바꿀 때 쓴다).
 signal reinforced
@@ -25,6 +30,8 @@ class UnitView:
 	var gauge_full: float = 0.0
 	var ult_need: int = 0
 	var title: String = ""
+	var ref: String = ""
+	var pops: int = 0
 	var kind: String
 	var side: String
 	var element: String
@@ -45,6 +52,9 @@ var _background_path: String = ""
 var _units_layer: Control
 var _fx_layer: Control
 var _caption: Label
+var _cut_layer: Control
+var _cut_until: int = 0
+var _numbers: int = 0
 var _plaque: Panel
 var _air: Control
 var _skip: Button
@@ -81,6 +91,10 @@ func setup(data: Dictionary, store: Store, width: float) -> void:
 	_fx_layer = Control.new()
 	_fx_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fx_layer)
+	_cut_layer = Control.new()
+	_cut_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cut_layer.z_index = 75
+	GameTheme.place(self, _cut_layer, Rect2(Vector2.ZERO, size))
 	_plaque = GameTheme.panel(self, Rect2(size.x / 2.0 - 230, 8, 460, 56), Color("#0b0b10c7"), Color(GameTheme.GOLD, 0.6), 1, 10, "flat")
 	_plaque.hide()
 	_caption = GameTheme.heading(self, Rect2(size.x / 2.0 - 360, 10, 720, 52), "", 17, GameTheme.GOLD_HI, HORIZONTAL_ALIGNMENT_CENTER, 600)
@@ -168,7 +182,9 @@ func _say(text: String) -> void:
 
 
 func _clear_units() -> void:
-	for layer: Control in [_units_layer, _fx_layer]:
+	_numbers = 0
+	_cut_until = 0
+	for layer: Control in [_units_layer, _fx_layer, _cut_layer]:
 		for child: Node in layer.get_children():
 			layer.remove_child(child)
 			child.queue_free()
@@ -183,6 +199,7 @@ func _unit_view(unit: Dictionary) -> UnitView:
 	var view: UnitView = UnitView.new()
 	view.kind = unit["kind"]
 	view.side = unit["side"]
+	view.ref = str(unit["ref"])
 	if view.kind == "dragon":
 		view.title = str(_data["dragons"].get(unit["ref"], {}).get("nameKo", ""))
 	var elements: Array = unit["elements"]
@@ -331,7 +348,7 @@ func _apply(event: Dictionary, animate: bool) -> void:
 			var tint: Color = GameTheme.COLOR[caster.element]
 			var ult_name: String = str(_data["battle"].get("ultimate", {}).get("names", {}).get(caster.element, ""))
 			_say("궁극기! " + ult_name)
-			_callout("%s의 %s!" % [caster.title, ult_name], tint.lightened(0.45), tint.darkened(0.6))
+			_cut_in(caster, caster.title, ult_name + "!", true)
 			_shake(7.0)
 			_flash.color = Color(tint, 0.28)
 			var glow: Tween = _flash.create_tween()
@@ -348,6 +365,8 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				return
 			_change_hp(defender, -int(event["dmg"]))
 			_change_hp(attacker, int(event["heal"]))
+			if animate and int(event["heal"]) > 0 and attacker.kind == "dragon":
+				_number(attacker, "+%d" % int(event["heal"]), 15, Color("#8ce99a"), 0)
 			if attacker.gauge != null and event.has("charge"):
 				attacker.gauge.size.x = attacker.gauge_full * int(event["charge"]) / attacker.ult_need
 			if animate:
@@ -356,7 +375,8 @@ func _apply(event: Dictionary, animate: bool) -> void:
 					_breath(attacker, defender, true, int(event["dmg"]), 34.0, 2)
 				elif event.get("crit", false):
 					## 치명타: 누가 쳤는지 이름을 띄우고, 잠깐 멈췄다가 크게 터뜨린다.
-					_name_tag(attacker, attacker.title + " 치명타!", Color("#ffe066") if attacker.side == "ally" else Color("#ff8787"))
+					if not _cut_in(attacker, attacker.title, "치명타!", false):
+						_name_tag(attacker, attacker.title + " 치명타!", Color("#ffe066") if attacker.side == "ally" else Color("#ff8787"))
 					_pause = maxf(_pause, 0.07)
 					_breath(attacker, defender, true, int(event["dmg"]), 26.0, 1)
 				elif attacker.kind == "dragon":
@@ -470,23 +490,136 @@ func _hit(view: UnitView, damage: int, color: Color, strong: bool, power: int = 
 	view.body.modulate = color * 1.6 if color != Color.WHITE else Color(2, 2, 2)
 	view.flash = view.body.create_tween()
 	view.flash.tween_property(view.body, "modulate", Color.WHITE, 0.14)
-	if (view.kind == "dragon" or power > 0) and _store.speed < 4:
-		var number_size: int = 30 if power > 0 else (22 if strong else 17)
-		var number_text: String = str(damage) + ("!" if power > 0 else "")
-		var number: Label = GameTheme.label(_fx_layer, Rect2(view.center.x - 60, view.center.y - 74, 120, 34), number_text, number_size, Color("#ff6b6b") if power == 1 else color, HORIZONTAL_ALIGNMENT_CENTER)
-		number.pivot_offset = Vector2(60, 17)
-		if power > 0:
-			number.scale = Vector2(1.7, 1.7)
-			number.create_tween().tween_property(number, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		number.add_theme_color_override("font_outline_color", Color.BLACK)
-		number.add_theme_constant_override("outline_size", 5)
-		number.z_index = 60
-		var animation: Tween = number.create_tween().set_parallel()
-		animation.tween_property(number, "position:y", number.position.y - 26, 0.4)
-		animation.tween_property(number, "modulate:a", 0.0, 0.4)
-		animation.chain().tween_callback(number.queue_free)
+	## 피해 숫자: 누가 맞든 맞을 때마다 머리 위로 튀어 오른다. 4배속에서는 드래곤과 큰 한 방만.
+	if view.kind == "dragon" or power > 0 or _store.speed < 4:
+		var big: bool = view.kind == "dragon"
+		var pixels: int = (25 if strong else 21) if big else (19 if strong else 17)
+		var ink: Color = color
+		if color == Color.WHITE and view.side == "ally":
+			ink = Color("#ff9f8f")
+		if power == 1:
+			pixels = 32
+			ink = Color("#ffcf3d")
+		elif power == 2:
+			pixels = 30
+			ink = tint.lightened(0.55)
+		_number(view, str(damage) + ("!" if power > 0 else ""), pixels, ink, power)
 	if strong and view.kind == "dragon":
 		var animation: Tween = _units_layer.create_tween()
 		animation.tween_property(_units_layer, "position:x", 4.0, 0.03)
 		animation.tween_property(_units_layer, "position:x", -4.0, 0.04)
 		animation.tween_property(_units_layer, "position:x", 0.0, 0.05)
+
+
+## 머리 위로 튀어 오르는 숫자. 연달아 맞으면 좌우로 번갈아 흩어져 겹치지 않는다.
+func _number(view: UnitView, text: String, pixels: int, ink: Color, power: int) -> void:
+	if _numbers >= MAX_NUMBERS and power == 0:
+		return
+	_numbers += 1
+	view.pops += 1
+	var side: float = float(view.pops % 3 - 1)
+	var top: float = view.center.y - view.root.size.y * 0.5 - 8.0 - float(view.pops % 2) * 9.0
+	var start: Vector2 = Vector2(view.center.x + side * 20.0 + randf_range(-5.0, 5.0), top)
+	var number: Label = GameTheme.label(_fx_layer, Rect2(start.x - 80, start.y - 20, 160, 40), text, pixels, ink, HORIZONTAL_ALIGNMENT_CENTER)
+	number.add_theme_font_override("font", GameTheme.bold_font())
+	number.add_theme_color_override("font_outline_color", Color("#2a0a05") if power == 1 else Color.BLACK)
+	number.add_theme_constant_override("outline_size", maxi(5, int(pixels / 3.5)))
+	number.pivot_offset = Vector2(80, 20)
+	number.z_index = 60 + power
+	number.scale = Vector2(1.9, 1.9) if power > 0 else Vector2(1.35, 1.35)
+	var seconds: float = (0.8 if power > 0 else 0.6) / sqrt(float(_store.speed))
+	var pop: Tween = number.create_tween().set_parallel()
+	pop.tween_property(number, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	pop.tween_property(number, "position:y", number.position.y - (30.0 + 12.0 * power), seconds).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	pop.tween_property(number, "position:x", number.position.x + side * 12.0, seconds)
+	pop.tween_property(number, "modulate:a", 0.0, seconds * 0.4).set_delay(seconds * 0.6)
+	pop.chain().tween_callback(_number_done.bind(number))
+
+
+func _number_done(number: Label) -> void:
+	_numbers = maxi(0, _numbers - 1)
+	number.queue_free()
+
+
+## 컷인: 화면을 살짝 가라앉히고 그 용의 그림을 잠깐(0.2초) 크게 보여 준다. 전투는 멈추지 않는다.
+## grand = 궁극기(가운데 큰 띠), 아니면 치명타(위쪽 작은 띠). 방금 뜬 컷인이 있으면 치명타는 건너뛰고 false.
+func _cut_in(view: UnitView, title: String, line: String, grand: bool) -> bool:
+	if view.ref.is_empty() or (_store.speed >= 4 and not grand):
+		return false
+	var now: int = Time.get_ticks_msec()
+	if not grand and now < _cut_until:
+		return false
+	var pace: float = sqrt(float(_store.speed))
+	var fade_in: float = 0.1 / pace
+	var hold: float = 0.2 / pace
+	var fade_out: float = 0.18 / pace
+	_cut_until = now + int((fade_in + hold + fade_out) * 1000.0) + (0 if grand else CRIT_CUT_GAP_MS)
+	if grand:
+		for old: Node in _cut_layer.get_children():
+			_cut_layer.remove_child(old)
+			old.queue_free()
+	var ally: bool = view.side == "ally"
+	var tint: Color = GameTheme.COLOR[view.element]
+	var card: Control = Control.new()
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	GameTheme.place(_cut_layer, card, Rect2(Vector2.ZERO, size))
+	var band_h: float = 150.0 if grand else 72.0
+	## 치명타 띠는 전투를 가리지 않게 구석에: 아군은 왼쪽 위, 적은 오른쪽 아래.
+	var band_y: float = size.y * 0.3 if grand else (4.0 if ally else size.y - 80.0)
+	var band_w: float = size.x if grand else size.x * 0.56
+	var band_x: float = 0.0 if ally or grand else size.x - band_w
+	if grand:
+		var dim: ColorRect = ColorRect.new()
+		dim.color = Color(0, 0, 0, 0.3)
+		dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		GameTheme.place(card, dim, Rect2(Vector2.ZERO, size))
+	## 띠: 용이 있는 쪽이 짙고 반대쪽으로 흐려진다. 위아래에 원소색 줄.
+	var near: Color = Color(0.03, 0.02, 0.06, 0.94)
+	var shade: Gradient = Gradient.new()
+	shade.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+	shade.colors = PackedColorArray([near, Color(near, 0.8), Color(near, 0.0)] if ally else [Color(near, 0.0), Color(near, 0.8), near])
+	var strip: GradientTexture2D = GradientTexture2D.new()
+	strip.gradient = shade
+	strip.width = 256
+	strip.height = 4
+	var band: TextureRect = TextureRect.new()
+	band.texture = strip
+	band.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	band.stretch_mode = TextureRect.STRETCH_SCALE
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	GameTheme.place(card, band, Rect2(band_x, band_y, band_w, band_h))
+	for edge_y: float in [band_y, band_y + band_h - 3.0]:
+		var edge: TextureRect = TextureRect.new()
+		edge.texture = strip
+		edge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		edge.stretch_mode = TextureRect.STRETCH_SCALE
+		edge.modulate = tint.lightened(0.35) * 3.0
+		edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		GameTheme.place(card, edge, Rect2(band_x, edge_y, band_w, 3))
+	var face: float = band_h * (1.5 if grand else 1.45)
+	var face_x: float = band_x + 28.0 if ally else band_x + band_w - face - 28.0
+	var face_y: float = band_y + band_h - face * 0.93
+	GameTheme.glow(card, Vector2(face_x + face / 2.0, band_y + band_h / 2.0), face * 0.85, Color(tint, 0.6))
+	var portrait: TextureRect = GameTheme.dragon(card, Rect2(face_x, face_y, face, face), view.ref, ally)
+	var text_w: float = band_w - face - 80.0
+	var text_x: float = face_x + face + 18.0 if ally else band_x + 34.0
+	var align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT if ally else HORIZONTAL_ALIGNMENT_RIGHT
+	var name_px: int = 26 if grand else 17
+	var line_px: int = 40 if grand else 26
+	var mid: float = band_y + band_h / 2.0
+	GameTheme.heading(card, Rect2(text_x, mid - (name_px + line_px) / 2.0 - 4.0, text_w, name_px + 8.0), title, name_px, GameTheme.TEXT, align, 700)
+	var shout: Label = GameTheme.heading(card, Rect2(text_x, mid - (name_px + line_px) / 2.0 + name_px + 2.0, text_w, line_px + 10.0), line, line_px, tint.lightened(0.5) if grand else Color("#ffcf3d"), align, 900)
+	shout.add_theme_color_override("font_outline_color", tint.darkened(0.7) if grand else Color("#2a0a05"))
+	shout.add_theme_constant_override("outline_size", 8)
+	## 페이드 인 → 0.2초 → 페이드 아웃. 그림은 제 쪽에서 살짝 밀려 들어온다.
+	card.modulate.a = 0.0
+	var slide: float = -46.0 if ally else 46.0
+	if portrait != null:
+		portrait.position.x += slide
+		portrait.create_tween().tween_property(portrait, "position:x", face_x, fade_in + hold * 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	var show: Tween = card.create_tween()
+	show.tween_property(card, "modulate:a", 1.0, fade_in)
+	show.tween_interval(hold)
+	show.tween_property(card, "modulate:a", 0.0, fade_out)
+	show.tween_callback(card.queue_free)
+	return true
