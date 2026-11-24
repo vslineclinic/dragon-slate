@@ -181,26 +181,78 @@ static func team(data: Dictionary, nest: Array, open: int, extra: Dictionary = {
 
 
 ## allies: 둥지 6칸(빈칸 null, to_unit 결과). enemies: Waves.generate_enemies 결과.
+## rules.ultAt = {틱: [용 id, ...]}: 수동 궁극기(rules.manualUlt)를 그 틱에 쏘라고 한 기록. 같은 기록이면 결과가 같다.
 static func simulate_battle(
 	cfg: Dictionary, allies: Array, enemies: Array, rules: Dictionary = {},
 ) -> Dictionary:
-	var field: Dictionary = cfg["field"]
-	var units: Array = _spawn(cfg, allies, enemies, int(rules.get("allySlowPct", 0)))
+	var sim: Dictionary = begin_battle(cfg, allies, enemies, rules)
+	var ult_at: Dictionary = rules.get("ultAt", {})
+	while not battle_over(sim):
+		step_battle(sim, ult_at.get(int(sim["tick"]) + 1, []) if not ult_at.is_empty() else [])
+	return battle_result(sim)
+
+
+## 전투를 한 틱씩 돌릴 수 있는 상태를 만든다(화면이 직접 돌리며 수동 궁극기를 끼워 넣을 때 쓴다).
+static func begin_battle(cfg: Dictionary, allies: Array, enemies: Array, rules: Dictionary = {}) -> Dictionary:
+	var units: Array = _spawn(cfg, allies, enemies, rules)
 	var spawn_info: Array = []
 	for unit: Dictionary in units:
 		spawn_info.append({
 			"id": unit["id"], "side": unit["side"], "kind": unit["kind"], "ref": unit["ref"],
 			"elements": unit["elements"].duplicate(), "slot": unit["slot"], "owner": unit["owner"],
 			"lane": unit["lane"], "x": unit["x"], "hp": unit["hp"], "stage": unit["stage"],
-			"ultNeed": unit["ultNeed"], "elite": unit["elite"],
+			"ultNeed": unit["ultNeed"], "elite": unit["elite"], "type": unit["type"],
 		})
 	var last_stage: int = 0
 	for unit: Dictionary in units:
 		last_stage = maxi(last_stage, int(unit["stage"]))
-	var stage: int = 0
-	var stage_start: int = 0
-	var stage_ticks: int = int(field.get("stageTicks", 0))
+	return {
+		"cfg": cfg, "rules": rules, "units": units, "spawnInfo": spawn_info, "lastStage": last_stage,
+		"stage": 0, "stageStart": 0, "events": [], "tick": 0, "winner": "", "blastFront": true, "enraged": false,
+		"dirty": {}, "flushed": false, "critRng": Rng.new(int(rules.get("critSeed", 0))),
+	}
 
+
+static func battle_over(sim: Dictionary) -> bool:
+	return not str(sim["winner"]).is_empty() or int(sim["tick"]) >= int(sim["cfg"]["maxTicks"])
+
+
+## 끝난 전투의 결과. left = 전장에 나와 살아남은 적(우두머리 · 졸병 수).
+static func battle_result(sim: Dictionary) -> Dictionary:
+	var left: Dictionary = {"leaders": 0, "minions": 0}
+	for unit: Dictionary in sim["units"]:
+		if unit["side"] == "enemy" and unit["hp"] > 0 and unit["active"]:
+			left["leaders" if unit["kind"] == "dragon" else "minions"] += 1
+	var winner: String = sim["winner"]
+	return {
+		"winner": "enemy" if winner.is_empty() else winner,
+		"ticks": sim["tick"], "events": sim["events"], "units": sim["spawnInfo"], "left": left,
+	}
+
+
+## 수동 모드에서 지금 궁극기를 쏠 수 있는(게이지가 가득 찬) 우리 용의 id들.
+static func ready_ults(sim: Dictionary) -> Array:
+	var ready: Array = []
+	for unit: Dictionary in sim["units"]:
+		if unit["side"] == "ally" and unit["kind"] == "dragon" and unit["hp"] > 0 and int(unit["ultNeed"]) > 0 \
+				and int(unit["charge"]) >= int(unit["ultNeed"]) and not unit["armed"]:
+			ready.append(unit["id"])
+	return ready
+
+
+## 한 틱 진행하고 이 틱에 생긴 사건들을 돌려준다. arm = 이번 틱에 궁극기를 쏘라고 한 용의 id들(수동 모드에서만 듣는다).
+static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
+	if battle_over(sim):
+		return []
+	var cfg: Dictionary = sim["cfg"]
+	var rules: Dictionary = sim["rules"]
+	var field: Dictionary = cfg["field"]
+	var units: Array = sim["units"]
+	var events: Array = sim["events"]
+	var first_event: int = events.size()
+	var last_stage: int = sim["lastStage"]
+	var stage: int = sim["stage"]
+	var stage_ticks: int = int(field.get("stageTicks", 0))
 	var burn: Variant = rules.get("burn")
 	var row_blast: Variant = rules.get("rowBlast")
 	var pulse: Variant = rules.get("pulse")
@@ -213,59 +265,68 @@ static func simulate_battle(
 	## 치명타: 드래곤(아군·적 우두머리)의 보통 공격이 가끔 세게 들어간다. 전투마다 받은 씨앗으로만 굴린다.
 	var crit: Dictionary = cfg.get("crit", {})
 	var crit_pct: int = int(crit.get("pct", 0))
-	var crit_rng: Rng = Rng.new(int(rules.get("critSeed", 0)))
+	var crit_rng: Rng = sim["critRng"]
 	var abilities: Dictionary = cfg.get("abilities", {})
 	## 유물 "매의 눈": 후열에 선 우리 용은 줄 감쇠를 받지 않는다.
 	var keen_back: bool = bool(rules.get("backRowNoLane", false))
-
-	var events: Array = []
-	var tick: int = 0
+	var manual: bool = bool(rules.get("manualUlt", false))
+	var enraged: bool = sim["enraged"]
+	var dirty: Dictionary = sim["dirty"]
 	var winner: String = ""
-	var blast_front: bool = true
-	var enraged: bool = false
-	var dirty: Dictionary = {}
-	while winner.is_empty() and tick < cfg["maxTicks"]:
-		tick += 1
-		if stage < last_stage:
-			var cleared: bool = true
+	sim["tick"] = int(sim["tick"]) + 1
+	var tick: int = sim["tick"]
+	## 수동 궁극기: 게이지가 가득 찬 우리 용을 장전한다. 바로 다음 공격이 궁극기가 되고, 기다리지 않게 공격 차례를 당긴다.
+	if manual:
+		for id: Variant in arm:
+			if int(id) < 0 or int(id) >= units.size():
+				continue
+			var shooter: Dictionary = units[int(id)]
+			if shooter["side"] == "ally" and shooter["kind"] == "dragon" and shooter["hp"] > 0 \
+					and int(shooter["ultNeed"]) > 0 and int(shooter["charge"]) >= int(shooter["ultNeed"]):
+				shooter["armed"] = true
+				shooter["timer"] = maxi(int(shooter["timer"]), int(shooter["cd"]) - 1)
+	if stage < last_stage:
+		var cleared: bool = true
+		for unit: Dictionary in units:
+			if unit["side"] == "enemy" and unit["active"] and unit["hp"] > 0:
+				cleared = false
+				break
+		if cleared or (stage_ticks > 0 and tick - int(sim["stageStart"]) >= stage_ticks):
+			stage += 1
+			sim["stage"] = stage
+			sim["stageStart"] = tick
 			for unit: Dictionary in units:
-				if unit["side"] == "enemy" and unit["active"] and unit["hp"] > 0:
-					cleared = false
-					break
-			if cleared or (stage_ticks > 0 and tick - stage_start >= stage_ticks):
-				stage += 1
-				stage_start = tick
-				for unit: Dictionary in units:
-					if unit["stage"] == stage:
-						unit["active"] = true
-				events.append({"tick": tick, "kind": "stage", "stage": stage, "total": last_stage + 1})
-		if _hazard_due(burn, tick):
-			var lowest: Variant = null
-			for unit: Dictionary in units:
-				if unit["side"] == "ally" and unit["kind"] == "dragon" and unit["hp"] > 0:
-					if lowest == null or unit["hp"] < lowest["hp"]:
-						lowest = unit
-			if lowest != null:
-				_hurt(units, lowest, tick, "burn", int(burn["pct"]), events)
-		if _hazard_due(row_blast, tick):
-			var front: bool = blast_front
-			blast_front = not blast_front
-			for unit: Dictionary in units:
-				if unit["side"] != "ally" or unit["hp"] <= 0:
-					continue
-				var slot: int = unit["slot"]
-				if (slot < 3) == front:
-					_hurt(units, unit, tick, "rowBlast", int(row_blast["pct"]), events)
-		if _hazard_due(pulse, tick):
-			for unit: Dictionary in units:
-				if unit["side"] == "ally" and unit["hp"] > 0:
-					_hurt(units, unit, tick, "pulse", int(pulse["pct"]), events)
-		if enrage != null and not enraged and tick >= enrage["atTick"]:
-			enraged = true
-			events.append({"tick": tick, "kind": "enrage"})
-		if not _any_alive(units, "ally"):
-			winner = "enemy"
-			break
+				if unit["stage"] == stage:
+					unit["active"] = true
+			events.append({"tick": tick, "kind": "stage", "stage": stage, "total": last_stage + 1})
+	if _hazard_due(burn, tick):
+		var lowest: Variant = null
+		for unit: Dictionary in units:
+			if unit["side"] == "ally" and unit["kind"] == "dragon" and unit["hp"] > 0:
+				if lowest == null or unit["hp"] < lowest["hp"]:
+					lowest = unit
+		if lowest != null:
+			_hurt(units, lowest, tick, "burn", int(burn["pct"]), events)
+	if _hazard_due(row_blast, tick):
+		var front: bool = sim["blastFront"]
+		sim["blastFront"] = not front
+		for unit: Dictionary in units:
+			if unit["side"] != "ally" or unit["hp"] <= 0:
+				continue
+			var slot: int = unit["slot"]
+			if (slot < 3) == front:
+				_hurt(units, unit, tick, "rowBlast", int(row_blast["pct"]), events)
+	if _hazard_due(pulse, tick):
+		for unit: Dictionary in units:
+			if unit["side"] == "ally" and unit["hp"] > 0:
+				_hurt(units, unit, tick, "pulse", int(pulse["pct"]), events)
+	if enrage != null and not enraged and tick >= enrage["atTick"]:
+		enraged = true
+		sim["enraged"] = true
+		events.append({"tick": tick, "kind": "enrage"})
+	if not _any_alive(units, "ally"):
+		winner = "enemy"
+	if winner.is_empty():
 
 		for unit: Dictionary in units:
 			if unit["active"] and unit["hp"] > 0 and unit["speed"] > 0:
@@ -292,9 +353,18 @@ static func simulate_battle(
 				var is_ult: bool = false
 				var need: int = int(unit["ultNeed"])
 				if need > 0:
-					unit["charge"] += 1
-					if unit["charge"] >= need:
+					## 수동 모드의 우리 용: 게이지는 가득 찬 채로 기다리다가, 쏘라고 한 뒤의 공격이 궁극기가 된다.
+					var fire: bool = false
+					if manual and side == "ally":
+						fire = bool(unit["armed"]) and int(unit["charge"]) >= need
+						if not fire:
+							unit["charge"] = mini(need, int(unit["charge"]) + 1)
+					else:
+						unit["charge"] += 1
+						fire = int(unit["charge"]) >= need
+					if fire:
 						unit["charge"] = 0
+						unit["armed"] = false
 						is_ult = true
 						power_pct = int(ultimate["powerPct"].get(unit["tier"], 100)) + int(unit["ultPower"])
 						## 신화의 숨결: 궁극기가 한 마리를 더 친다.
@@ -385,21 +455,23 @@ static func simulate_battle(
 
 		if pos_every > 0 and tick % pos_every == 0 and not dirty.is_empty():
 			_record_pos(units, dirty, tick, events)
-			dirty = {}
+			dirty.clear()
 		if not _any_alive(units, "enemy"):
 			winner = "ally"
 		elif not _any_alive(units, "ally"):
 			winner = "enemy"
 
-	if not dirty.is_empty():
-		_record_pos(units, dirty, tick, events)
-	return {
-		"winner": "enemy" if winner.is_empty() else winner,
-		"ticks": tick, "events": events, "units": spawn_info,
-	}
+	sim["winner"] = winner
+	if battle_over(sim) and not sim["flushed"]:
+		sim["flushed"] = true
+		if not dirty.is_empty():
+			_record_pos(units, dirty, tick, events)
+			dirty.clear()
+	return events.slice(first_event)
 
 
-static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int) -> Array:
+static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, rules: Dictionary = {}) -> Array:
+	var slow_pct: int = int(rules.get("allySlowPct", 0))
 	var field: Dictionary = cfg["field"]
 	var escort: Dictionary = cfg["escort"]
 	## 양쪽 체력을 같은 비율로 키워 전투 길이만 조절한다.
@@ -453,6 +525,10 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 		if item["kind"] == "dragon":
 			foe["role"] = item.get("role", "")
 			foe["ability"] = item.get("ability", "")
+			foe["tier"] = item.get("tier", "")
+			## 지역 규칙 "적 우두머리도 궁극기를 쓴다".
+			if bool(rules.get("enemyUlt", false)):
+				foe["ultNeed"] = int(cfg.get("ultimate", {}).get("chargeHits", {}).get(foe["tier"], 0))
 			var foe_pct: int = int(cfg.get("abilities", {}).get(foe["ability"], {}).get("pct", 0))
 			if foe["ability"] == "vanguard":
 				foe["guard"] = foe_pct
@@ -460,6 +536,8 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, slow_pct: int
 				foe["edge"] = foe_pct
 			foe["range"] = _role_range(field, int(field.get("leaderRange", 0)), foe["role"])
 		foe["stage"] = int(item.get("stage", 0))
+		foe["type"] = str(item.get("type", ""))
+		foe["reach"] = int(item.get("reach", 0))
 		foe["elite"] = bool(item.get("elite", false))
 		foe["active"] = foe["stage"] == 0
 		units.append(foe)
@@ -487,7 +565,7 @@ static func _make(
 		"hp": hp, "maxHp": hp, "atk": atk, "cd": cd, "timer": 0, "speed": speed,
 		"lane": lane, "x": x, "laneTimer": 0, "slot": -1, "owner": -1, "lifesteal": 0,
 		"stage": 0, "active": true, "tier": "", "ultNeed": 0, "charge": 0, "elite": false,
-		"ultPower": 0, "critBonus": 0, "guard": 0, "range": 0, "role": "", "ability": "", "edge": 0,
+		"ultPower": 0, "critBonus": 0, "guard": 0, "range": 0, "role": "", "ability": "", "edge": 0, "armed": false, "type": "", "reach": 0,
 	}
 
 
@@ -620,10 +698,15 @@ static func _most_hurt(units: Array, me: Dictionary) -> Variant:
 	return best
 
 
+## 걷는 유닛이 닿는 가로 거리: 궁병처럼 reach가 있으면 그 값, 없으면 근접 거리.
+static func _reach(field: Dictionary, unit: Dictionary) -> int:
+	return int(unit["reach"]) if int(unit["reach"]) > 0 else int(field["meleeRange"])
+
+
 static func _can_hit(field: Dictionary, unit: Dictionary, target: Dictionary) -> bool:
 	if unit["kind"] == "dragon":
 		return int(unit["range"]) <= 0 or absi(int(unit["x"]) - int(target["x"])) <= int(unit["range"])
-	return unit["lane"] == target["lane"] and absi(int(unit["x"]) - int(target["x"])) <= int(field["meleeRange"])
+	return unit["lane"] == target["lane"] and absi(int(unit["x"]) - int(target["x"])) <= _reach(field, unit)
 
 
 ## 걷는 유닛 한 틱 이동. 움직였으면 true.
@@ -639,7 +722,7 @@ static func _step(field: Dictionary, units: Array, unit: Dictionary) -> bool:
 		return true
 	var moved: bool = false
 	var dx: int = int(target["x"]) - int(unit["x"])
-	var melee: int = int(field["meleeRange"])
+	var melee: int = _reach(field, unit)
 	if target["lane"] != unit["lane"] and absi(dx) <= int(field["laneChangeRange"]):
 		unit["laneTimer"] += 1
 		if unit["laneTimer"] >= int(field["laneChangeTicks"]):
