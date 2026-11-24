@@ -27,7 +27,7 @@
 - 내 석판(2026-11-24): 석판의 칸은 내 룬 묶음(`state.slab`, 시작은 `slot.slab.start`)에서 고르게 뽑는다. 보상 "룬 한 장"으로 묶음의 룬 하나를 바꾼다(차례 `slab`, 명령 `replaceRune`·`skipRune`). `slot.weights`는 묶음이 없는 옛 저장과 기준 자료 시험에만 쓴다. 새 판은 시작 묶음(원소 셋 중 하나 + 그 원소 용 한 마리, `Run.start_options`)을 고르고 시작한다. 화면을 자동으로 조작하는 도구는 시작 화면을 닫아야 한다(`_start_open`, capture.gd 참고).
 - 역할(2026-11-24): 화면에서는 front · back · support를 **수호 · 사수 · 지원**이라 부른다(`GameTheme.ROLE_KO`, 전열·후열은 놓는 자리 이름). 사수는 줄 감쇠가 100 · 90 · 75이고 사거리 +80(`battle.field.roleLanePct` · `roleRangeAdd`).
 - 계보 선택(2026-11-24): 진화 후보가 둘이면 고른다. 첫째는 조합표의 결과, 둘째는 받는 쪽 드래곤의 역할을 잇는 종(`Fusion.merge_options`, `merge` 명령의 `choice`). 조합표의 첫째 결과는 바꾸지 않는다.
-- 형태별 능력(2026-11-24): 꿰뚫기 · 연속 공격 · 돌봄 · 방패막 · 맞대결 · 선봉 · 저격 · 함성. `battle.abilities`의 `forms`(종 id에서 원소 머리말을 뗀 형태 이름)로 붙고 보통 공격에만 든다. 새 능력은 `Battle.simulate_battle`의 strikes · `_warded` · `_most_hurt` 옆에 넣고 `test_ability.gd`에 시험을 쓴다.
+- 형태별 능력(2026-11-24): 꿰뚫기 · 연속 공격 · 돌봄 · 방패막 · 맞대결 · 선봉 · 저격 · 함성, 그리고 신화 이름 용 30종의 신화의 숨결(`species` 목록으로 붙음). `battle.abilities`의 `forms`(종 id에서 원소 머리말을 뗀 형태 이름)로 붙고 보통 공격에만 든다. 새 능력은 `Battle.simulate_battle`의 strikes · `_warded` · `_most_hurt` 옆에 넣고 `test_ability.gd`에 시험을 쓴다.
 - 원정 길이(2026-11-24): 기본 원정 20웨이브(`waves.standard`로 덮어씀, `Build.for_length`)와 긴 원정 40웨이브. 봇 측정은 `--standard`를 붙여 잰다. 수치를 고칠 때 두 길이를 따로 본다.
 - 자동 저장(2026-11-24): 하던 판은 `user://run.json`. 규칙·자료가 바뀌어 옛 저장을 이을 수 없으면 `Store.RUN_VERSION`을 올린다. 게임 장면을 띄우는 도구는 반드시 `Store.autosave_off`를 켠다(사용자의 저장을 덮어쓰지 않게).
 - 용의 공격 동작은 그림 한 장을 셰이더로 휘어 만든다(`godot/ui/dragon_pose.gdshader`, `dragon_sprite.gd`). 용 그림은 왼쪽을 보고 머리가 왼쪽 위에 오게 그린다. 숨결 모양은 `godot/ui/breath_fx.gd`.

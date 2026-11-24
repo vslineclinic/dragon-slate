@@ -254,12 +254,20 @@ func test_arranging_is_allowed_before_spinning() -> void:
 	assert_eq(result["state"]["bench"][0], null)
 
 
-func test_reroll_is_free_without_dragons() -> void:
-	var state: Dictionary = _fresh({
+func test_reroll_without_dragons_is_free_only_when_no_egg_is_offered() -> void:
+	## 고를 알이 없으면(가운데 줄이 모두 금) 무료: 용 없이 막히지 않는다.
+	var stuck: Dictionary = _fresh({
+		"phase": "pick", "mana": 0, "spinsThisWave": 2, "grid": _grid([[I, L, I], [G, G, G], [L, F, F]]),
+	})
+	_assert_fields(_apply(stuck, {"type": "spin"})["events"][0], {"t": "spun", "cost": 0})
+	## 알이 나와 있으면 값을 낸다: 좋은 첫 알이 뜰 때까지 공짜로 돌릴 수 없다.
+	var offered: Dictionary = _fresh({
 		"phase": "pick", "mana": 0, "spinsThisWave": 2, "grid": _grid([[I, L, I], [F, I, L], [L, F, F]]),
 	})
-	var result: Dictionary = _apply(state, {"type": "spin"})
-	_assert_fields(result["events"][0], {"t": "spun", "cost": 0})
+	_assert_rejected(offered, {"type": "spin"}, "notEnoughMana")
+	offered["mana"] = 9
+	var paid: Dictionary = _apply(offered, {"type": "spin"})
+	_assert_fields(paid["events"][0], {"t": "spun", "cost": int(_data["slot"]["rerollCosts"][2])})
 
 
 func test_final_boss_loss_with_lives_left_retries_final_wave() -> void:

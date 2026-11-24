@@ -1,6 +1,6 @@
 # Wyrmslot Steam 상점 페이지 초안
 
-2026-11-24 고침: 방향 B(석판 짜기 + 용 계보 + 줄 전투)에 맞춰 다시 썼어요. 게시 전 영어 문장은 검토가 한 번 더 필요해요.
+2026-11-24 고침: 방향 B(석판 짜기 + 용 계보 + 줄 전투)에 맞춰 다시 썼어요. 영어 문장은 코덱스 검토 11건을 반영했어요(2026-11-24).
 
 ## 한국어
 
@@ -67,39 +67,39 @@ Auto Battler, Roguelite, Deckbuilding, Creature Collector, Dragons, Strategy, Si
 
 ### Short description
 
-Build your own rune tablet, merge dragons, and choose which mythic lineage they follow. Read the lanes, set your formation, and watch your dragons march out to fight. A roguelite with six elements, 196 dragons, and a 20-wave expedition.
+Build your rune tablet and choose a mythic lineage each time you merge dragons. Preview enemy lanes and set your formation before your dragons march into battle. This roguelite features six elements, 196 dragons, and a 20-wave expedition.
 
 ### Long description
 
-#### A tablet you build, not a slot you pray to
+#### Build your own rune tablet
 
-Every cell of the 3×3 rune tablet is drawn from your own set of runes. Pick a starting set, then add and remove runes after each victory. Add fire runes and fire eggs and fire lines come up more often. Shift a column to complete a line for extra eggs and mana.
+Each cell on the 3×3 rune tablet is filled with a rune drawn from your own set. Pick a starting set, then add and remove runes after each victory. Add fire runes to get fire eggs more often and make it easier to complete lines of fire runes. Shift a column to complete a line for extra eggs and mana.
 
 #### Choose a lineage with every merge
 
-Merge two dragons and they evolve into a higher tier. You choose one of two branches, and the same pair offers a different branch depending on which dragon you drop onto the other. Fill the world-tree codex with 196 dragons, including Zhulong, Kuraokami, and Yinglong.
+Merge two dragons to create a higher-tier dragon. Choose between two evolutionary branches. Which branches are available depends on which dragon you drag onto the other. Fill the world-tree codex with 196 dragons, including Zhulong, Kuraokami, and Yinglong.
 
 #### Read the lanes, then place your dragons
 
-Before each battle you see which lane the enemy will crowd. Dragons hold their lane, walk forward, and hit weaker when they attack another lane. Where you place long-range Archers, sturdy Guardians, and lane-helping Supports decides the fight.
+Before each battle, see which lane the enemy will concentrate its forces in. Dragons advance along their own lanes and deal less damage when attacking enemies in other lanes. Set your formation with long-range Archers, durable Guardians, and Supports that help allies in their lane.
 
 #### Every form has its own ability
 
-The Lancer Wyvern pierces, the Twinhead strikes twice, the Sage mends the wounded, and the Armored dragon shields its lane. A form keeps its ability across all six elements, so you plan around both ability and element.
+The Lancer Wyvern pierces enemies, the Twinhead strikes twice, the Sage heals wounded allies, and the Armored shields its lane. Each form has the same ability across all six elements, so you can plan around both the form’s ability and its element.
 
 #### Relics and the Rune of Change
 
-Defeat a boss and choose a relic. Some change the rules: back-row dragons ignore lane limits, or one rune card replaces two runes. Use the Rune of Change to turn a dragon into another element before a boss.
+Defeat a boss and choose a relic. One relic lets back-row dragons ignore the damage penalty for attacking other lanes. Another lets you replace two runes with a single rune card. Use the Rune of Change to switch a dragon’s element before a boss fight.
 
-#### A 20-wave expedition, or the long one
+#### 20-wave and 40-wave expeditions
 
-The standard expedition is 20 waves. The long expedition is 40. Your run saves automatically, so you can stop and continue at any time. Finish an expedition to unlock Calamity levels.
+The standard expedition lasts 20 waves, and the long expedition lasts 40. Autosave lets you leave and resume your run later. Finish an expedition to unlock Calamity levels.
 
 ### Features
 
-- A 3×3 rune tablet drawn from your own rune set
+- A 3×3 rune tablet filled with runes drawn from your own set
 - 196 dragons and a lineage choice with every merge
-- Three-lane battles with an enemy lane preview, lane damage falloff, and Archer, Guardian, and Support roles
+- Three-lane battles with enemy lane previews, reduced damage when attacking across lanes, and Archer, Guardian, and Support roles
 - Eight form abilities, six elements, and ultimates
 - 16 relics, the Rune of Change, and crossroads events
 - A 20-wave standard expedition, a 40-wave long expedition, autosave, and five Calamity levels
@@ -118,11 +118,11 @@ Auto Battler, Roguelite, Deckbuilding, Creature Collector, Dragons, Strategy, Si
 
 ### AI usage disclosure
 
-The dragon and minion artwork was made with generative AI. Backgrounds, interface decorations, and background music are produced by code written with AI tools. AI tools were also used for in-game text (codex, tutorial, and boss descriptions), store text, and code. The developer selected and reviewed the results.
+The developer used generative AI to create the dragon and minion artwork. Backgrounds, interface decorations, and background music are generated by code. AI tools were used to write the game’s code, including that code, as well as the codex, tutorial, boss descriptions, and store copy. The developer selected and reviewed the results.
 
 ### Release information (planned)
 
-The full game is planned to cost approximately US$9.99. The free demo covers the first 10 waves.
+The planned price for the full game is around US$9.99. The free demo covers the first 10 waves.
 
 ## 스크린샷 촬영 목록
 

@@ -182,6 +182,13 @@
       "descKo": "전투를 시작할 때 같은 줄의 다른 우리 용의 공격 속도 +12%",
       "pct": 12,
       "forms": ["serpent", "wyrm", "dancer"]
+    },
+    "mythic": {
+      "nameKo": "신화의 숨결",
+      "descKo": "궁극기가 적 한 마리를 더 쳐요",
+      "pct": 1,
+      "forms": [],
+      "species": ["beowulf_firedrake", "fafnir", "xiuhcoatl", "zhulong", "zmey_gorynych", "palraiyuk", "north_black_dragon", "azi_raoidita", "kuraokami", "imugi", "beisir", "east_blue_dragon", "quetzalcoatl", "yinglong", "ryujin", "hydra", "basilisk", "cockatrice", "jormungandr", "vasuki", "tarasque", "west_white_dragon", "zilant", "ladon", "colchian_dragon", "apophis", "vritra", "leviathan", "nidhogg", "bakunawa"]
     }
   },
   "crit": {

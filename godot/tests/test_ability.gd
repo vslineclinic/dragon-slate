@@ -142,7 +142,7 @@ func test_species_get_their_ability_from_the_form_name() -> void:
 		"fire_drake": "vanguard", "ice_lindworm": "vanguard", "storm_whelp": "vanguard",
 		"poison_amphiptere": "ambush", "steel_gecko": "ambush",
 		"abyss_serpent": "rally", "fire_wyrm": "rally", "ice_dancer": "rally",
-		"beowulf_firedrake": "", "north_black_dragon": "", "fire_god": "",
+		"beowulf_firedrake": "mythic", "north_black_dragon": "mythic", "zhulong": "mythic", "kuraokami": "mythic", "fire_god": "",
 	}
 	for id: String in want:
 		assert_true(_data["dragons"].has(id), id)
@@ -198,7 +198,7 @@ func test_ability_lookup_follows_the_data_as_it_is_now() -> void:
 	data["battle"]["abilities"]["pierce"]["forms"].erase("raptor")
 	data["battle"]["abilities"]["twin"]["forms"].append("raptor")
 	assert_eq(Battle.ability_of(data, "fire_raptor"), "twin")
-	assert_eq(Battle.ability_of(data, "tiamat"), "")
+	assert_eq(Battle.ability_of(data, "fire_god"), "")
 
 
 func test_every_base_form_has_an_ability() -> void:
@@ -253,3 +253,28 @@ func test_rally_does_not_come_from_a_group_that_has_not_appeared() -> void:
 	later["stage"] = 2
 	var result: Dictionary = Battle.simulate_battle(cfg, B._slots([B._solo("fire", 100000, 1, 1000)]), [first, later])
 	assert_eq(int(_hits(result, 1)[0]["tick"]), 100)
+
+
+func test_mythic_dragons_hit_one_more_enemy_with_their_ultimate() -> void:
+	var cfg: Dictionary = _cfg()
+	cfg["abilities"]["mythic"] = {"pct": 1}
+	cfg["ultimate"] = {"chargeHits": {"none": 2}, "powerPct": {"none": 200}, "targets": {"none": 1}}
+	var enemies: Array = [B._enemy("minion", "fire", 100000, 1, 1000, 0, 400), B._enemy("minion", "fire", 100000, 1, 1000, 0, 470)]
+	var plain: Dictionary = Battle.simulate_battle(cfg, B._slots([B._solo("fire", 100000, 100)]), enemies)
+	var mythic: Dictionary = Battle.simulate_battle(cfg, B._slots([_able("mythic", 100000, 100)]), enemies)
+	assert_eq(_at_tick(_hits(plain, 0), 20).size(), 1)
+	var burst: Array = _at_tick(_hits(mythic, 0), 20)
+	assert_eq(burst.size(), 2)
+	assert_true(burst[0].get("ult", false) and burst[1].get("ult", false))
+	assert_eq(_at_tick(_hits(mythic, 0), 10).size(), 1, "보통 공격은 그대로 한 마리")
+
+
+func test_every_named_mythic_dragon_of_the_middle_tiers_has_the_mythic_ability() -> void:
+	var listed: Array = _data["battle"]["abilities"]["mythic"]["species"]
+	assert_eq(listed.size(), 30)
+	for id: String in listed:
+		assert_true(_data["dragons"].has(id), id)
+		assert_true(_data["dragons"][id]["tier"] in ["t2", "t1"], id)
+	for spec: Dictionary in _data["dragons"].values():
+		if spec["tier"] in ["t2", "t1"] and spec["elements"].size() == 1:
+			assert_true(not Battle.ability_of(_data, spec["id"]).is_empty(), spec["id"])

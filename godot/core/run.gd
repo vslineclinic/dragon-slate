@@ -246,8 +246,17 @@ static func _add_mana(state: Dictionary, delta: int, reason: String, events: Arr
 
 static func _paid_spin_cost(data: Dictionary, state: Dictionary) -> int:
 	var costs: Array = data["slot"]["rerollCosts"]
-	if costs.is_empty() or _dragon_count(state) == 0:
+	if costs.is_empty():
 		return 0
+	## 용이 한 마리도 없을 때: 고를 알이 없으면 무료로 다시 돌린다(막히지 않게).
+	## 알이 나와 있으면 그 알을 고르거나 값을 내야 한다(좋은 첫 알이 뜰 때까지 공짜로 돌리지 못하게).
+	if _dragon_count(state) == 0:
+		var egg_offered: bool = false
+		if state.get("grid") != null:
+			for offer: Dictionary in Slot.offers_from(data, state["grid"]):
+				egg_offered = egg_offered or offer["kind"] == "egg"
+		if not egg_offered:
+			return 0
 	var base: int = costs[mini(state["spinsThisWave"], costs.size() - 1)]
 	return base + int(Calamity.mods(data, state["calamity"])["rerollCostAdd"]) if base > 0 else 0
 

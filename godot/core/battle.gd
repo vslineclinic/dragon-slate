@@ -19,12 +19,11 @@ static func element_mult(cfg: Dictionary, atk: Variant, def: Variant) -> int:
 ## 형태별 능력: 종 id에서 원소 머리말을 뗀 형태 이름(lancer · sage …)으로 찾는다. 없으면 "".
 static func ability_of(data: Dictionary, species_id: String) -> String:
 	var cut: int = species_id.find("_")
-	if cut < 0:
-		return ""
-	var form: String = species_id.substr(cut + 1)
+	## 이름에 밑줄이 없는 종(신화 이름 용)은 species 목록으로만 찾는다.
+	var form: String = "" if cut < 0 else species_id.substr(cut + 1)
 	var abilities: Dictionary = data["battle"].get("abilities", {})
 	for id: String in abilities:
-		if form in abilities[id].get("forms", []):
+		if form in abilities[id].get("forms", []) or species_id in abilities[id].get("species", []):
 			return id
 	return ""
 
@@ -291,7 +290,9 @@ static func simulate_battle(
 						unit["charge"] = 0
 						is_ult = true
 						power_pct = int(ultimate["powerPct"].get(unit["tier"], 100)) + int(unit["ultPower"])
-						victims = _nearest_many(field, units, unit, int(ultimate["targets"].get(unit["tier"], 1)))
+						## 신화의 숨결: 궁극기가 한 마리를 더 친다.
+						var extra_targets: int = int(abilities.get("mythic", {}).get("pct", 0)) if unit["ability"] == "mythic" else 0
+						victims = _nearest_many(field, units, unit, int(ultimate["targets"].get(unit["tier"], 1)) + extra_targets)
 						events.append({"tick": tick, "kind": "ult", "src": unit["id"]})
 				## 형태별 능력(보통 공격에만): 꿰뚫기는 같은 줄의 다음 적도, 연속 공격은 같은 적을 한 번 더.
 				var strikes: Array = []
