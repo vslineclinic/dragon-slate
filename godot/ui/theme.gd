@@ -16,8 +16,8 @@ const CARD_SIZE: Vector2 = Vector2(120, 88)
 ## 왼쪽 패널 안의 세로 배치(패널 맨 위에서 잰 값): 석판, 알 카드 3장, 돌리기 단추.
 const SLAB_TOP: float = 136.0
 const OFFER_TOP: float = 384.0
-const OFFER_STEP: float = 60.0
-const SPIN_TOP: float = 566.0
+const OFFER_STEP: float = 70.0
+const SPIN_TOP: float = 598.0
 ## 대기칸 띠: 전장 맨 아래.
 const BENCH_Y: float = 622.0
 
@@ -89,6 +89,59 @@ const COLOR: Dictionary = {
 const ELEMENT_KO: Dictionary = {
 	"fire": "불", "ice": "얼음", "lightning": "번개", "poison": "독", "steel": "강철", "abyss": "심연",
 }
+## 그 종을 한눈에: 등급 · 역할 · 전투력(레벨 1 기준)과, 같은 등급 안에서 강한 편인지.
+## {"tier", "role", "power", "grade"(강한 편 | 보통 | 약한 편), "gradeColor", "ability"(이름, 없으면 "")}
+static func dragon_brief(data: Dictionary, species_id: String) -> Dictionary:
+	var spec: Dictionary = data["dragons"][species_id]
+	var power: int = _species_power(data, species_id)
+	## 같은 등급의 모든 종과 견주어 위 3분의 1이면 강한 편, 아래 3분의 1이면 약한 편.
+	var stronger: int = 0
+	var weaker: int = 0
+	var peers: int = 0
+	for other: Dictionary in data["dragons"].values():
+		if other["tier"] != spec["tier"]:
+			continue
+		peers += 1
+		var theirs: int = _species_power(data, other["id"])
+		if theirs > power:
+			stronger += 1
+		elif theirs < power:
+			weaker += 1
+	var grade: String = "보통"
+	var grade_color: Color = TEXT
+	if peers >= 3 and stronger * 3 < peers:
+		grade = "강한 편"
+		grade_color = RECOMMEND
+	elif peers >= 3 and weaker * 3 < peers:
+		grade = "약한 편"
+		grade_color = DIM
+	var ability_id: String = Battle.ability_of(data, species_id)
+	return {
+		"tier": TIER_KO.get(spec["tier"], ""), "role": ROLE_KO.get(spec.get("role", ""), ""), "power": power,
+		"grade": grade, "gradeColor": grade_color,
+		"ability": "" if ability_id.is_empty() else str(data["battle"]["abilities"][ability_id].get("nameKo", "")),
+	}
+
+
+static func _species_power(data: Dictionary, species_id: String) -> int:
+	return Waves.unit_power(Battle.to_unit(data, {"speciesId": species_id, "traits": [], "bonusPct": 0}))
+
+
+## 다음 심판 보스의 원소에 그 용이 강한지 약한지: "강함" | "약함" | "". 보스가 없으면 "".
+static func boss_matchup(data: Dictionary, state: Dictionary, species_id: String) -> String:
+	var waves: Dictionary = data["waves"]
+	var wave: int = int(state["wave"])
+	var boss_wave: int = wave + (5 - wave % 5) % 5
+	if not Waves.is_boss(waves, boss_wave):
+		return ""
+	var boss: Variant = Waves.boss_element(int(state["seed"]), boss_wave, GameData.active_elements(data))
+	var mine: Array = data["dragons"][species_id]["elements"]
+	if boss == null or mine.is_empty():
+		return ""
+	var mult: int = Battle.element_mult(data["battle"], mine[0], boss)
+	return "강함" if mult > 100 else ("약함" if mult < 100 else "")
+
+
 ## 그 종의 형태별 능력을 "「이름」 설명"으로. 능력이 없으면 빈 글.
 static func ability_text(data: Dictionary, species_id: String) -> String:
 	var id: String = Battle.ability_of(data, species_id)

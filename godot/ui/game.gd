@@ -689,7 +689,12 @@ func _reward_preview(reward: Dictionary, detail: Variant) -> String:
 	var amount: int = reward["amount"]
 	match reward["kind"]:
 		"mana": return "마력 +%d" % amount
-		"egg", "t2egg": return _dragon_name(detail) + " 알을 받아요" if detail != null else "드래곤 알을 받아요"
+		"egg", "t2egg":
+			if detail == null:
+				return "드래곤 알을 받아요"
+			## 어떤 용인지 한눈에: 등급 · 역할 · 전투력 · 강한 편인지.
+			var brief: Dictionary = GameTheme.dragon_brief(controller.data, detail)
+			return "%s 알을 받아요\n%s · %s · ⚔%d · %s" % [_dragon_name(detail), brief["tier"], brief["role"], int(brief["power"]), brief["grade"]]
 		"trait": return "드래곤 하나가 새 계승 특성을 얻어요"
 		"nudge": return "다음 웨이브에 밀기 +%d" % amount
 		"freeSpin": return "다시 돌리기 %d회 무료" % amount

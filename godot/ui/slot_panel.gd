@@ -258,22 +258,46 @@ func _draw_offers(state: Dictionary) -> void:
 			var id: String = offer["speciesId"]
 			var spec: Dictionary = _ctl.data["dragons"][id]
 			var element: String = spec["elements"][0]
-			if GameTheme.dragon(card, Rect2(4, 2, 50, 50), id) == null:
-				GameTheme.place(card, Marks.new(element, true), Rect2(8, 5, 44, 44))
-			var title: Label = GameTheme.label(card, Rect2(58, 2, text_w, 20), spec["nameKo"] + " 알", 14)
+			if GameTheme.dragon(card, Rect2(4, 4, 56, 56), id) == null:
+				GameTheme.place(card, Marks.new(element, true), Rect2(8, 8, 48, 48))
+			## 첫 줄: 이름과 전투력. 둘째 줄: 등급 · 역할 · 강한 편인지, 오른쪽에 등장 확률. 셋째 줄: 능력과 다음 보스 상성.
+			var brief: Dictionary = GameTheme.dragon_brief(_ctl.data, id)
+			var title: Label = GameTheme.label(card, Rect2(62, 2, text_w, 20), spec["nameKo"] + " 알", 14)
 			title.clip_text = true
+			## 전투력은 둘째 줄 맨 앞에("새 용!" 꼬리표가 오른쪽 위를 쓴다).
+			var power: Label = GameTheme.label(card, Rect2(62, 21, 40, 18), "⚔%d" % int(brief["power"]), 13, Color("#ffd8a8"))
+			power.add_theme_font_override("font", GameTheme.bold_font())
+			GameTheme.label(card, Rect2(102, 22, text_w - 100, 16), "%s · %s · %s" % [brief["tier"], brief["role"], brief["grade"]], 11, brief["gradeColor"])
 			var odds: int = SlotRules.species_odds(_ctl.data, id, state.get("slab", []))
 			var rarity: Array = GameTheme.rarity(SlotRules.species_weight(_ctl.data, id))
-			GameTheme.label(card, Rect2(58, 21, text_w, 16), "%s · 등장 %s" % [rarity[0], GameTheme.percent(odds)], 11, rarity[1])
+			GameTheme.label(card, Rect2(card_w - 96, 22, 88, 16), "%s %s" % [rarity[0], GameTheme.percent(odds)], 11, rarity[1], HORIZONTAL_ALIGNMENT_RIGHT)
+			var third: PackedStringArray = PackedStringArray()
+			if not str(brief["ability"]).is_empty():
+				third.append("능력 「%s」" % brief["ability"])
+			var matchup: String = GameTheme.boss_matchup(_ctl.data, state, id)
+			if not matchup.is_empty():
+				third.append("다음 보스에 " + matchup)
+			var third_color: Color = Color("#ff8f7a") if matchup == "약함" else (Color("#8ce99a") if matchup == "강함" else GameTheme.DIM)
+			var detail: Label = GameTheme.label(card, Rect2(62, 40, text_w, 16), " · ".join(third), 11, third_color)
+			detail.clip_text = true
+			var ability_text: String = GameTheme.ability_text(_ctl.data, id)
+			card.tooltip_text = "%s (%s · %s)\n체력 %d · 공격력 %d · 전투력 %d (같은 등급에서 %s)\n%s" % [
+				spec["nameKo"], brief["tier"], brief["role"], int(spec["stats"]["hp"]), int(spec["stats"]["atk"]), int(brief["power"]), brief["grade"],
+				"능력 " + ability_text if not ability_text.is_empty() else "형태 능력 없음",
+			]
 			if not _store.discovered().has(id):
 				GameTheme.new_badge(card, rect.size)
 		else:
-			GameTheme.place(card, Marks.new("gold", true), Rect2(8, 5, 44, 44))
-			GameTheme.label(card, Rect2(58, 11, text_w, 32), "마력 +%d" % offer["amount"], 17)
+			GameTheme.place(card, Marks.new("gold", true), Rect2(8, 8, 48, 48))
+			GameTheme.label(card, Rect2(62, 16, text_w, 32), "마력 +%d" % offer["amount"], 17)
 		if is_reco:
 			var spec: Dictionary = _ctl.data["dragons"].get(reco.get("result"), {})
+			## 추천 이유는 카드 오른쪽 아래에 꼬리표로(셋째 줄의 능력 설명을 가리지 않게).
 			var why: String = "추천 · 합치면 " + spec.get("nameKo", "진화") if reco["reason"] == "recipe" else "추천 · 같은 원소"
-			var tag: Label = GameTheme.label(card, Rect2(58, 36, text_w, 16), why, 11, Color("#ffe066"))
+			var tag_w: float = minf(card_w - 70.0, GameTheme.korean_font().get_string_size(why, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x * 1.1 + 14.0)
+			var plate: Panel = GameTheme.panel(card, Rect2(card_w - tag_w - 4, rect.size.y - 18, tag_w, 16), Color("#3a2f00f2"), GameTheme.RECOMMEND, 1, 6, "flat")
+			plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var tag: Label = GameTheme.label(plate, Rect2(0, 0, tag_w, 16), why, 11, Color("#ffe066"), HORIZONTAL_ALIGNMENT_CENTER)
 			tag.clip_text = true
 
 
