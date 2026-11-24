@@ -182,6 +182,8 @@ const MYSTIC: Color = Color("#5b40c0")
 const TEXT: Color = Color("#f0e8d6")
 const DIM: Color = Color("#9f9786")
 const RECOMMEND: Color = Color("#ffd75e")
+## 누를 수 없는 단추 · 이미 산 물건에 씌우는 어두운 빛(modulate).
+const MUTED: Color = Color(0.55, 0.55, 0.6)
 const FONT_PATH: String = "res://godot/fonts/NotoSansKR.ttf"
 const SERIF_PATH: String = "res://godot/fonts/NotoSerifKR.ttf"
 const FONT_WEIGHT: int = 500

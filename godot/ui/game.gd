@@ -35,7 +35,9 @@ const REJECT_KO: Dictionary = {
 	"soldOut": "이미 샀어요",
 	"livesFull": "생명이 가득 차 있어요",
 	"slabMin": "묶음을 더 줄일 수 없어요",
-	"noRerollLeft": "이 보상은 이미 다시 뽑았어요",
+	"noRerollLeft": "이 보상은 더 다시 뽑을 수 없어요",
+	"cannotNudge": "그쪽으로는 더 밀 수 없어요",
+	"sameRune": "이미 그 룬이에요",
 }
 const FORK_DONE_KO: Dictionary = {
 	"elite": "정예 사냥! 다음 적이 강해져요.\n이기면 보상을 한 번 더 골라요.",
@@ -553,11 +555,12 @@ func _reward_reroll_button(state: Dictionary, field: Rect2) -> void:
 	var cost: int = Run.reward_reroll_cost(controller.data, state)
 	var mid: float = field.size.x / 2.0
 	var button: Button = GameTheme.cta(_reward_overlay, Rect2(mid - 150, 496, 300, 44), "세 장 다시 뽑기 (마력 %d)" % int(cfg.get("cost", 0)), controller.dispatch.bind({"type": "rerollRewards"}), "mystic", 17)
-	var note: String = "방금 본 보상은 빼고 새로 뽑아요. 한 번만 할 수 있어요."
+	var left: int = int(cfg.get("perScreen", 0)) - int(state.get("rewardRerolls", 0))
+	var note: String = "방금 본 보상은 빼고 새로 뽑아요. 이 화면에서 %d번 남았어요." % left
 	var note_color: Color = GameTheme.DIM
 	if cost < 0:
 		button.disabled = true
-		button.text = "다시 뽑기를 이미 썼어요"
+		button.text = "다시 뽑기를 다 썼어요" if left <= 0 else "새로 뽑을 보상이 없어요"
 		note = ""
 	elif int(state["mana"]) < cost:
 		button.disabled = true
@@ -692,7 +695,7 @@ func _show_shop(state: Dictionary) -> void:
 			card.mouse_default_cursor_shape = Control.CURSOR_ARROW
 			card.tooltip_text = REJECT_KO.get(reason, "")
 			if sold:
-				card.modulate = Color(0.5, 0.5, 0.55, card.modulate.a)
+				card.modulate = Color(GameTheme.MUTED, card.modulate.a)
 			else:
 				GameTheme.label(card, Rect2(4, 292, card_w - 8, 18), REJECT_KO.get(reason, ""), 12, warn, HORIZONTAL_ALIGNMENT_CENTER)
 	var mid: float = field.size.x / 2.0

@@ -21,6 +21,7 @@ func _assert_rejected(state: Dictionary, cmd: Dictionary, reason: String) -> voi
 	var result: Dictionary = _apply(state, cmd)
 	assert_eq(result["events"], [{"t": "rejected", "reason": reason}], str(cmd))
 	assert_eq(state, before, "거절하면 상태가 그대로여야 함")
+	assert_eq(result["state"], before, "거절하면 돌려주는 상태도 그대로여야 함")
 
 
 ## 상점이 열린 상태(갈림길의 상인 길로 연다). mana = 가진 마력.
@@ -257,13 +258,48 @@ func test_shop_survives_a_save_and_plays_on() -> void:
 	## 상점에서 룬을 사서 석판을 고치는 중에 저장해도 이어진다.
 	var buying: Dictionary = _apply(state, {"type": "buy", "index": _item(state, "rune")})["state"]
 	var mid: Dictionary = Store.unpack_run(Store.pack_run(buying, "standard", false), _data, false)["state"]
-	assert_eq(_apply(mid, {"type": "skipRune"})["state"]["phase"], "shop")
+	var back: Dictionary = _apply(mid, {"type": "skipRune"})["state"]
+	assert_eq(back["phase"], "shop")
+	assert_eq(int(back["mana"]), 30, "이어 한 뒤에 물러도 값을 돌려받는다")
+	assert_eq(back["shop"]["items"][_item(back, "rune")]["sold"], false)
 	## 진열이 빈 상점 저장은 이어 할 수 없다.
 	var broken: Dictionary = state.duplicate(true)
 	broken["shop"] = {"items": []}
 	assert_eq(Store.unpack_run(Store.pack_run(broken, "standard", false), _data, false), {})
 	broken["shop"] = null
 	assert_eq(Store.unpack_run(Store.pack_run(broken, "standard", false), _data, false), {})
+
+
+func _loads(state: Dictionary) -> bool:
+	return not Store.unpack_run(Store.pack_run(state, "standard", false), _data, false).is_empty()
+
+
+func test_tampered_shop_saves_are_rejected() -> void:
+	var state: Dictionary = _shop(30)
+	var buying: Dictionary = _apply(state, {"type": "buy", "index": _item(state, "rune")})["state"]
+	assert_true(_loads(state) and _loads(buying), "온전한 저장은 열린다")
+	## 무를 물건 번호를 다른 물건(유물)으로 바꾼 저장: 4를 내고 12를 돌려받지 못하게.
+	var swapped: Dictionary = buying.duplicate(true)
+	swapped["shop"]["refund"] = _item(state, "relic")
+	assert_true(not _loads(swapped), "무를 물건이 고치는 룬과 다르다")
+	var loose: Dictionary = state.duplicate(true)
+	loose["shop"]["refund"] = _item(state, "rune")
+	assert_true(not _loads(loose), "상점 차례인데 무를 물건이 있다")
+	var out_of_range: Dictionary = buying.duplicate(true)
+	out_of_range["shop"]["refund"] = 99
+	assert_true(not _loads(out_of_range))
+	## 값이 음수이거나 이름이 없는 물건, 모르는 종류, 없는 유물.
+	for change: Array in [["cost", -6], ["cost", 2.5], ["nameKo", null], ["kind", "gift"], ["sold", "no"]]:
+		var bad: Dictionary = state.duplicate(true)
+		bad["shop"]["items"][_item(state, "transmute")][change[0]] = change[1]
+		assert_true(not _loads(bad), str(change))
+	var ghost: Dictionary = state.duplicate(true)
+	ghost["shop"]["items"][_item(state, "relic")]["detail"] = "no_such_relic"
+	assert_true(not _loads(ghost))
+	## 상점이 닫혀 있어야 할 차례에 상점이 남아 있는 저장.
+	var stale: Dictionary = state.duplicate(true)
+	stale["phase"] = "spin"
+	assert_true(not _loads(stale))
 
 
 func test_bot_gets_through_the_shop() -> void:
@@ -284,16 +320,32 @@ func test_bot_gets_through_the_shop() -> void:
 	assert_eq(Bot.choose(_data, poor), {"type": "leaveShop"})
 
 
+func test_bot_visits_the_shop_after_a_boss_and_moves_on() -> void:
+	var state: Dictionary = RunRules.create_run(_data, 3)["state"]
+	state.merge({"wave": 5, "phase": "manage", "mana": 30, "lives": 3, "nest": [_inst(1, "tiamat", 5000), null, null, null, null, null]}, true)
+	var shops: int = 0
+	var buys: int = 0
+	var steps: int = 0
+	while int(state["wave"]) < 7 and state["phase"] not in ["gameOver", "victory"] and steps < 400:
+		var command: Dictionary = Bot.choose(_data, state)
+		var result: Dictionary = _apply(state, command)
+		assert_true(result["events"].all(func(event: Dictionary) -> bool: return event["t"] != "rejected"), "수 %d %s" % [steps, str(command)])
+		shops += 1 if result["events"].any(func(event: Dictionary) -> bool: return event["t"] == "shop") else 0
+		buys += 1 if command["type"] == "buy" else 0
+		state = result["state"]
+		steps += 1
+	assert_eq(int(state["wave"]), 7, "보스 뒤 상점을 지나 7웨이브까지 간다")
+	assert_eq(shops, 1)
+	assert_true(buys >= 1, "마력이 넉넉하고 생명이 모자라니 무언가 산다")
+
+
 func test_bot_plays_whole_runs_with_the_new_turns() -> void:
 	for seed: int in [31, 32]:
 		var state: Dictionary = RunRules.create_run(_data, seed, 0, RunRules.start_options(_data, seed)[0]["id"])["state"]
 		var steps: int = 0
-		var shops: int = 0
 		while state["phase"] not in ["gameOver", "victory"] and steps < 4000 and int(state["wave"]) <= 9:
 			var result: Dictionary = _apply(state, Bot.choose(_data, state))
 			assert_true(result["events"].all(func(event: Dictionary) -> bool: return event["t"] != "rejected"), "판 %d 수 %d" % [seed, steps])
-			if result["events"].any(func(event: Dictionary) -> bool: return event["t"] == "shop"):
-				shops += 1
 			state = result["state"]
 			steps += 1
 		assert_true(steps < 4000, "봇이 제자리에서 돌지 않는다")
@@ -325,6 +377,35 @@ func test_free_nudge_first_then_paid_nudges_up_to_the_limit() -> void:
 		assert_eq(int(state["nudgesBought"]), i + 1)
 	assert_eq(RunRules.nudge_cost(_data, state), -1)
 	_assert_rejected(state, {"type": "nudge", "col": 0, "dir": dirs[limit + 1]}, "noNudgeLeft")
+
+
+func test_a_nudge_that_cannot_move_costs_nothing() -> void:
+	var state: Dictionary = _picking(20)
+	state = _apply(state, {"type": "nudge", "col": 0, "dir": 1})["state"]
+	## 끝까지 밀린 열을 같은 쪽으로 또 밀면 거절: 마력도, 산 횟수도 그대로.
+	_assert_rejected(state, {"type": "nudge", "col": 0, "dir": 1}, "cannotNudge")
+	_assert_rejected(state, {"type": "nudge", "col": 5, "dir": 1}, "cannotNudge")
+	_assert_rejected(state, {"type": "nudge", "col": 0, "dir": 2}, "cannotNudge")
+
+
+func test_replacing_a_rune_with_the_same_rune_is_refused_and_keeps_the_refund() -> void:
+	var state: Dictionary = _shop(30, 4, {"relics": ["chisel"]})
+	var index: int = _item(state, "rune")
+	var rune: String = state["shop"]["items"][index]["detail"]
+	var buying: Dictionary = _apply(state, {"type": "buy", "index": index})["state"]
+	_assert_rejected(buying, {"type": "replaceRune", "index": buying["slab"].find(rune)}, "sameRune")
+	assert_eq(int(_apply(buying, {"type": "skipRune"})["state"]["mana"]), 30)
+
+
+func test_reward_reroll_is_off_when_three_new_cards_cannot_be_drawn() -> void:
+	var data: Dictionary = _data.duplicate(true)
+	data["rewards"] = data["rewards"].slice(0, 5)
+	var state: Dictionary = RunRules.create_run(data, 3)["state"]
+	state.merge({"wave": 2, "phase": "manage", "mana": 20, "nest": [_inst(1, "tiamat", 5000), null, null, null, null, null]}, true)
+	var won: Dictionary = RunRules.apply_command(data, state, {"type": "startBattle"})["state"]
+	assert_eq(won["rewardChoices"].size(), 3)
+	assert_eq(RunRules.reward_reroll_cost(data, won), -1, "남은 보상이 둘뿐이면 다시 뽑지 않는다")
+	assert_eq(RunRules.apply_command(data, won, {"type": "rerollRewards"})["events"], [{"t": "rejected", "reason": "noRerollLeft"}])
 
 
 func test_paid_nudge_needs_mana() -> void:

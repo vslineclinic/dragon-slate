@@ -256,7 +256,7 @@ func _nudge_button(col: int, direction: int, symbol: String, recommendation: Var
 		if mana < cost:
 			tap.disabled = true
 			tap.mouse_default_cursor_shape = Control.CURSOR_ARROW
-			tap.modulate = Color(0.6, 0.6, 0.62)
+			tap.modulate = GameTheme.MUTED
 			tap.tooltip_text = "마력이 모자라요. 밀기 한 번 더: 마력 %d (지금 %d)" % [cost, mana]
 	else:
 		GameTheme.label(tap, Rect2(12, 0, 18, 28), arrow, 16)
@@ -363,7 +363,12 @@ func _reward_text(state: Dictionary, recommendation: Variant) -> String:
 	if nudge_cost > 0:
 		var buy: Dictionary = _ctl.data["slot"].get("nudgeBuy", {})
 		return gold + "밀기 한 번 더: 마력 %d (이번 웨이브 %d번 남음)." % [nudge_cost, int(buy.get("perWave", 0)) - int(state.get("nudgesBought", 0))]
-	return gold + ("▼▲를 누르면 숨은 알이 들어오며 줄이 한 칸 밀려요(웨이브당 1번)." if state["nudgesLeft"] > 0 else "")
+	if int(state["nudgesLeft"]) <= 0:
+		return gold
+	## 무료로 몇 번 남았는지, 그 뒤에는 얼마인지 자료에서 읽어 적는다.
+	var paid: Dictionary = _ctl.data["slot"].get("nudgeBuy", {})
+	var after: String = ", 다음부터 마력 %d" % int(paid.get("cost", 0)) if int(paid.get("perWave", 0)) > 0 else ""
+	return gold + "▼▲를 누르면 줄이 한 칸 밀려요(무료 %d번%s)." % [int(state["nudgesLeft"]), after]
 
 
 func _describe(reward: Dictionary) -> String:

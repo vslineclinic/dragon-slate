@@ -329,7 +329,12 @@ static func _do_nudge(data: Dictionary, state: Dictionary, col: int, dir: int, e
 		return "noNudgeLeft"
 	if int(state["mana"]) < cost:
 		return "notEnoughMana"
+	if col < 0 or col > 2 or dir not in [-1, 1]:
+		return "cannotNudge"
 	var grid: Dictionary = Slot.nudge(state["grid"], col, dir)
+	## 끝까지 밀린 열은 더 움직이지 않는다: 밀기도 마력도 쓰지 않고 거절한다.
+	if grid["offsets"] == state["grid"]["offsets"]:
+		return "cannotNudge"
 	state["grid"] = grid
 	if int(state["nudgesLeft"]) > 0:
 		state["nudgesLeft"] -= 1
@@ -461,21 +466,16 @@ static func _do_release(data: Dictionary, state: Dictionary, from: Dictionary, e
 
 ## 보상 후보 3개를 겹치지 않게 뽑는다. 알은 어떤 종인지 미리 정해 카드에 보여 준다.
 ## with_rune = 내 석판이 있는 판인지. 석판이 없는 옛 저장에는 "룬 한 장"을 내놓지 않는다.
-## skip = 내놓지 않을 보상 id(다시 뽑을 때 방금 본 것). 그걸 빼면 석 장을 못 채울 때는 빼지 않는다.
+## skip = 내놓지 않을 보상 id(다시 뽑을 때 방금 본 것).
 static func _roll_reward_choices(data: Dictionary, rng: Rng, boss: bool, with_rune: bool = true, skip: Array = []) -> Array:
 	var pool: Array = []
 	var weights: Array = []
 	var weight_key: String = "bossWeight" if boss else "weight"
-	var fresh: int = 0
-	for candidate: Dictionary in data["rewards"]:
-		var usable: bool = int(candidate[weight_key]) > 0 and (with_rune or candidate["kind"] not in ["rune", "erase"])
-		if usable and candidate["id"] not in skip:
-			fresh += 1
 	for candidate: Dictionary in data["rewards"]:
 		var weight: int = candidate[weight_key]
 		if candidate["kind"] in ["rune", "erase"] and not with_rune:
 			continue
-		if fresh >= REWARD_CHOICES and candidate["id"] in skip:
+		if candidate["id"] in skip:
 			continue
 		if weight > 0:
 			pool.append(candidate)
@@ -525,6 +525,18 @@ static func _do_choose_reward(data: Dictionary, state: Dictionary, index: Varian
 static func reward_reroll_cost(data: Dictionary, state: Dictionary) -> int:
 	var cfg: Dictionary = data["waves"].get("rewardReroll", {})
 	if int(state.get("rewardRerolls", 0)) >= int(cfg.get("perScreen", 0)):
+		return -1
+	## 방금 본 것을 빼고도 석 장을 채울 수 있어야 한다(값을 내고 같은 카드를 다시 보지 않게).
+	var seen: Array = []
+	for choice: Dictionary in state.get("rewardChoices", []):
+		seen.append(choice["reward"]["id"])
+	var weight_key: String = "bossWeight" if state.get("rewardBoss", false) else "weight"
+	var with_rune: bool = not state.get("slab", []).is_empty()
+	var fresh: int = 0
+	for candidate: Dictionary in data["rewards"]:
+		if int(candidate[weight_key]) > 0 and candidate["id"] not in seen and (with_rune or candidate["kind"] not in ["rune", "erase"]):
+			fresh += 1
+	if fresh < REWARD_CHOICES:
 		return -1
 	return maxi(0, int(cfg.get("cost", 0)))
 
@@ -576,6 +588,9 @@ static func _do_rune(data: Dictionary, state: Dictionary, index: Variant, rng: R
 		var slab: Array = state.get("slab", [])
 		if not _valid_index(index, slab.size()):
 			return "emptySlot"
+		## 이미 그 룬인 칸은 바꿀 것이 없다: 룬도, 무를 기회도 쓰지 않고 거절한다.
+		if rune != "erase" and slab[int(index)] == rune:
+			return "sameRune"
 		if rune == "erase" and slab.size() <= int(data["slot"].get("slab", {}).get("minSize", 0)):
 			## 그사이 묶음이 가장 적은 장수가 됐으면 빼지 않고 마력으로 준다(상점에서 샀으면 값을 돌려준다).
 			if refund < 0:

@@ -190,17 +190,51 @@ static func _run_is_playable(state: Dictionary, data: Dictionary) -> bool:
 				return false
 	## 상점(열려 있거나, 상점에서 산 룬으로 석판을 고치는 중): 진열이 온전해야 한다.
 	var shop: Variant = state.get("shop")
-	if shop != null:
-		if not shop is Dictionary or not shop.get("items") is Array or shop["items"].is_empty():
-			return false
-		for item: Variant in shop["items"]:
-			if not item is Dictionary or not item.get("kind") is String or not (item.get("cost") is int or item.get("cost") is float):
-				return false
+	if shop != null and not _shop_is_sound(state, data):
+		return false
 	for key: String in ["items", "waveMod"]:
 		if state.has(key) and not state[key] is Dictionary:
 			return false
 	for inst: Variant in state["nest"] + state["bench"]:
 		if inst != null and (not inst is Dictionary or not data["dragons"].has(inst.get("speciesId", ""))):
+			return false
+	return true
+
+
+## 저장에 든 상점이 온전한가: 상점 · 석판 차례에만 있고, 물건마다 아는 종류 · 0 이상의 정수 값 · 이름 · 판 여부가 있고,
+## 룬과 유물은 무엇인지 정해져 있고, 무를 물건 번호(refund)는 지금 고치는 룬과 맞아야 한다.
+static func _shop_is_sound(state: Dictionary, data: Dictionary) -> bool:
+	var shop: Variant = state.get("shop")
+	if not shop is Dictionary or state["phase"] not in ["shop", "slab"]:
+		return false
+	var items: Variant = shop.get("items")
+	if not items is Array or items.is_empty():
+		return false
+	var relic_ids: Array = []
+	for relic: Dictionary in data.get("relics", []):
+		relic_ids.append(relic["id"])
+	for item: Variant in items:
+		if not item is Dictionary or item.get("kind") not in ["rune", "erase", "transmute", "life", "relic"]:
+			return false
+		var cost: Variant = item.get("cost")
+		if not (cost is int or cost is float) or cost < 0 or floorf(cost) != cost:
+			return false
+		if not item.get("nameKo") is String or not item.get("sold") is bool:
+			return false
+		if item["kind"] == "rune" and item.get("detail") not in data["slot"].get("slab", {}).get("offer", []):
+			return false
+		if item["kind"] == "relic" and item.get("detail") not in relic_ids:
+			return false
+	var refund: Variant = shop.get("refund", -1)
+	if not (refund is int or refund is float) or floorf(refund) != refund or refund < -1 or refund >= items.size():
+		return false
+	if refund >= 0:
+		## 무를 수 있는 것은 방금 사서 아직 쓰지 않은 룬 한 장 · 룬 지우기뿐이다.
+		var bought: Dictionary = items[int(refund)]
+		var pending: Variant = state.get("runePending")
+		if state["phase"] != "slab" or not bought["sold"]:
+			return false
+		if not ((bought["kind"] == "rune" and pending == bought["detail"]) or (bought["kind"] == "erase" and pending == "erase")):
 			return false
 	return true
 
