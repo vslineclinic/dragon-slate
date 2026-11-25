@@ -2,6 +2,7 @@ extends RefCounted
 ## 화풍 "드래곤 신전": 흑요석 판 · 금박 선 · 양피지색 글자. 제목은 명조(Noto Serif KR), 본문은 고딕(Noto Sans KR).
 
 const OrnateBox = preload("res://godot/ui/ornate_box.gd")
+const Sfx = preload("res://godot/ui/sfx.gd")
 
 const HEIGHT: float = 720.0
 const MIN_WIDTH: float = 1280.0
@@ -427,6 +428,7 @@ static func button(parent: Control, rect: Rect2, copy: String, action: Callable,
 	node.add_theme_stylebox_override("pressed", style(fill.darkened(0.2), border, width, 8, "button"))
 	node.add_theme_stylebox_override("disabled", style(fill.darkened(0.45), Color(border, border.a * 0.5), width, 8, "flat"))
 	node.add_theme_stylebox_override("focus", style(Color.TRANSPARENT, Color(GOLD_HI, 0.7), 2, 8, "flat"))
+	node.pressed.connect(func() -> void: Sfx.play(node.get_tree(), "click"))
 	node.pressed.connect(action)
 	place(parent, node, rect)
 	return node

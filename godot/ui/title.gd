@@ -5,6 +5,7 @@ const Build = preload("res://godot/ui/build.gd")
 const Store = preload("res://godot/ui/store.gd")
 const DexOverlay = preload("res://godot/ui/dex_overlay.gd")
 const Music = preload("res://godot/ui/music.gd")
+const Sfx = preload("res://godot/ui/sfx.gd")
 const Ambience = preload("res://godot/ui/ambience.gd")
 const Game = preload("res://godot/ui/game.gd")
 const GameScene = preload("res://godot/scenes/game.tscn")
@@ -18,6 +19,7 @@ var _game: Game
 var _start_button: Button
 var _dex_button: Button
 var _music_button: Button
+var _sfx_button: Button
 var _calamity_label: Label
 var _lower: Button
 var _higher: Button
@@ -79,6 +81,9 @@ func _ready() -> void:
 	music.play("title")
 	_music_button = GameTheme.button(stage, Rect2(1160, 20, 100, 44), Music.SET_KO[music.current_set()], _cycle_music, Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
 	_music_button.tooltip_text = "배경음악: A, B, 끔"
+	_sfx_button = GameTheme.button(stage, Rect2(1050, 20, 100, 44), "", _toggle_sfx, Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
+	_sfx_button.tooltip_text = "효과음 켜기 · 끄기"
+	_show_sfx()
 	_lower = GameTheme.button(stage, Rect2(850, 548, 44, 48), "◀", _select_level.bind(-1), Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
 	_higher = GameTheme.button(stage, Rect2(1190, 548, 44, 48), "▶", _select_level.bind(1), Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
 	_calamity_label = GameTheme.label(stage, Rect2(902, 524, 280, 96), "", 16, Color("#ffc078"), HORIZONTAL_ALIGNMENT_CENTER)
@@ -211,6 +216,15 @@ func _select_level(delta: int) -> void:
 
 func _cycle_music() -> void:
 	_music_button.text = Music.SET_KO[Music.get_for(get_tree()).cycle_set()]
+
+
+func _toggle_sfx() -> void:
+	Sfx.get_for(get_tree()).toggle()
+	_show_sfx()
+
+
+func _show_sfx() -> void:
+	_sfx_button.text = "효과음 켬" if Sfx.get_for(get_tree()).is_on() else "효과음 끔"
 
 
 func _open_dex() -> void:

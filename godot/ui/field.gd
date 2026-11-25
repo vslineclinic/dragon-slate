@@ -1,6 +1,7 @@
 extends Control
 ## 전장: 배경 그림 + 부대 전투 재생(core events를 보간해서 보여 줌).
 
+const Sfx = preload("res://godot/ui/sfx.gd")
 const GameTheme = preload("res://godot/ui/theme.gd")
 const Store = preload("res://godot/ui/store.gd")
 const Ambience = preload("res://godot/ui/ambience.gd")
@@ -481,6 +482,7 @@ func _apply(event: Dictionary, animate: bool) -> void:
 			dead.bar.hide()
 			dead.bar_back.hide()
 			if animate:
+				Sfx.play(get_tree(), "death_dragon" if dead.kind == "dragon" else "death_enemy")
 				var fade: Tween = dead.root.create_tween().set_parallel()
 				fade.tween_property(dead.root, "modulate:a", 0.0, 0.35 / _store.speed)
 				fade.tween_property(dead.root, "scale", Vector2(0.7, 0.7), 0.35 / _store.speed)
@@ -516,6 +518,7 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				return
 			var tint: Color = GameTheme.COLOR[caster.element]
 			var ult_name: String = str(_data["battle"].get("ultimate", {}).get("names", {}).get(caster.element, ""))
+			Sfx.play(get_tree(), "ult")
 			_say("궁극기! " + ult_name)
 			_cut_in(caster, caster.title, ult_name + "!", true)
 			_shake(7.0)
@@ -547,6 +550,7 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				var follow: float = 0.1 / _store.speed if event.get("via", "") == "twin" else 0.0
 				if event.get("ward", false):
 					_impact(defender.center, GameTheme.COLOR["steel"], 0)
+				Sfx.play(get_tree(), "crit" if event.get("crit", false) else ("hit_strong" if strong or event.get("ult", false) else "hit"), 0.92 + 0.04 * float(int(event["dst"]) % 5))
 				if event.get("ult", false):
 					_breath(attacker, defender, true, int(event["dmg"]), 2)
 				elif event.get("crit", false):

@@ -38,7 +38,7 @@ func setup(store: Store, width: float = 1280.0) -> void:
 	GameTheme.place(_rune, Icons.new("transmute", Color("#63e6be"), false), Rect2(0, 10, 24, 24))
 	_rune_count = GameTheme.heading(_rune, Rect2(28, 0, 34, 44), "", 18, Color("#96f2d7"))
 	_rune.hide()
-	_boss = GameTheme.button(self, Rect2(530, 0, maxf(240.0, width - 404 - 530 - 8), 44), "", _show_boss_info)
+	_boss = GameTheme.button(self, Rect2(530, 0, maxf(240.0, width - 470 - 530 - 8), 44), "", _show_boss_info)
 	_boss.clip_text = true
 	_boss.flat = true
 	_boss.alignment = HORIZONTAL_ALIGNMENT_LEFT

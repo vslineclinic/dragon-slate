@@ -16,6 +16,7 @@ const Tutorial = preload("res://godot/ui/tutorial.gd")
 const Marks = preload("res://godot/ui/marks.gd")
 const Icons = preload("res://godot/ui/icons.gd")
 const Music = preload("res://godot/ui/music.gd")
+const Sfx = preload("res://godot/ui/sfx.gd")
 const REJECT_KO: Dictionary = {
 	"wrongPhase": "지금은 할 수 없어요",
 	"notEnoughMana": "마력이 모자라요",
@@ -74,6 +75,7 @@ var _tutorial: Tutorial
 var _result: ResultOverlay
 var _dex_button: Button
 var _music_button: Button
+var _sfx_button: Button
 var _boss_fight: bool = false
 ## 새 판을 막 시작해서 시작 묶음을 아직 고르지 않았는지.
 var _start_open: bool = false
@@ -159,6 +161,9 @@ func _build_panels() -> void:
 	var music: Node = Music.get_for(get_tree())
 	_music_button = GameTheme.button(_hud, Rect2(width - 404, 0, 70, 44), Music.SET_KO[music.current_set()], _cycle_music)
 	_music_button.tooltip_text = "배경음악: A, B, 끔"
+	_sfx_button = GameTheme.button(_hud, Rect2(width - 470, 0, 62, 44), "", _toggle_sfx)
+	_sfx_button.tooltip_text = "효과음 켜기 · 끄기"
+	_show_sfx()
 	_battle.reinforced.connect(_on_reinforced)
 	var field: Rect2 = _areas["field"]
 	var center_x: float = field.position.x + (field.size.x - 800.0) / 2.0
@@ -202,6 +207,7 @@ func _on_change(events: Array, state: Dictionary) -> void:
 	var leveled: int = 0
 	var shop_opened: bool = false
 	var relic_gained: String = ""
+	_play_cue(events)
 	for event: Dictionary in events:
 		match event["t"]:
 			"shop":
@@ -299,9 +305,55 @@ func _on_change(events: Array, state: Dictionary) -> void:
 	_boss_fight = boss or elite
 	var final: bool = _wave_before >= int(controller.data["waves"]["maxWave"])
 	Music.get_for(get_tree()).play(("final_boss" if final else "boss") if _boss_fight else "battle_calm")
+	if _boss_fight:
+		Sfx.play(get_tree(), "boss")
 	_board.set_fighting(true)
 	_slot.modulate = Color(0.55, 0.55, 0.62)
 	_battle.play(fight, boss, _wave_before, elite)
+
+
+## 한 번의 변화에 소리는 하나만: 가장 중요한 것을 고른다(여럿이 겹치면 시끄럽다).
+## 돌리기의 줄 맞춤 소리는 석판이 멈춘 뒤 slot_panel이 낸다.
+const CUE_ORDER: Array = ["discover", "evolve", "relic", "levelup", "reward", "line", "nudge", "egg", "merge", "spin", "error"]
+
+
+func _play_cue(events: Array) -> void:
+	var cues: Dictionary = {}
+	var spun: bool = false
+	for event: Dictionary in events:
+		match event["t"]:
+			"spun":
+				spun = true
+				cues["spin"] = true
+			"lineHit":
+				cues["line"] = true
+			"nudged":
+				cues["nudge"] = true
+			"gained":
+				cues["egg"] = true
+			"evolved":
+				cues["discover" if not store.is_discovered(event["inst"]["speciesId"]) else "evolve"] = true
+			"absorbed":
+				cues["levelup" if int(event.get("levels", 0)) > 0 else "merge"] = true
+			"leveled", "skilled":
+				cues["levelup"] = true
+			"reward", "bought", "runeReplaced", "runeErased":
+				cues["reward"] = true
+			"item":
+				if int(event.get("delta", 0)) > 0:
+					cues["reward"] = true
+			"relic":
+				cues["relic"] = true
+			"transmuted":
+				cues["evolve" if event["ok"] else "error"] = true
+			"rejected":
+				cues["error"] = true
+	if spun:
+		cues.erase("line")
+	for cue: String in CUE_ORDER:
+		if cues.has(cue):
+			Sfx.play(get_tree(), cue)
+			return
 
 
 func _render(events: Array, state: Dictionary) -> void:
@@ -352,8 +404,21 @@ func _cycle_music() -> void:
 	_music_button.text = Music.SET_KO[Music.get_for(get_tree()).cycle_set()]
 
 
+func _toggle_sfx() -> void:
+	Sfx.get_for(get_tree()).toggle()
+	_show_sfx()
+
+
+func _show_sfx() -> void:
+	if is_instance_valid(_sfx_button):
+		_sfx_button.text = "효과 켬" if Sfx.get_for(get_tree()).is_on() else "효과 끔"
+		_sfx_button.add_theme_font_size_override("font_size", 14)
+
+
 ## 일반 전투에서 적이 더 몰려오면 급박한 곡으로 바꾼다. 보스전은 처음부터 보스 곡이다.
 func _on_reinforced() -> void:
+	if controller.busy:
+		Sfx.play(get_tree(), "horn")
 	if not _boss_fight and controller.busy:
 		Music.get_for(get_tree()).play("battle_rush")
 
@@ -376,6 +441,8 @@ func _begin_battle() -> void:
 	_boss_fight = boss or elite
 	var final: bool = wave >= int(controller.data["waves"]["maxWave"])
 	Music.get_for(get_tree()).play(("final_boss" if final else "boss") if _boss_fight else "battle_calm")
+	if _boss_fight:
+		Sfx.play(get_tree(), "boss")
 	_board.set_fighting(true)
 	_slot.modulate = Color(0.55, 0.55, 0.62)
 	_ult_toggle.hide()
@@ -419,6 +486,7 @@ func _battle_finished() -> void:
 		return
 	if _pending.is_empty():
 		return
+	Sfx.play(get_tree(), "win" if _pending["won"] else "lose")
 	var result: String = "승리!" if _pending["won"] else "패배"
 	for event: Dictionary in _pending["events"]:
 		if event["t"] == "lives":

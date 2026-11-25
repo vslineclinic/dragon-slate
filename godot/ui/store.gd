@@ -111,6 +111,10 @@ func discovered() -> PackedStringArray:
 	return PackedStringArray(_config.get_value("codex", "discovered", PackedStringArray()))
 
 
+func is_discovered(id: String) -> bool:
+	return discovered().has(id)
+
+
 func mark_discovered(id: String) -> bool:
 	var found: PackedStringArray = discovered()
 	if found.has(id):

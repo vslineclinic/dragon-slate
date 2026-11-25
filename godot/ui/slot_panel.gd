@@ -2,6 +2,7 @@ extends Control
 ## 왼쪽 패널: 안내 문구, 석판(굴림 애니메이션 · 밀기 ▲▼), 알 카드 3장(세로), 돌리기 버튼.
 ## 대기칸과 놓아주기 칸은 board.gd가 그 아래에 그린다.
 
+const Sfx = preload("res://godot/ui/sfx.gd")
 const GameTheme = preload("res://godot/ui/theme.gd")
 const Marks = preload("res://godot/ui/marks.gd")
 const Icons = preload("res://godot/ui/icons.gd")
@@ -179,7 +180,10 @@ func _draw_grid(state: Dictionary, grid: Dictionary, recommendation: Variant, an
 		var stop: float = (0.6 + col * 0.18) * pace
 		_opening.tween_property(strip, "position:y", float(-SPIN_EXTRA * STRIDE_Y), stop).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		_opening.tween_callback(_land.bind(strip)).set_delay(stop * 0.8)
+	var matched: bool = not SlotRules.evaluate_lines(grid).is_empty()
 	_opening.chain().tween_callback(_unlock.bind(skip))
+	if matched:
+		_opening.tween_callback(func() -> void: Sfx.play(get_tree(), "line"))
 	_opening.tween_property(lines, "modulate:a", 0.9, 0.22)
 	_opening.tween_property(_offers_layer, "modulate:a", 1.0, 0.22)
 
@@ -208,6 +212,7 @@ func _spinning_column(col: int, finals: Array) -> Control:
 
 
 func _land(strip: Control) -> void:
+	Sfx.play(get_tree(), "land")
 	for egg: Node in strip.get_children():
 		if egg is Control and egg.has_meta("final"):
 			var pop: Tween = egg.create_tween()

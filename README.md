@@ -28,3 +28,4 @@ Not maintained: `packages/`, `apps/`, `tools/sim`, `tools/parity`, `dist*` are t
 ## Art
 
 Dragon sprites were made with an AI image generator. Backgrounds and UI art are drawn by code (`tools/art/gen_backgrounds.py`).
+Music and sound effects are synthesized by code (`tools/music/`), no recorded or AI-generated audio.
