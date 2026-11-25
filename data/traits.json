@@ -61,7 +61,7 @@
   {"id":"tr_ice_sovereign","nameKo":"황제의 눈보라","kind":"atkPct","value":30},
   {"id":"tr_storm_serpent","nameKo":"번개 송곳니","kind":"lifestealPct","value":8},
   {"id":"tr_storm_whelp","nameKo":"천둥 발톱","kind":"atkPct","value":12},
-  {"id":"tr_ryujin","nameKo":"용왕의 여의주","kind":"hpPct","value":25},
+  {"id":"tr_ryujin","nameKo":"드래곤 왕의 여의주","kind":"hpPct","value":25},
   {"id":"tr_storm_sovereign","nameKo":"황제의 벼락","kind":"atkPct","value":30},
   {"id":"tr_poison_serpent","nameKo":"독니","kind":"lifestealPct","value":8},
   {"id":"tr_poison_whelp","nameKo":"이끼 발톱","kind":"atkPct","value":12},

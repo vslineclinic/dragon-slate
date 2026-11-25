@@ -10,7 +10,7 @@ var _rings: Array = []
 var _picked: Label
 
 
-## store와 stage(지역 번호, 지역이 아니면 -1)를 주면 별을 보여 주고, 다음 지역으로 데려갈 용을 고르게 한다.
+## store와 stage(지역 번호, 지역이 아니면 -1)를 주면 별을 보여 주고, 다음 지역으로 데려갈 드래곤을 고르게 한다.
 func setup(data: Dictionary, state: Dictionary, on_new: Callable, on_title: Callable, store: RefCounted = null, stage: int = -1) -> void:
 	_store = store
 	size = Vector2(1280, 720)
@@ -91,9 +91,9 @@ func _strongest(data: Dictionary, state: Dictionary) -> Dictionary:
 	return best
 
 
-## 다음 지역으로 데려갈 용 한 마리 고르기. 처음에는 가장 센 용이 골라져 있다.
+## 다음 지역으로 데려갈 드래곤 한 마리 고르기. 처음에는 가장 센 드래곤이 골라져 있다.
 func _carry_picker(panel: Panel, data: Dictionary, state: Dictionary, next_name: String) -> void:
-	GameTheme.heading(panel, Rect2(24, 152, 652, 30), "「%s」%s 데려갈 용 한 마리" % [next_name, _josa(next_name, "으로", "로", true)], 20, GameTheme.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	GameTheme.heading(panel, Rect2(24, 152, 652, 30), "「%s」%s 데려갈 드래곤 한 마리" % [next_name, _josa(next_name, "으로", "로", true)], 20, GameTheme.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
 	GameTheme.label(panel, Rect2(24, 182, 652, 22), "종과 계승 특성은 그대로 가고, 레벨과 스킬은 처음부터 다시 키워요.", 14, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 	var roster: Array = []
 	for zone: String in ["nest", "bench"]:
@@ -128,7 +128,7 @@ func _carry_picker(panel: Panel, data: Dictionary, state: Dictionary, next_name:
 func _pick_carry(index: int, inst: Dictionary, dragon_name: String) -> void:
 	for i: int in range(_rings.size()):
 		_rings[i].visible = i == index
-	_picked.text = "데려가는 용: " + dragon_name
+	_picked.text = "데려가는 드래곤: " + dragon_name
 	if _store != null and _next_stage >= 0:
 		_store.set_carry(_next_stage, inst)
 

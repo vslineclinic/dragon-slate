@@ -19,7 +19,7 @@ static func element_mult(cfg: Dictionary, atk: Variant, def: Variant) -> int:
 ## 형태별 능력: 종 id에서 원소 머리말을 뗀 형태 이름(lancer · sage …)으로 찾는다. 없으면 "".
 static func ability_of(data: Dictionary, species_id: String) -> String:
 	var cut: int = species_id.find("_")
-	## 이름에 밑줄이 없는 종(신화 이름 용)은 species 목록으로만 찾는다.
+	## 이름에 밑줄이 없는 종(신화 이름 드래곤)은 species 목록으로만 찾는다.
 	var form: String = "" if cut < 0 else species_id.substr(cut + 1)
 	var abilities: Dictionary = data["battle"].get("abilities", {})
 	for id: String in abilities:
@@ -111,7 +111,7 @@ static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary =
 	return unit
 
 
-## 그 용이 데리고 나오는 호위 수: 등급 기본값 + 스킬 · 유물 · 시너지, escort.max를 넘지 않는다.
+## 그 드래곤이 데리고 나오는 호위 수: 등급 기본값 + 스킬 · 유물 · 시너지, escort.max를 넘지 않는다.
 static func escort_count(cfg: Dictionary, unit: Dictionary) -> int:
 	var escort: Dictionary = cfg["escort"]
 	var count: int = int(escort["count"].get(unit.get("tier", "base"), 0)) + int(unit.get("escortBonus", 0))
@@ -181,7 +181,7 @@ static func team(data: Dictionary, nest: Array, open: int, extra: Dictionary = {
 
 
 ## allies: 둥지 6칸(빈칸 null, to_unit 결과). enemies: Waves.generate_enemies 결과.
-## rules.ultAt = {틱: [용 id, ...]}: 수동 궁극기(rules.manualUlt)를 그 틱에 쏘라고 한 기록. 같은 기록이면 결과가 같다.
+## rules.ultAt = {틱: [드래곤 id, ...]}: 수동 궁극기(rules.manualUlt)를 그 틱에 쏘라고 한 기록. 같은 기록이면 결과가 같다.
 static func simulate_battle(
 	cfg: Dictionary, allies: Array, enemies: Array, rules: Dictionary = {},
 ) -> Dictionary:
@@ -233,7 +233,7 @@ static func battle_result(sim: Dictionary) -> Dictionary:
 	}
 
 
-## 수동 모드에서 지금 궁극기를 쏠 수 있는(게이지가 가득 찬) 우리 용의 id들.
+## 수동 모드에서 지금 궁극기를 쏠 수 있는(게이지가 가득 찬) 우리 드래곤의 id들.
 static func ready_ults(sim: Dictionary) -> Array:
 	var ready: Array = []
 	for unit: Dictionary in sim["units"]:
@@ -243,7 +243,7 @@ static func ready_ults(sim: Dictionary) -> Array:
 	return ready
 
 
-## 한 틱 진행하고 이 틱에 생긴 사건들을 돌려준다. arm = 이번 틱에 궁극기를 쏘라고 한 용의 id들(수동 모드에서만 듣는다).
+## 한 틱 진행하고 이 틱에 생긴 사건들을 돌려준다. arm = 이번 틱에 궁극기를 쏘라고 한 드래곤의 id들(수동 모드에서만 듣는다).
 static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 	if battle_over(sim):
 		return []
@@ -270,7 +270,7 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 	var crit_pct: int = int(crit.get("pct", 0))
 	var crit_rng: Rng = sim["critRng"]
 	var abilities: Dictionary = cfg.get("abilities", {})
-	## 유물 "매의 눈": 후열에 선 우리 용은 줄 감쇠를 받지 않는다.
+	## 유물 "매의 눈": 후열에 선 우리 드래곤은 줄 감쇠를 받지 않는다.
 	var keen_back: bool = bool(rules.get("backRowNoLane", false))
 	var manual: bool = bool(rules.get("manualUlt", false))
 	var enraged: bool = sim["enraged"]
@@ -278,7 +278,7 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 	var winner: String = ""
 	sim["tick"] = int(sim["tick"]) + 1
 	var tick: int = sim["tick"]
-	## 수동 궁극기: 게이지가 가득 찬 우리 용을 장전한다. 바로 다음 공격이 궁극기가 되고, 기다리지 않게 공격 차례를 당긴다.
+	## 수동 궁극기: 게이지가 가득 찬 우리 드래곤을 장전한다. 바로 다음 공격이 궁극기가 되고, 기다리지 않게 공격 차례를 당긴다.
 	if manual:
 		for id: Variant in arm:
 			## 숫자가 아닌 값이나 범위를 벗어난 id는 무시한다.
@@ -357,7 +357,7 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 				var is_ult: bool = false
 				var need: int = int(unit["ultNeed"])
 				if need > 0:
-					## 수동 모드의 우리 용: 게이지는 가득 찬 채로 기다리다가, 쏘라고 한 뒤의 공격이 궁극기가 된다.
+					## 수동 모드의 우리 드래곤: 게이지는 가득 찬 채로 기다리다가, 쏘라고 한 뒤의 공격이 궁극기가 된다.
 					var fire: bool = false
 					if manual and side == "ally":
 						fire = bool(unit["armed"]) and int(unit["charge"]) >= need
@@ -408,13 +408,13 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 						lane_pct = _lane_pct(field, unit, victim)
 						if lane_pct != 100:
 							dmg = maxi(1, Rng.fdiv(dmg * lane_pct, 100))
-					## 저격: 후열에 선 용의 보통 공격이 더 세다.
+					## 저격: 후열에 선 드래곤의 보통 공격이 더 세다.
 					if int(unit["edge"]) > 0 and not is_ult:
 						dmg = Rng.fdiv(dmg * (100 + int(unit["edge"])), 100)
 					## 맞대결: 제 줄의 적을 칠 때 더 세다.
 					if ability_pct > 0 and ability == "duel" and unit["lane"] == victim["lane"]:
 						dmg = Rng.fdiv(dmg * (100 + ability_pct), 100)
-					## 방패막: 같은 줄에 방패막 용이 살아 있으면 다른 용이 보통 공격을 덜 맞는다(궁극기는 그대로).
+					## 방패막: 같은 줄에 방패막 드래곤이 살아 있으면 다른 드래곤이 보통 공격을 덜 맞는다(궁극기는 그대로).
 					var warded: bool = not is_ult and victim["kind"] == "dragon" and _warded(units, victim)
 					if warded:
 						dmg = maxi(1, Rng.fdiv(dmg * (100 - int(abilities.get("ward", {}).get("pct", 0))), 100))
@@ -445,7 +445,7 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 					events.append(hit)
 					if victim["hp"] <= 0:
 						_kill(units, victim, tick, "hit", events)
-				## 돌봄: 공격할 때마다 제 줄·옆줄에서 가장 다친 아군 용을 고친다.
+				## 돌봄: 공격할 때마다 제 줄·옆줄에서 가장 다친 아군 드래곤을 고친다.
 				if ability_pct > 0 and ability == "mend":
 					var patient: Variant = _most_hurt(units, unit)
 					if patient != null:
@@ -545,14 +545,14 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, rules: Dictio
 		foe["elite"] = bool(item.get("elite", false))
 		foe["active"] = foe["stage"] == 0
 		units.append(foe)
-	## 함성: 같은 편·같은 줄에 함성 용이 있으면 다른 용의 공격이 빨라진다(겹치지 않는다).
+	## 함성: 같은 편·같은 줄에 함성 드래곤이 있으면 다른 드래곤의 공격이 빨라진다(겹치지 않는다).
 	var rally_pct: int = int(cfg.get("abilities", {}).get("rally", {}).get("pct", 0))
 	if rally_pct > 0:
 		for unit: Dictionary in units:
 			if unit["kind"] != "dragon" or not unit["active"]:
 				continue
 			for other: Dictionary in units:
-				## 아직 나오지 않은 무리의 용은 함성을 주지도 받지도 않는다.
+				## 아직 나오지 않은 무리의 드래곤은 함성을 주지도 받지도 않는다.
 				if other["ability"] == "rally" and other["active"] and other["kind"] == "dragon" and other["side"] == unit["side"] \
 						and other["lane"] == unit["lane"] and other["id"] != unit["id"]:
 					unit["cd"] = maxi(5, Rng.fdiv(int(unit["cd"]) * (100 - rally_pct), 100))
@@ -679,7 +679,7 @@ static func _next_in_lane(field: Dictionary, units: Array, me: Dictionary, targe
 	return best
 
 
-## 방패막: victim과 같은 편·같은 줄에 방패막 능력을 가진 다른 용이 살아 있는가.
+## 방패막: victim과 같은 편·같은 줄에 방패막 능력을 가진 다른 드래곤이 살아 있는가.
 static func _warded(units: Array, victim: Dictionary) -> bool:
 	for other: Dictionary in units:
 		if other["ability"] == "ward" and other["side"] == victim["side"] and other["lane"] == victim["lane"] \
@@ -688,7 +688,7 @@ static func _warded(units: Array, victim: Dictionary) -> bool:
 	return false
 
 
-## 돌봄: 제 줄과 옆줄의 같은 편 용 가운데 체력 비율이 가장 낮은(다친) 용. 다친 용이 없으면 null.
+## 돌봄: 제 줄과 옆줄의 같은 편 드래곤 가운데 체력 비율이 가장 낮은(다친) 드래곤. 다친 드래곤이 없으면 null.
 static func _most_hurt(units: Array, me: Dictionary) -> Variant:
 	var best: Variant = null
 	for other: Dictionary in units:

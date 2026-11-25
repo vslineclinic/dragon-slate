@@ -261,7 +261,7 @@ func test_arranging_is_allowed_before_spinning() -> void:
 
 
 func test_reroll_without_dragons_is_free_only_when_no_egg_is_offered() -> void:
-	## 고를 알이 없으면(가운데 줄이 모두 금) 무료: 용 없이 막히지 않는다.
+	## 고를 알이 없으면(가운데 줄이 모두 금) 무료: 드래곤 없이 막히지 않는다.
 	var stuck: Dictionary = _fresh({
 		"phase": "pick", "mana": 0, "spinsThisWave": 2, "grid": _grid([[I, L, I], [G, G, G], [L, F, F]]),
 	})

@@ -16,6 +16,7 @@
 - TypeScript는 지울 수 있는 문법만(enum·namespace·생성자 매개변수 속성 금지), import 경로에 `.ts` 확장자.
 - 원소 fire > ice > lightning > fire, 강 135% / 약 75%.
 - 화면 문구 한국어. 금지어: 잭팟, JACKPOT, 코인, 베팅, 칩, 각인, 코어. 대신 줄 맞춤, 마력, 룬 석판, 계승 특성.
+- 화면에서는 "용"이라 쓰지 않고 "드래곤"이라 쓴다(2026-11-25, 사용자 요청). 용암 · 용사 같은 다른 낱말과 종 이름의 "~룡"은 그대로.
 - 성장 구조(2026-11-23 2차): 40웨이브, 원소별 계급 피라미드(기본 4 · 2티어 3 · 1티어 2 · 정점 1), 용 레벨(전투·흡수로 경험치, 레벨 업마다 스킬 점수 1), 진화는 레벨 5/10/15부터, 보스마다 유물 3택 1. 수치는 `data/battle.json`의 level, `data/relics.json`, `data/waves.json`의 growthBands·bossPct.
 - 3차(2026-11-24): 갈림길(waves.fork), 중간 보스(waves.elitePct), 기본 용 원소별 12종(`node tools/gen-upper-dragons.cjs`가 조합표까지 다시 만듦), 궁극기(battle.ultimate). 설계 문서 13·14장.
 - 화풍 "용 신전"(2026-11-24, 설계 문서 16장): 흑요석 판 · 금박 선 · 양피지색 글자. 색·판·단추·제목은 `godot/ui/theme.gd`의 도우미(panel · frame · well · heading · cta · divider · glow)로만 만든다. 화면 파일에 색 코드를 새로 박지 않는다. 제목은 명조(Noto Serif KR), 본문은 고딕(Noto Sans KR).

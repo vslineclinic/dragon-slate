@@ -1,6 +1,6 @@
 extends Control
-## 드래곤 도감 "용의 계보": 원소마다 세계수 한 그루. 뿌리(기본 용)에서 가지를 타고 꼭대기(정점)까지 올라간다.
-## 가지는 "같은 용 둘을 합치면 되는 용"을 잇는다. 판을 하는 중에 열면 가진 용과 지금 만들 수 있는 용이 빛난다.
+## 드래곤 도감 "드래곤의 계보": 원소마다 세계수 한 그루. 뿌리(기본 드래곤)에서 가지를 타고 꼭대기(정점)까지 올라간다.
+## 가지는 "같은 드래곤 둘을 합치면 되는 드래곤"을 잇는다. 판을 하는 중에 열면 가진 드래곤과 지금 만들 수 있는 드래곤이 빛난다.
 
 signal closed
 
@@ -8,7 +8,7 @@ const GameTheme = preload("res://godot/ui/theme.gd")
 const Marks = preload("res://godot/ui/marks.gd")
 const Store = preload("res://godot/ui/store.gd")
 const ROWS: Array[String] = ["apex", "t1", "t2", "base"]
-const ROW_NOTE: Dictionary = {"apex": "용의 황제", "t1": "전설의 용", "t2": "다 자란 용", "base": "새끼 용"}
+const ROW_NOTE: Dictionary = {"apex": "드래곤의 황제", "t1": "전설의 드래곤", "t2": "다 자란 드래곤", "base": "새끼 드래곤"}
 const ROLE_KO: Dictionary = GameTheme.ROLE_KO
 const STAGE: Vector2 = Vector2(1240, 688)
 const TREE: Rect2 = Rect2(16, 66, 848, 608)
@@ -120,8 +120,8 @@ func setup(data: Dictionary, store: Store, state: Dictionary = {}, width: float 
 	for dragon: Dictionary in _data["dragons"].values():
 		if _known(dragon):
 			count += 1
-	GameTheme.heading(_stage, Rect2(28, 12, 160, 44), "용의 계보", 26)
-	GameTheme.label(_stage, Rect2(164, 16, 130, 40), "발견 %d / %d" % [count, _data["dragons"].size()], 15, GameTheme.DIM)
+	GameTheme.heading(_stage, Rect2(28, 12, 160, 44), "드래곤의 계보", 26)
+	GameTheme.label(_stage, Rect2(208, 16, 108, 40), "발견 %d / %d" % [count, _data["dragons"].size()], 15, GameTheme.DIM)
 	var x: float = 300.0
 	for element: String in GameData.active_elements(_data):
 		_tabs[element] = _tab(Rect2(x, 14, 88, 40), GameTheme.ELEMENT_KO[element], element, GameTheme.COLOR[element])
@@ -152,7 +152,7 @@ func _tab(rect: Rect2, copy: String, element: String, tint: Color) -> Button:
 	return tab
 
 
-## 가진 용이 있으면 그 원소부터 보여 준다.
+## 가진 드래곤이 있으면 그 원소부터 보여 준다.
 func _first_page() -> String:
 	var best: String = GameData.active_elements(_data)[0]
 	var best_level: int = 0
@@ -234,7 +234,7 @@ func _draw_tree(element: String) -> void:
 			_node(dragon, centers[id], edge, stride)
 	branches.queue_redraw()
 	var legend: Label = GameTheme.label(_entries, Rect2(8, TREE.size.y - 34, TREE.size.x - 16, 26),
-		"가지: 같은 용 둘을 합치면 올라가는 길 · 다른 용끼리 합치면 다른 가지로 건너가요 · 초록 = 가진 용, 금빛 = 지금 합칠 수 있는 용", 13, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		"같은 드래곤 둘을 합치면 위로 · 다른 드래곤끼리는 옆 가지로 · 초록 = 가진 드래곤 · 금빛 = 지금 합칠 수 있어요", 13, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 	legend.clip_text = true
 
 
@@ -245,7 +245,7 @@ func _row_label(tier: String, note: String, tint: Color) -> void:
 	GameTheme.label(_entries, Rect2(10, y + 42, GUTTER, 18), note, 12, GameTheme.DIM)
 
 
-## 같은 용 둘을 합치면 되는 윗계급 용("" = 없음).
+## 같은 드래곤 둘을 합치면 되는 윗계급 드래곤("" = 없음).
 func _parent(id: String) -> String:
 	var result: Variant = Fusion.find_recipe(_data, id, id)
 	return "" if result == null else str(result)
@@ -259,7 +259,7 @@ static func _curve(from: Vector2, to: Vector2) -> PackedVector2Array:
 	return points
 
 
-## 이중·숨은 용: 여섯 원소를 육각으로 두르고, 두 원소 사이에 이중 용을 둔다. 한가운데는 숨은 용.
+## 이중·숨은 드래곤: 여섯 원소를 육각으로 두르고, 두 원소 사이에 이중 드래곤을 둔다. 한가운데는 숨은 드래곤.
 func _draw_twilight() -> void:
 	var center: Vector2 = Vector2(TREE.size.x / 2.0, TREE.size.y / 2.0 - 8.0)
 	var reach: float = 262.0
@@ -303,7 +303,7 @@ func _draw_twilight() -> void:
 			_node(dragon, center, 64.0, 96.0)
 	branches.queue_redraw()
 	GameTheme.heading(_entries, Rect2(10, 4, 300, 26), "황혼의 고리", 19, GameTheme.TIER_RING["dual"])
-	GameTheme.label(_entries, Rect2(10, 30, 330, 18), "서로 다른 두 원소의 2티어 용을 합치면 태어나요", 12, GameTheme.DIM)
+	GameTheme.label(_entries, Rect2(10, 30, 330, 18), "서로 다른 두 원소의 2티어 드래곤을 합치면 태어나요", 12, GameTheme.DIM)
 
 
 func _known(dragon: Dictionary) -> bool:
@@ -345,7 +345,7 @@ static func portrait(parent: Control, rect: Rect2, id: String) -> TextureRect:
 	return sprite
 
 
-## 마디 하나: 메달 + 그림 + 아래 이름. 가진 용은 초록, 지금 만들 수 있는 용은 금빛으로 깜빡인다.
+## 마디 하나: 메달 + 그림 + 아래 이름. 가진 드래곤은 초록, 지금 만들 수 있는 드래곤은 금빛으로 깜빡인다.
 func _node(dragon: Dictionary, center: Vector2, edge: float, name_width: float) -> void:
 	var id: String = dragon["id"]
 	var known: bool = _known(dragon)
@@ -406,11 +406,11 @@ func _show_detail(dragon: Dictionary) -> void:
 	var w: float = SIDE.size.x
 	if dragon.is_empty():
 		_picked = ""
-		GameTheme.heading(_detail, Rect2(0, 190, w, 34), "용을 골라 보세요", 22, GameTheme.GOLD_HI, HORIZONTAL_ALIGNMENT_CENTER)
+		GameTheme.heading(_detail, Rect2(0, 190, w, 34), "드래곤을 골라 보세요", 22, GameTheme.GOLD_HI, HORIZONTAL_ALIGNMENT_CENTER)
 		GameTheme.divider(_detail, Rect2(60, 230, w - 120, 8), GameTheme.GOLD_DIM)
 		var help: String = "마디를 누르면 설명과 만드는 법이 여기에 나와요."
 		if not _owned.is_empty():
-			help += "\n\n초록 테두리는 지금 가진 용이에요. 금빛으로 깜빡이는 용은 지금 가진 용 둘로 바로 만들 수 있어요."
+			help += "\n\n초록 테두리는 지금 가진 드래곤이에요. 금빛으로 깜빡이는 드래곤은 지금 가진 드래곤 둘로 바로 만들 수 있어요."
 		var guide: Label = GameTheme.label(_detail, Rect2(34, 246, w - 68, 150), help, 15, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 		GameTheme.wrap(guide)
 		guide.vertical_alignment = VERTICAL_ALIGNMENT_TOP
@@ -482,11 +482,11 @@ func _show_detail(dragon: Dictionary) -> void:
 			"%s + %s\n둘 중 하나가 레벨 %d 이상" % [_name_or_unknown(recipe["a"]), _name_or_unknown(recipe["b"]), need], 12, GameTheme.TEXT)
 		GameTheme.wrap(how)
 		y += 70.0
-		GameTheme.label(_detail, Rect2(24, y, w - 48, 18), "이 용이 되는 조합은 모두 %d가지예요" % _recipes.get(id, []).size(), 12, GameTheme.DIM)
+		GameTheme.label(_detail, Rect2(24, y, w - 48, 18), "이 드래곤이 되는 조합은 모두 %d가지예요" % _recipes.get(id, []).size(), 12, GameTheme.DIM)
 		y += 24.0
 	var next: String = _parent(id)
 	if not next.is_empty() and y < SIDE.size.y - 30.0:
-		GameTheme.label(_detail, Rect2(24, y, w - 48, 20), "같은 용 둘을 합치면 → %s" % _name_or_unknown(next), 13, tint.lightened(0.45))
+		GameTheme.label(_detail, Rect2(24, y, w - 48, 20), "같은 드래곤 둘을 합치면 → %s" % _name_or_unknown(next), 13, tint.lightened(0.45))
 
 
 func _stat(rect: Rect2, title: String, value: String, tint: Color) -> void:

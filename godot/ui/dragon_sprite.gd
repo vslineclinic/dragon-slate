@@ -1,5 +1,5 @@
 extends Control
-## 전장의 용 한 마리 그림. 한 장짜리 그림을 셰이더(dragon_pose)로 움직여 숨 쉬고, 걷고, 머리를 내밀고, 날개를 편다.
+## 전장의 드래곤 한 마리 그림. 한 장짜리 그림을 셰이더(dragon_pose)로 움직여 숨 쉬고, 걷고, 머리를 내밀고, 날개를 편다.
 
 const POSE: Shader = preload("res://godot/ui/dragon_pose.gdshader")
 const PAD: float = 1.3
@@ -16,7 +16,7 @@ var _launch_at: int = 0
 var _busy_until: int = 0
 
 
-## rect 자리에 용 그림을 놓는다. 그림이 없으면 null.
+## rect 자리에 드래곤 그림을 놓는다. 그림이 없으면 null.
 static func make(parent: Control, rect: Rect2, id: String, mirror: bool) -> Control:
 	var path: String = "res://assets/dragons/%s.png" % id
 	if not ResourceLoader.exists(path, "Texture2D"):

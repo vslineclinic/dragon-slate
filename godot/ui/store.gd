@@ -50,7 +50,7 @@ func record_stage(index: int, stars: int) -> void:
 	_save()
 
 
-## index번째 지역으로 데려갈 용({"speciesId", "traits"}). 없으면 {}.
+## index번째 지역으로 데려갈 드래곤({"speciesId", "traits"}). 없으면 {}.
 func carry_for(index: int) -> Dictionary:
 	var found: Variant = _config.get_value("stages", "carry%d" % index, {})
 	return found if found is Dictionary else {}
@@ -159,7 +159,7 @@ static func unpack_run(text: String, data: Dictionary, demo: bool) -> Dictionary
 	return {"state": state, "length": str(packed.get("length", "standard"))}
 
 
-## 이어 할 수 있는 상태인가: 진행 중인 차례이고, 필요한 칸이 다 있고, 든 용이 모두 지금 자료에 있는 종인가.
+## 이어 할 수 있는 상태인가: 진행 중인 차례이고, 필요한 칸이 다 있고, 든 드래곤이 모두 지금 자료에 있는 종인가.
 static func _run_is_playable(state: Dictionary, data: Dictionary) -> bool:
 	for key: String in ["seed", "rngState", "wave", "phase", "lives", "mana", "nest", "bench", "nestOpen", "relics", "discovered", "calamity"]:
 		if not state.has(key):

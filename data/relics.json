@@ -11,7 +11,7 @@
   {"id": "seal", "nameKo": "상성의 인장", "descKo": "강한 상성으로 주는 피해 +20%", "kind": "strongAddPct", "value": 20},
   {"id": "phoenix", "nameKo": "불사조 깃털", "descKo": "생명 +2", "kind": "life", "value": 2},
   {"id": "kiln", "nameKo": "연금술 가마", "descKo": "놓아줄 때 받는 마력 2배", "kind": "releasePct", "value": 100},
-  {"id": "hawkeye", "nameKo": "매의 눈", "descKo": "후열에 선 우리 용은 다른 줄을 쳐도 약해지지 않아요", "kind": "backRowNoLane", "value": 1},
+  {"id": "hawkeye", "nameKo": "매의 눈", "descKo": "후열에 선 우리 드래곤은 다른 줄을 쳐도 약해지지 않아요", "kind": "backRowNoLane", "value": 1},
   {"id": "chisel", "nameKo": "쌍둥이 끌", "descKo": "룬 한 장을 받으면 석판의 룬을 두 장까지 바꿔요", "kind": "runeEdits", "value": 1},
   {"id": "philosopher", "nameKo": "현자의 돌", "descKo": "전환의 룬이 반드시 성공해요. 전환의 룬 +1", "kind": "transmuteSure", "value": 1},
   {"id": "crown", "nameKo": "여의주 왕관", "descKo": "여의주 줄을 맞추면 2티어 알도 받아요", "kind": "wildLineEgg", "value": 1}

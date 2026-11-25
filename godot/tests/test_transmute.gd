@@ -1,5 +1,5 @@
 extends TestCase
-## 전환의 룬: 용을 같은 등급·같은 형태의 다른 원소 용으로 바꾼다. 실패하면 룬만 사라지고 다음 시도는 반드시 성공한다.
+## 전환의 룬: 드래곤을 같은 등급·같은 형태의 다른 원소 드래곤으로 바꾼다. 실패하면 룬만 사라지고 다음 시도는 반드시 성공한다.
 
 const RunRules = preload("res://godot/core/run.gd")
 
@@ -57,7 +57,7 @@ func test_every_convertible_dragon_has_a_twin_with_the_same_role_and_stats() -> 
 			assert_eq(twin.get("role"), spec["role"], spec["id"] + " → " + twin_id)
 			assert_eq(twin.get("stats"), spec["stats"], spec["id"] + " → " + twin_id)
 			checked += 1
-	assert_true(checked >= 150 * 5, "전환할 수 있는 용이 150종 이상")
+	assert_true(checked >= 150 * 5, "전환할 수 있는 드래곤이 150종 이상")
 
 
 func test_twin_mapping_is_a_round_trip() -> void:
@@ -150,7 +150,7 @@ func test_first_boss_win_grants_a_charge() -> void:
 	var state: Dictionary = RunRules.create_run(_data, 5)["state"]
 	state["phase"] = "manage"
 	state["wave"] = 5
-	## 반드시 이기도록 아주 센 용 하나.
+	## 반드시 이기도록 아주 센 드래곤 하나.
 	state["nest"][0] = {"uid": 1, "speciesId": "fire_god", "traits": [], "bonusPct": 5000, "skills": {}, "skillPoints": 0, "level": 20, "xp": 0}
 	var result: Dictionary = RunRules.apply_command(_data, state, {"type": "startBattle"})
 	var gained: bool = false

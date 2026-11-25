@@ -135,7 +135,7 @@ func _draw_map() -> void:
 	var need: int = FusionRules.xp_needed(_ctl.data, level)
 	var growth: String = "최고 레벨" if need == 0 else "경험치 %d / %d" % [int(inst.get("xp", 0)), need]
 	GameTheme.heading(_body, Rect2(112, 8, 520, 34), "%s  Lv.%d" % [spec["nameKo"], level], 26)
-	## 전투와 같은 값을 보여 준다: 유물은 늘, 시너지는 둥지에 놓인 용일 때.
+	## 전투와 같은 값을 보여 준다: 유물은 늘, 시너지는 둥지에 놓인 드래곤일 때.
 	var bonus: Dictionary = RunRules.relic_bonus(_ctl.data, _ctl.state).duplicate()
 	if _ref["zone"] == "nest":
 		var synergy: Dictionary = Battle.team_bonus(_ctl.data, Battle.fielded(_ctl.state["nest"], _ctl.state["nestOpen"]))
@@ -158,7 +158,7 @@ func _draw_map() -> void:
 	if runes > 0:
 		var rune_copy: String = "별자리로 돌아가기" if _transmuting else "전환의 룬 ×%d" % runes
 		var rune_button: Button = GameTheme.cta(_body, Rect2(500, 22, 168, 40), rune_copy, _toggle_transmute, "mystic", 16)
-		rune_button.tooltip_text = "이 드래곤을 다른 원소의 같은 용으로 바꿔요"
+		rune_button.tooltip_text = "이 드래곤을 다른 원소의 같은 드래곤으로 바꿔요"
 	if _transmuting and runes > 0:
 		_draw_transmute(inst, spec)
 		return
@@ -236,7 +236,7 @@ func _toggle_transmute() -> void:
 	_draw_map()
 
 
-## 전환의 룬: 원소마다 어떤 용이 되는지 보여 주고 고르게 한다.
+## 전환의 룬: 원소마다 어떤 드래곤이 되는지 보여 주고 고르게 한다.
 func _draw_transmute(inst: Dictionary, spec: Dictionary) -> void:
 	var chance: int = RunRules.transmute_chance(_ctl.data, _ctl.state)
 	var sure: bool = chance >= 100
@@ -251,7 +251,7 @@ func _draw_transmute(inst: Dictionary, spec: Dictionary) -> void:
 			targets.append([element, twin])
 	if targets.is_empty():
 		GameTheme.heading(_body, Rect2(24, 300, PANEL_SIZE.x - 48, 40), "이 드래곤은 원소를 바꿀 수 없어요", 22, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
-		GameTheme.label(_body, Rect2(24, 344, PANEL_SIZE.x - 48, 24), "두 원소를 가진 용과 비밀 용은 전환의 룬이 듣지 않아요.", 15, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		GameTheme.label(_body, Rect2(24, 344, PANEL_SIZE.x - 48, 24), "두 원소를 가진 드래곤과 비밀 드래곤은 전환의 룬이 듣지 않아요.", 15, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 		return
 	var gap: float = 14.0
 	var card_w: float = minf(184.0, (PANEL_SIZE.x - 48.0 - gap * (targets.size() - 1)) / targets.size())
@@ -272,7 +272,7 @@ func _draw_transmute(inst: Dictionary, spec: Dictionary) -> void:
 		var owned: bool = false
 		for other: Variant in _ctl.state["nest"] + _ctl.state["bench"]:
 			owned = owned or (other != null and other["speciesId"] == twin_spec["id"])
-		GameTheme.label(_body, Rect2(origin.x + 6, origin.y + 216, card_w - 12, 20), "같은 용이 있어 합칠 수 있어요" if owned else "", 12, GameTheme.RECOMMEND, HORIZONTAL_ALIGNMENT_CENTER)
+		GameTheme.label(_body, Rect2(origin.x + 6, origin.y + 216, card_w - 12, 20), "같은 드래곤이 있어 합칠 수 있어요" if owned else "", 12, GameTheme.RECOMMEND, HORIZONTAL_ALIGNMENT_CENTER)
 		GameTheme.cta(_body, Rect2(origin.x + 14, origin.y + 256, card_w - 28, 46), "%s으로" % GameTheme.ELEMENT_KO.get(element, element) if element in ["ice", "poison", "abyss"] else "%s로" % GameTheme.ELEMENT_KO.get(element, element), _transmute.bind(element), "mystic", 18)
 	var odds_color: Color = GameTheme.RECOMMEND if sure else GameTheme.GOLD_HI
 	GameTheme.heading(_body, Rect2(24, 526, PANEL_SIZE.x - 48, 36), "성공 확률 %d%%" % chance, 26, odds_color, HORIZONTAL_ALIGNMENT_CENTER, 800)

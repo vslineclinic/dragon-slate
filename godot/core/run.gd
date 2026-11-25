@@ -33,7 +33,7 @@ static func start_bundle(data: Dictionary, element: String) -> Array:
 	return runes
 
 
-## 판을 시작할 때 고를 수 있는 묶음(판 씨앗으로 정해진다): {"id": 원소, "runes": 묶음, "speciesId": 함께 오는 용}.
+## 판을 시작할 때 고를 수 있는 묶음(판 씨앗으로 정해진다): {"id": 원소, "runes": 묶음, "speciesId": 함께 오는 드래곤}.
 static func start_options(data: Dictionary, seed: int) -> Array:
 	var cfg: Dictionary = data["slot"].get("slab", {})
 	var elements: Array = GameData.active_elements(data).duplicate()
@@ -50,8 +50,8 @@ static func start_options(data: Dictionary, seed: int) -> Array:
 	return options
 
 
-## start = 시작 묶음의 원소. 이번 판에 내놓은 묶음이 아니면(빈 글 포함) 기본 묶음으로, 용 없이 시작한다.
-## carry = 앞 지역에서 데려온 용({"speciesId", "traits"}). 레벨 1로 대기칸에 들어온다.
+## start = 시작 묶음의 원소. 이번 판에 내놓은 묶음이 아니면(빈 글 포함) 기본 묶음으로, 드래곤 없이 시작한다.
+## carry = 앞 지역에서 데려온 드래곤({"speciesId", "traits"}). 레벨 1로 대기칸에 들어온다.
 static func create_run(data: Dictionary, seed: int, calamity: int = 0, start: String = "", carry: Dictionary = {}) -> Dictionary:
 	var mods: Dictionary = Calamity.mods(data, calamity)
 	var chosen: Dictionary = {}
@@ -271,7 +271,7 @@ static func _paid_spin_cost(data: Dictionary, state: Dictionary) -> int:
 	var costs: Array = data["slot"]["rerollCosts"]
 	if costs.is_empty():
 		return 0
-	## 용이 한 마리도 없을 때: 고를 알이 없으면 무료로 다시 돌린다(막히지 않게).
+	## 드래곤이 한 마리도 없을 때: 고를 알이 없으면 무료로 다시 돌린다(막히지 않게).
 	## 알이 나와 있으면 그 알을 고르거나 값을 내야 한다(좋은 첫 알이 뜰 때까지 공짜로 돌리지 못하게).
 	if _dragon_count(state) == 0:
 		var egg_offered: bool = false
@@ -847,7 +847,7 @@ static func _do_leave_shop(data: Dictionary, state: Dictionary, rng: Rng, events
 	return ""
 
 
-## 전환의 룬: 이 용이 그 원소로 바뀌면 어떤 종이 되는지. 같은 등급에서 자료 순서가 같은 종(역할·능력치가 같다).
+## 전환의 룬: 이 드래곤이 그 원소로 바뀌면 어떤 종이 되는지. 같은 등급에서 자료 순서가 같은 종(역할·능력치가 같다).
 ## 바꿀 수 없으면 "" (이중·비밀 원소, 같은 원소, 모르는 원소).
 static func transmute_target(data: Dictionary, species_id: String, element: String) -> String:
 	var spec: Variant = data["dragons"].get(species_id)

@@ -67,7 +67,7 @@ func test_twin_does_not_strike_a_target_that_already_died() -> void:
 
 
 func test_mend_heals_the_most_hurt_ally_dragon_in_its_own_or_next_lane() -> void:
-	## 0번 줄 돌봄 용, 1번 줄 다친 용, 2번 줄 더 다친 용(멀어서 못 고친다).
+	## 0번 줄 돌봄 드래곤, 1번 줄 다친 드래곤, 2번 줄 더 다친 드래곤(멀어서 못 고친다).
 	var cfg: Dictionary = _cfg()
 	var near: Dictionary = B._solo("fire", 1000, 1, 1000)
 	var far: Dictionary = B._solo("fire", 1000, 1, 1000)
@@ -79,7 +79,7 @@ func test_mend_heals_the_most_hurt_ally_dragon_in_its_own_or_next_lane() -> void
 		return
 	assert_eq([heals[0]["src"], heals[0]["dst"], heals[0]["amount"]], [0, 1, 40])
 	for heal: Dictionary in heals:
-		assert_true(int(heal["dst"]) != 2, "두 줄 건너의 용은 못 고친다")
+		assert_true(int(heal["dst"]) != 2, "두 줄 건너의 드래곤은 못 고친다")
 
 
 func test_mend_does_nothing_when_nobody_is_hurt() -> void:
@@ -91,16 +91,16 @@ func test_mend_does_nothing_when_nobody_is_hurt() -> void:
 func test_ward_shields_other_ally_dragons_in_its_lane_but_not_itself() -> void:
 	var cfg: Dictionary = _cfg()
 	var foe: Dictionary = B._enemy("dragon", "fire", 100000, 100, 10, 0, 400)
-	## 앞줄 방패막 + 같은 줄 뒷줄 용. 적은 가까운 앞줄부터 친다.
+	## 앞줄 방패막 + 같은 줄 뒷줄 드래곤. 적은 가까운 앞줄부터 친다.
 	var guarded: Dictionary = Battle.simulate_battle(cfg, B._slots([_able("ward", 150, 1, 1000)], [B._solo("fire", 100000, 1, 1000)]), [foe])
 	var hits: Array = _hits(guarded, 2)
 	var on_ward: Array = hits.filter(func(e: Dictionary) -> bool: return e["dst"] == 0)
 	var on_back: Array = hits.filter(func(e: Dictionary) -> bool: return e["dst"] == 1)
-	assert_eq(int(on_ward[0]["dmg"]), 100, "방패막 용 자신은 그대로 맞는다")
-	assert_eq(int(on_back[0]["dmg"]), 100, "방패막 용이 쓰러진 뒤에는 그대로 맞는다")
+	assert_eq(int(on_ward[0]["dmg"]), 100, "방패막 드래곤 자신은 그대로 맞는다")
+	assert_eq(int(on_back[0]["dmg"]), 100, "방패막 드래곤이 쓰러진 뒤에는 그대로 맞는다")
 	var alive: Dictionary = Battle.simulate_battle(cfg, B._slots([B._solo("fire", 150, 1, 1000)], [_able("ward", 100000, 1, 1000)]), [foe])
 	var front_hits: Array = _hits(alive, 2).filter(func(e: Dictionary) -> bool: return e["dst"] == 0)
-	assert_eq([int(front_hits[0]["dmg"]), front_hits[0].get("ward", false)], [80, true], "같은 줄의 다른 용은 20% 덜 맞는다")
+	assert_eq([int(front_hits[0]["dmg"]), front_hits[0].get("ward", false)], [80, true], "같은 줄의 다른 드래곤은 20% 덜 맞는다")
 
 
 func test_ward_does_not_reach_other_lanes() -> void:
@@ -225,10 +225,10 @@ func test_ambush_hits_harder_only_from_the_back_row() -> void:
 
 func test_rally_speeds_up_the_other_dragon_in_its_lane_but_not_itself() -> void:
 	var foe: Array = [B._enemy("minion", "fire", 100000, 1, 1000, 0, 400)]
-	## 앞줄 함성(쿨다운 100) + 같은 줄 뒷줄 용(쿨다운 100): 뒷줄 용만 88틱에 친다.
+	## 앞줄 함성(쿨다운 100) + 같은 줄 뒷줄 드래곤(쿨다운 100): 뒷줄 드래곤만 88틱에 친다.
 	var result: Dictionary = Battle.simulate_battle(_cfg(), B._slots([_able("rally", 100000, 1, 100)], [B._solo("fire", 100000, 1, 100)]), foe)
-	assert_eq(int(_hits(result, 0)[0]["tick"]), 100, "함성 용 자신은 그대로")
-	assert_eq(int(_hits(result, 1)[0]["tick"]), 88, "같은 줄의 다른 용은 12% 빨라진다")
+	assert_eq(int(_hits(result, 0)[0]["tick"]), 100, "함성 드래곤 자신은 그대로")
+	assert_eq(int(_hits(result, 1)[0]["tick"]), 88, "같은 줄의 다른 드래곤은 12% 빨라진다")
 	var apart: Dictionary = Battle.simulate_battle(_cfg(), B._slots([_able("rally", 100000, 1, 100), B._solo("fire", 100000, 1, 100)]), foe)
 	assert_eq(int(_hits(apart, 1)[0]["tick"]), 100, "다른 줄에는 닿지 않는다")
 
@@ -245,7 +245,7 @@ func test_enemy_leaders_use_stance_abilities_without_a_row() -> void:
 
 
 func test_rally_does_not_come_from_a_group_that_has_not_appeared() -> void:
-	## 0단계 적 용과, 같은 줄의 2단계 함성 용: 함성 용이 나오기 전에는 빨라지지 않는다.
+	## 0단계 적 드래곤과, 같은 줄의 2단계 함성 드래곤: 함성 드래곤이 나오기 전에는 빨라지지 않는다.
 	var cfg: Dictionary = _cfg()
 	var first: Dictionary = B._enemy("dragon", "fire", 100000, 1, 100, 0, 400)
 	var later: Dictionary = B._enemy("dragon", "fire", 100000, 1, 100, 0, 450)

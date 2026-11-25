@@ -8,7 +8,7 @@ signal changed(events: Array, state: Dictionary)
 var data: Dictionary
 var state: Dictionary
 var busy: bool = false
-## 앞 지역에서 데려온 용({"speciesId", "traits"}). 새 판을 만들 때마다 대기칸에 넣는다.
+## 앞 지역에서 데려온 드래곤({"speciesId", "traits"}). 새 판을 만들 때마다 대기칸에 넣는다.
 var carry: Dictionary = {}
 
 

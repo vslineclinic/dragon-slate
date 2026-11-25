@@ -115,7 +115,7 @@ static func _primary_element(data: Dictionary, species_id: String) -> Variant:
 
 
 ## 진 전투를 되짚어 가장 큰 이유 하나를 고른다: {"kind": 이유, "pct": 비율(해당할 때)}.
-## weakElement = 우리 용의 공격 절반 이상이 약한 상성 / offLane = 넷 중 하나 이상이 다른 줄을 쳐서 약해짐 /
+## weakElement = 우리 드래곤의 공격 절반 이상이 약한 상성 / offLane = 넷 중 하나 이상이 다른 줄을 쳐서 약해짐 /
 ## timeout = 시간이 다 됨 / leaders = 우두머리만 남음 / swarm = 졸병에게 밀림.
 static func defeat_reason(cfg: Dictionary, result: Dictionary) -> Dictionary:
 	var kind_of: Dictionary = {}

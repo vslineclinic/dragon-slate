@@ -1,5 +1,5 @@
 extends TestCase
-## 새는 적, 전투 준비 미리 보기, 수동 궁극기 기록, 졸병 종류, 데려온 용, 저주.
+## 새는 적, 전투 준비 미리 보기, 수동 궁극기 기록, 졸병 종류, 데려온 드래곤, 저주.
 
 const RunRules = preload("res://godot/core/run.gd")
 
@@ -40,7 +40,7 @@ func test_losing_a_battle_uses_the_leak_and_reports_it() -> void:
 			lives = event
 		elif event["t"] == "battle":
 			left = event["result"]["left"]
-	assert_true(not lives.is_empty(), "레벨 10 기본 용 한 마리로는 9웨이브를 못 이긴다")
+	assert_true(not lives.is_empty(), "레벨 10 기본 드래곤 한 마리로는 9웨이브를 못 이긴다")
 	if lives.is_empty():
 		return
 	assert_eq(int(lives["lost"]), RunRules.leak_lives(_data["waves"], left, false))
@@ -123,7 +123,7 @@ func test_a_carried_dragon_starts_on_the_bench_at_level_one_with_its_traits() ->
 	assert_eq([inst["speciesId"], inst["level"], inst["xp"], inst["skills"], inst["skillPoints"]], ["fire_god", 1, 0, {}, 0])
 	assert_eq(inst["traits"], ["tr_fire_wyvern", "tr_fire_drake"], "아는 특성만, 한도까지")
 	assert_eq(state["carry"], "fire_god")
-	## 시작 묶음의 용과 함께 올 수 있다.
+	## 시작 묶음의 드래곤과 함께 올 수 있다.
 	var option: Dictionary = RunRules.start_options(_data, 5)[0]
 	var both: Dictionary = RunRules.create_run(_data, 5, 0, option["id"], carry)["state"]
 	assert_eq([both["bench"][0]["speciesId"], both["bench"][1]["speciesId"]], ["fire_god", option["speciesId"]])

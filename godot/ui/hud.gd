@@ -33,7 +33,7 @@ func setup(store: Store, width: float = 1280.0) -> void:
 	## 전환의 룬: 가지고 있을 때만 보인다.
 	_rune = Control.new()
 	_rune.mouse_filter = Control.MOUSE_FILTER_PASS
-	_rune.tooltip_text = "전환의 룬: 드래곤을 눌러 다른 원소의 같은 용으로 바꿔요"
+	_rune.tooltip_text = "전환의 룬: 드래곤을 눌러 다른 원소의 같은 드래곤으로 바꿔요"
 	GameTheme.place(self, _rune, Rect2(466, 0, 62, 44))
 	GameTheme.place(_rune, Icons.new("transmute", Color("#63e6be"), false), Rect2(0, 10, 24, 24))
 	_rune_count = GameTheme.heading(_rune, Rect2(28, 0, 34, 44), "", 18, Color("#96f2d7"))

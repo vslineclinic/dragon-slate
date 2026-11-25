@@ -1,5 +1,5 @@
 extends RefCounted
-## 화풍 "용 신전": 흑요석 판 · 금박 선 · 양피지색 글자. 제목은 명조(Noto Serif KR), 본문은 고딕(Noto Sans KR).
+## 화풍 "드래곤 신전": 흑요석 판 · 금박 선 · 양피지색 글자. 제목은 명조(Noto Serif KR), 본문은 고딕(Noto Sans KR).
 
 const OrnateBox = preload("res://godot/ui/ornate_box.gd")
 
@@ -127,7 +127,7 @@ static func _species_power(data: Dictionary, species_id: String) -> int:
 	return Waves.unit_power(Battle.to_unit(data, {"speciesId": species_id, "traits": [], "bonusPct": 0}))
 
 
-## 다음 심판 보스의 원소에 그 용이 강한지 약한지: "강함" | "약함" | "". 보스가 없으면 "".
+## 다음 심판 보스의 원소에 그 드래곤이 강한지 약한지: "강함" | "약함" | "". 보스가 없으면 "".
 static func boss_matchup(data: Dictionary, state: Dictionary, species_id: String) -> String:
 	var waves: Dictionary = data["waves"]
 	var wave: int = int(state["wave"])
@@ -252,12 +252,12 @@ static func rarity(weight: int) -> Array:
 	return ["희귀", Color("#ffd75e")]
 
 
-## 도감에 없는 용에 붙이는 "새 용!" 표시(깜빡이는 테두리 + 꼬리표).
+## 도감에 없는 드래곤에 붙이는 "새 드래곤!" 표시(깜빡이는 테두리 + 꼬리표).
 static func new_badge(card: Control, card_size: Vector2) -> void:
 	var edge: Panel = panel(card, Rect2(Vector2(-3, -3), card_size + Vector2(6, 6)), Color.TRANSPARENT, NEW_COLOR, 3, 10)
 	edge.create_tween().set_loops().tween_property(edge, "modulate:a", 0.3, 0.6).from(1.0)
 	var tag: Panel = panel(card, Rect2(card_size.x - 58, -10, 62, 20), Color("#0b3d46"), NEW_COLOR, 2, 8)
-	label(tag, Rect2(0, 0, 62, 20), "새 용!", 12, NEW_COLOR, HORIZONTAL_ALIGNMENT_CENTER)
+	label(tag, Rect2(0, 0, 62, 20), "새 드래곤!", 12, NEW_COLOR, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 static func place(parent: Control, child: Control, rect: Rect2) -> void:

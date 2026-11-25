@@ -93,7 +93,7 @@ static func _choose_reward(data: Dictionary, state: Dictionary) -> Dictionary:
 	return {"type": "chooseReward", "index": best}
 
 
-## 가진 용의 원소별 수(이중 원소는 첫 원소만).
+## 가진 드래곤의 원소별 수(이중 원소는 첫 원소만).
 static func _owned_elements(data: Dictionary, state: Dictionary) -> Dictionary:
 	var counts: Dictionary = {}
 	for inst: Variant in state["nest"] + state["bench"]:
@@ -325,7 +325,7 @@ static func _choose_manage(data: Dictionary, state: Dictionary) -> Dictionary:
 	return {"type": "startBattle"}
 
 
-## 줄 미리보기를 읽고, 같은 열(전열·후열) 안에서 센 용을 적이 많이 몰리는 줄에 세운다. 다 맞으면 빈 사전.
+## 줄 미리보기를 읽고, 같은 열(전열·후열) 안에서 센 드래곤을 적이 많이 몰리는 줄에 세운다. 다 맞으면 빈 사전.
 static func _lane_move(data: Dictionary, state: Dictionary) -> Dictionary:
 	var preview: Array = Waves.lane_preview(data, state["seed"], state["wave"])
 	var lanes: Array = [0, 1, 2]

@@ -20,7 +20,7 @@ func _init() -> void:
 	elif not demo and int(_arg(args, "--stage", "0")) == 0:
 		## 지역도 기본 원정도 아니면 긴 원정(40웨이브).
 		data = Build.for_length(data, "long")
-	## --stage N: N번째 지역(1부터). --carry 종id: 앞 지역에서 데려온 용.
+	## --stage N: N번째 지역(1부터). --carry 종id: 앞 지역에서 데려온 드래곤.
 	var stage_arg: int = int(_arg(args, "--stage", "0"))
 	if stage_arg > 0 and not demo:
 		data = Build.for_stage(data, stage_arg - 1)
@@ -104,7 +104,7 @@ func _init() -> void:
 							rec[1] += 1 if won else 0
 							boss_first[wave] = rec
 		waves_reached += int(state["wave"])
-		## --each: 판마다 한 줄(씨앗, 시작 묶음, 결과, 남은 생명, 둥지의 용).
+		## --each: 판마다 한 줄(씨앗, 시작 묶음, 결과, 남은 생명, 둥지의 드래곤).
 		if args.has("--each"):
 			var roost: PackedStringArray = PackedStringArray()
 			for inst: Variant in state["nest"]:

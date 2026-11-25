@@ -23,7 +23,7 @@ const CRIT_CUT_GAP_MS: int = 900
 const GLANCE: Color = Color("#a9b4c9")
 
 signal finished
-## 수동 궁극기 전투: 지금 쏠 수 있는 용의 수가 바뀌었다.
+## 수동 궁극기 전투: 지금 쏠 수 있는 드래곤의 수가 바뀌었다.
 signal ult_ready(count: int)
 ## 전투 도중 적 무리가 더 나타났다(음악을 급박하게 바꿀 때 쓴다).
 signal reinforced
@@ -199,7 +199,7 @@ func _show_lane_preview(state: Dictionary) -> void:
 	if table.size() >= 3:
 		## 줄 규칙 쪽지: 대기칸 띠 오른쪽 빈 자리에 세 줄로.
 		## 짧은 표로: 제 줄 · 옆줄 · 건너편 순서의 피해 비율. 칸 폭을 넘지 않게 한 줄을 짧게 쓴다.
-		var rule: String = "줄 거리에 따른 피해\n(제 줄 · 옆줄 · 건너편)\n용  %d · %d · %d%%" % [int(table[0]), int(table[1]), int(table[2])]
+		var rule: String = "줄 거리에 따른 피해\n(제 줄 · 옆줄 · 건너편)\n드래곤  %d · %d · %d%%" % [int(table[0]), int(table[1]), int(table[2])]
 		var archer: Array = _data["battle"]["field"].get("roleLanePct", {}).get("back", [])
 		if archer.size() >= 3:
 			rule += "\n사수  %d · %d · %d%%" % [int(archer[0]), int(archer[1]), int(archer[2])]
@@ -251,13 +251,13 @@ func _open_battle(units: Array, boss: bool, wave: int, elite: bool) -> void:
 	set_process(true)
 
 
-## 게이지가 찬 용 모두에게 궁극기를 쏘라고 한다(다음 틱에 나간다).
+## 게이지가 찬 드래곤 모두에게 궁극기를 쏘라고 한다(다음 틱에 나간다).
 func fire_ults() -> void:
 	if _live:
 		_queued = true
 
 
-## 수동 전투에서 궁극기를 쏜 기록: {틱: [용 id]}. startBattle 명령에 그대로 실어 보낸다.
+## 수동 전투에서 궁극기를 쏜 기록: {틱: [드래곤 id]}. startBattle 명령에 그대로 실어 보낸다.
 func ult_record() -> Dictionary:
 	return _ults
 
@@ -359,7 +359,7 @@ func _unit_view(unit: Dictionary) -> UnitView:
 		GameTheme.place(view.root, sprite, Rect2(Vector2.ZERO, view.root.size))
 		view.body = sprite
 	else:
-		## 용은 움직이는 그림(숨 쉬고, 걷고, 머리를 내민다). 호위는 작은 그림 그대로.
+		## 드래곤은 움직이는 그림(숨 쉬고, 걷고, 머리를 내민다). 호위는 작은 그림 그대로.
 		var image: Control = DragonSprite.make(view.root, Rect2(Vector2.ZERO, view.root.size), unit["ref"], ally) if view.kind == "dragon" \
 			else GameTheme.dragon(view.root, Rect2(Vector2.ZERO, view.root.size), unit["ref"], ally)
 		view.body = image if image != null else GameTheme.panel(view.root, Rect2(Vector2.ZERO, view.root.size), GameTheme.COLOR[view.element], Color.WHITE, 2, int(edge / 2))
@@ -494,7 +494,7 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				_flash.color.a = 0.3
 				_flash.create_tween().tween_property(_flash, "color:a", 0.0, 0.3)
 		"heal":
-			## 돌봄: 다친 용 머리 위로 초록 숫자와 빛.
+			## 돌봄: 다친 드래곤 머리 위로 초록 숫자와 빛.
 			var patient: UnitView = _views.get(int(event["dst"]))
 			if patient == null or patient.dead:
 				return
@@ -543,7 +543,7 @@ func _apply(event: Dictionary, animate: bool) -> void:
 			if animate:
 				var strong: bool = int(event["mult"]) > 100
 				var glancing: bool = event.has("lane")
-				## 연속 공격의 두 번째 숨결은 조금 늦게 나간다. 방패막이 막으면 맞은 용에 강철빛 고리.
+				## 연속 공격의 두 번째 숨결은 조금 늦게 나간다. 방패막이 막으면 맞은 드래곤에 강철빛 고리.
 				var follow: float = 0.1 / _store.speed if event.get("via", "") == "twin" else 0.0
 				if event.get("ward", false):
 					_impact(defender.center, GameTheme.COLOR["steel"], 0)
@@ -586,7 +586,7 @@ func _callout(text: String, tint: Color, outline: Color) -> void:
 	show.tween_callback(banner.queue_free)
 
 
-## 유닛 머리 위에 뜨는 이름표(치명타를 낸 용).
+## 유닛 머리 위에 뜨는 이름표(치명타를 낸 드래곤).
 func _name_tag(view: UnitView, text: String, tint: Color) -> void:
 	if _store.speed >= 4:
 		return
@@ -625,7 +625,7 @@ func _impact(at: Vector2, tint: Color, power: int) -> void:
 		burst.chain().tween_callback(ring.queue_free)
 
 
-## 용의 공격: 고개를 젖혔다가 머리를 내밀며 원소 숨결을 쏜다. 숨결이 닿을 때 숫자가 뜬다.
+## 드래곤의 공격: 고개를 젖혔다가 머리를 내밀며 원소 숨결을 쏜다. 숨결이 닿을 때 숫자가 뜬다.
 ## power: 0 보통, 1 치명타, 2 궁극기. glancing = 다른 줄을 쳐서 약해진 공격.
 func _breath(attacker: UnitView, defender: UnitView, strong: bool, damage: int, power: int = 0, glancing: bool = false, follow: float = 0.0) -> void:
 	var sprite: DragonSprite = attacker.body as DragonSprite
@@ -732,7 +732,7 @@ func _number_done(number: Label) -> void:
 	number.queue_free()
 
 
-## 컷인: 화면을 살짝 가라앉히고 그 용의 그림을 잠깐(0.2초) 크게 보여 준다. 전투는 멈추지 않는다.
+## 컷인: 화면을 살짝 가라앉히고 그 드래곤의 그림을 잠깐(0.2초) 크게 보여 준다. 전투는 멈추지 않는다.
 ## grand = 궁극기(가운데 큰 띠), 아니면 치명타(위쪽 작은 띠). 방금 뜬 컷인이 있으면 치명타는 건너뛰고 false.
 func _cut_in(view: UnitView, title: String, line: String, grand: bool) -> bool:
 	if view.ref.is_empty() or (_store.speed >= 4 and not grand):
@@ -764,7 +764,7 @@ func _cut_in(view: UnitView, title: String, line: String, grand: bool) -> bool:
 		dim.color = Color(0, 0, 0, 0.3)
 		dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		GameTheme.place(card, dim, Rect2(Vector2.ZERO, size))
-	## 띠: 용이 있는 쪽이 짙고 반대쪽으로 흐려진다. 위아래에 원소색 줄.
+	## 띠: 드래곤이 있는 쪽이 짙고 반대쪽으로 흐려진다. 위아래에 원소색 줄.
 	var near: Color = Color(0.03, 0.02, 0.06, 0.94)
 	var shade: Gradient = Gradient.new()
 	shade.offsets = PackedFloat32Array([0.0, 0.55, 1.0])

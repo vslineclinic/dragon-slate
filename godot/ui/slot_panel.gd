@@ -289,7 +289,7 @@ func _draw_offers(state: Dictionary) -> void:
 			var brief: Dictionary = GameTheme.dragon_brief(_ctl.data, id)
 			var title: Label = GameTheme.label(card, Rect2(62, 1, text_w, 20), spec["nameKo"] + " 알", 14)
 			title.clip_text = true
-			## 전투력은 둘째 줄 맨 앞에("새 용!" 꼬리표가 오른쪽 위를 쓴다).
+			## 전투력은 둘째 줄 맨 앞에("새 드래곤!" 꼬리표가 오른쪽 위를 쓴다).
 			var power: Label = GameTheme.label(card, Rect2(62, 19, 40, 18), "⚔%d" % int(brief["power"]), 13, Color("#ffd8a8"))
 			power.add_theme_font_override("font", GameTheme.bold_font())
 			GameTheme.label(card, Rect2(102, 20, text_w - 40, 16), "%s · %s · %s" % [brief["tier"], brief["role"], brief["grade"]], 11, brief["gradeColor"])
@@ -318,7 +318,7 @@ func _draw_offers(state: Dictionary) -> void:
 		if is_reco:
 			var spec: Dictionary = _ctl.data["dragons"].get(reco.get("result"), {})
 			## 추천 이유는 넷째 줄 오른쪽에(다른 줄의 글자와 겹치지 않는다). 길면 잘리고, 전문은 마우스를 올리면 보인다.
-			var long_why: String = "추천: 가진 용과 합치면 %s(으)로 진화해요" % spec.get("nameKo", "윗계급 용") if reco["reason"] == "recipe" else "추천: 가진 용과 같은 원소예요"
+			var long_why: String = "추천: 가진 드래곤과 합치면 %s(으)로 진화해요" % spec.get("nameKo", "윗계급 드래곤") if reco["reason"] == "recipe" else "추천: 가진 드래곤과 같은 원소예요"
 			var why: String = "추천 → " + spec.get("nameKo", "진화") if reco["reason"] == "recipe" else "추천 · 같은 원소"
 			var tag: Label = GameTheme.label(card, Rect2(126, 50, card_w - 134, 16), why, 11, Color("#ffe066"), HORIZONTAL_ALIGNMENT_RIGHT)
 			tag.clip_text = true

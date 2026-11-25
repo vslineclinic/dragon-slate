@@ -61,7 +61,7 @@ func test_hawkeye_reaches_the_battle_through_the_run() -> void:
 						count += 1
 		lane_hits.append(count)
 	assert_true(int(lane_hits[0]) > 0, "유물이 없으면 다른 줄을 칠 때 약해진다")
-	assert_eq(int(lane_hits[1]), 0, "매의 눈이 있으면 후열 용은 약해지지 않는다")
+	assert_eq(int(lane_hits[1]), 0, "매의 눈이 있으면 후열 드래곤은 약해지지 않는다")
 
 
 func _rune_state(relics: Array) -> Dictionary:

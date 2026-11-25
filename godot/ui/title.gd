@@ -47,7 +47,7 @@ func _ready() -> void:
 	var stage: Control = Control.new()
 	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	GameTheme.place(_menu, stage, Rect2(left, 0, 1280, 720))
-	## 양옆의 두 용: 뒤에 원소 빛을 깔아 배경에서 떠오르게 한다.
+	## 양옆의 두 드래곤: 뒤에 원소 빛을 깔아 배경에서 떠오르게 한다.
 	for hero: Array in [["zhulong", 30.0, true, "fire"], ["kuraokami", 930.0, false, "ice"]]:
 		GameTheme.glow(stage, Vector2(hero[1] + 160.0, 410.0), 250.0, Color(GameTheme.COLOR[hero[3]], 0.3))
 		var sprite: TextureRect = GameTheme.dragon(stage, Rect2(hero[1], 250, 320, 320), hero[0], hero[2])
@@ -138,7 +138,7 @@ func _continue() -> void:
 	_game.store = _store
 	_game.calamity = int(_saved["state"]["calamity"])
 	_game.run_length = length
-	## "이 지역 다시"를 누를 때도 데려온 용이 함께 오게.
+	## "이 지역 다시"를 누를 때도 데려온 드래곤이 함께 오게.
 	if length.begins_with("stage:"):
 		_game.controller.carry = _store.carry_for(int(length.substr(6)))
 	_game.resume = true
@@ -187,7 +187,7 @@ func _show_length() -> void:
 		intro += "\n" + str(data["waves"]["stageRule"])
 		var carry: Dictionary = _store.carry_for(index)
 		if _data["dragons"].has(carry.get("speciesId", "")):
-			intro += "\n데려가는 용: " + str(_data["dragons"][carry["speciesId"]]["nameKo"])
+			intro += "\n데려가는 드래곤: " + str(_data["dragons"][carry["speciesId"]]["nameKo"])
 	else:
 		_length_button.text = "긴 원정 · %d웨이브  ⇄" % waves
 	_intro.text = intro
@@ -232,7 +232,7 @@ func _start() -> void:
 	_game.store = _store
 	_game.calamity = _level
 	_game.run_length = "long" if OS.has_feature("demo") else _mode()
-	## 둘째 지역부터는 앞 지역에서 고른 용 한 마리를 데려간다.
+	## 둘째 지역부터는 앞 지역에서 고른 드래곤 한 마리를 데려간다.
 	if _game.run_length.begins_with("stage:"):
 		_game.controller.carry = _store.carry_for(int(_game.run_length.substr(6)))
 	_game.title_requested.connect(_return_to_title)

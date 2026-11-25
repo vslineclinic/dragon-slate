@@ -8,7 +8,7 @@ const PATH: String = "user://test_run_save.json"
 var _data: Dictionary = GameData.load_all()
 
 
-## 봇으로 몇 수 둔 판(용 · 석판 · 유물이 조금 쌓인 상태).
+## 봇으로 몇 수 둔 판(드래곤 · 석판 · 유물이 조금 쌓인 상태).
 func _played(seed: int, steps: int) -> Dictionary:
 	var state: Dictionary = Run.create_run(_data, seed, 0, Run.start_options(_data, seed)[0]["id"])["state"]
 	## 판이 끝나기 직전에서 멈춘다(끝난 판은 저장하지 않으므로).

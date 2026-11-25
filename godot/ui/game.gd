@@ -145,7 +145,7 @@ func _build_panels() -> void:
 	if is_instance_valid(_ult_button):
 		_ult_button.queue_free()
 	_ult_button = GameTheme.cta(self, _areas["spin"], "궁극기 충전 중", _fire_ults, "mystic", 22)
-	_ult_button.tooltip_text = "게이지가 찬 용이 모두 궁극기를 써요 (스페이스 키)"
+	_ult_button.tooltip_text = "게이지가 찬 드래곤이 모두 궁극기를 써요 (스페이스 키)"
 	_ult_button.visible = _live_battle
 	if is_instance_valid(_ult_toggle):
 		_ult_toggle.queue_free()
@@ -254,7 +254,7 @@ func _on_change(events: Array, state: Dictionary) -> void:
 					_shop_note = "석판의 %s 룬을 %s 룬으로 바꿨어요." % [GameTheme.SYMBOL_LABEL.get(event["from"], event["from"]), GameTheme.SYMBOL_LABEL.get(event["to"], event["to"])]
 			"item":
 				if event["id"] == "transmute" and int(event["delta"]) > 0:
-					flash("전환의 룬을 얻었어요!\n드래곤을 눌러 다른 원소의 같은 용으로 바꿀 수 있어요.")
+					flash("전환의 룬을 얻었어요!\n드래곤을 눌러 다른 원소의 같은 드래곤으로 바꿀 수 있어요.")
 			"transmuted":
 				if event["ok"]:
 					store.mark_discovered(event["to"])
@@ -445,14 +445,14 @@ func _complete_battle() -> void:
 func _defeat_text(reason: Dictionary) -> String:
 	match reason["kind"]:
 		"weakElement":
-			return "진 이유: 상성에서 밀렸어요.\n우리 용의 공격 %d%%가 약한 상성이었어요. 전환의 룬이나 다른 원소 용을 써 보세요." % int(reason["pct"])
+			return "진 이유: 상성에서 밀렸어요.\n우리 드래곤의 공격 %d%%가 약한 상성이었어요. 전환의 룬이나 다른 원소 드래곤을 써 보세요." % int(reason["pct"])
 		"offLane":
-			return "진 이유: 줄이 어긋났어요.\n우리 용의 공격 %d%%가 다른 줄을 쳐서 약해졌어요. 적이 몰리는 줄에 용을 세워 보세요." % int(reason["pct"])
+			return "진 이유: 줄이 어긋났어요.\n우리 드래곤의 공격 %d%%가 다른 줄을 쳐서 약해졌어요. 적이 몰리는 줄에 드래곤을 세워 보세요." % int(reason["pct"])
 		"timeout":
 			return "진 이유: 시간이 다 됐어요.\n버티기는 했지만 화력이 모자랐어요."
 		"leaders":
-			return "진 이유: 우두머리를 못 잡았어요.\n우두머리가 오는 줄에 가장 센 용을 세워 보세요."
-	return "진 이유: 졸병에게 밀렸어요.\n적이 몰리는 줄에 용을 더 세우거나 합쳐서 키워 보세요."
+			return "진 이유: 우두머리를 못 잡았어요.\n우두머리가 오는 줄에 가장 센 드래곤을 세워 보세요."
+	return "진 이유: 졸병에게 밀렸어요.\n적이 몰리는 줄에 드래곤을 더 세우거나 합쳐서 키워 보세요."
 
 
 func _open_dex() -> void:
@@ -539,7 +539,7 @@ func _show_reward_choices(state: Dictionary) -> void:
 		var chance_color: Color = GameTheme.DIM
 		if is_egg:
 			var share: float = _species_share(choice["detail"])
-			chance += ("" if chance.is_empty() else "\n그중 ") + "이 용일 확률 %.1f%%" % (share * 100.0)
+			chance += ("" if chance.is_empty() else "\n그중 ") + "이 드래곤일 확률 %.1f%%" % (share * 100.0)
 			chance_color = GameTheme.rarity(Slot.species_weight(controller.data, choice["detail"]))[1] if reward["kind"] == "egg" else GameTheme.DIM
 			if not store.discovered().has(choice["detail"]):
 				GameTheme.new_badge(card, card.size)
@@ -647,7 +647,7 @@ func _shop_view(item: Dictionary, state: Dictionary) -> Dictionary:
 				"body": "내 석판에서 룬 하나를 빼요. 남은 룬이 더 자주 나와요"}
 		"transmute":
 			return {"title": item["nameKo"], "tint": GameTheme.NEW_COLOR, "icon": "transmute",
-				"body": "드래곤 하나를 다른 원소의 같은 용으로 바꿔요 (성공 %d%%)" % Run.transmute_chance(controller.data, state)}
+				"body": "드래곤 하나를 다른 원소의 같은 드래곤으로 바꿔요 (성공 %d%%)" % Run.transmute_chance(controller.data, state)}
 		"life":
 			return {"title": item["nameKo"], "tint": GameTheme.EMBER.lightened(0.4), "icon": "life",
 				"body": "생명 +%d\n(지금 %d / %d)" % [amount, int(state["lives"]), int(controller.data["waves"]["startLives"])]}
@@ -759,7 +759,7 @@ func _choose_lineage(command: Dictionary) -> void:
 	controller.dispatch(command)
 
 
-## 새 판의 시작 묶음 고르기: 이번 판에 나온 원소 묶음 셋(용 한 마리와 함께) 또는 기본 묶음.
+## 새 판의 시작 묶음 고르기: 이번 판에 나온 원소 묶음 셋(드래곤 한 마리와 함께) 또는 기본 묶음.
 func _show_start_choices(state: Dictionary) -> void:
 	var options: Array = Run.start_options(controller.data, int(state["seed"]))
 	if options.is_empty():
@@ -785,7 +785,7 @@ func _show_start_choices(state: Dictionary) -> void:
 		GameTheme.label(card, Rect2(8, 240, card.size.x - 16, 20), "대신 %s 룬은 %d장씩" % [" · ".join(fewer), int(focus["beaten"])], 12, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 	var mid: float = field.size.x / 2.0
 	GameTheme.cta(_reward_overlay, Rect2(mid - 150, 500, 300, 46), "고르게 섞인 묶음으로", _choose_start.bind(""), "mystic", 18)
-	GameTheme.label(_reward_overlay, Rect2(0, 550, field.size.x, 20), "모든 원소 2장씩. 용 없이 시작해요.", 13, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	GameTheme.label(_reward_overlay, Rect2(0, 550, field.size.x, 20), "모든 원소 2장씩. 드래곤 없이 시작해요.", 13, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 ## 이름 뒤에 "와/과"를 받침에 맞춰 붙인다.
@@ -919,13 +919,13 @@ func _reward_preview(reward: Dictionary, detail: Variant) -> String:
 		"egg", "t2egg":
 			if detail == null:
 				return "드래곤 알을 받아요"
-			## 어떤 용인지 한눈에: 등급 · 역할 · 전투력 · 강한 편인지.
+			## 어떤 드래곤인지 한눈에: 등급 · 역할 · 전투력 · 강한 편인지.
 			var brief: Dictionary = GameTheme.dragon_brief(controller.data, detail)
 			return "%s 알을 받아요\n%s · %s · ⚔%d · %s" % [_dragon_name(detail), brief["tier"], brief["role"], int(brief["power"]), brief["grade"]]
 		"trait": return "드래곤 하나가 새 계승 특성을 얻어요"
 		"nudge": return "다음 웨이브에 밀기 +%d" % amount
 		"freeSpin": return "다시 돌리기 %d회 무료" % amount
-		"transmute": return "드래곤 하나를 다른 원소의 같은 용으로 바꿔요 (성공 %d%%)" % int(controller.data["waves"].get("transmute", {}).get("successPct", 100))
+		"transmute": return "드래곤 하나를 다른 원소의 같은 드래곤으로 바꿔요 (성공 %d%%)" % int(controller.data["waves"].get("transmute", {}).get("successPct", 100))
 		"rune": return "내 석판의 룬 하나를 %s 룬으로 바꿔요" % GameTheme.SYMBOL_LABEL.get(detail, "새") if detail != null else "마력 +3"
 		"erase":
 			var least: int = int(controller.data["slot"].get("slab", {}).get("minSize", 0))

@@ -134,7 +134,7 @@ func _init() -> void:
 				ctl.state["discovered"] = ["fafnir", "zhulong", "fire_whelp"]
 				ctl.state["phase"] = "victory"
 				if mode == "stageclear":
-					## 지역을 깬 화면: 별과 데려갈 용 고르기.
+					## 지역을 깬 화면: 별과 데려갈 드래곤 고르기.
 					scene.set("run_length", "stage:0")
 					ctl.state["livesLost"] = 1
 					ctl.state["bench"][0] = {"uid": 990, "speciesId": "ice_wyvern", "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": 0, "level": 6, "xp": 0}
