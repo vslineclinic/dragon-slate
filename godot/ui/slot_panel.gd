@@ -31,6 +31,7 @@ class LineOverlay extends Control:
 				draw_circle(point, 9, Color.WHITE, true, -1.0, true)
 				draw_circle(point, 6, color, true, -1.0, true)
 
+var _line_due: bool = false
 var _ctl: Controller
 var _store: Store
 var _layer: Control
@@ -180,10 +181,9 @@ func _draw_grid(state: Dictionary, grid: Dictionary, recommendation: Variant, an
 		var stop: float = (0.6 + col * 0.18) * pace
 		_opening.tween_property(strip, "position:y", float(-SPIN_EXTRA * STRIDE_Y), stop).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		_opening.tween_callback(_land.bind(strip)).set_delay(stop * 0.8)
-	var matched: bool = not SlotRules.evaluate_lines(grid).is_empty()
+	_line_due = not SlotRules.evaluate_lines(grid).is_empty()
 	_opening.chain().tween_callback(_unlock.bind(skip))
-	if matched:
-		_opening.tween_callback(func() -> void: Sfx.play(get_tree(), "line"))
+	_opening.tween_callback(_play_line)
 	_opening.tween_property(lines, "modulate:a", 0.9, 0.22)
 	_opening.tween_property(_offers_layer, "modulate:a", 1.0, 0.22)
 
@@ -228,7 +228,15 @@ func _cell_egg(parent: Control, at: Vector2, symbol: String) -> Control:
 	return egg
 
 
+## 줄 맞춤 소리는 석판이 멈출 때 한 번(건너뛰어도 난다).
+func _play_line() -> void:
+	if _line_due:
+		_line_due = false
+		Sfx.play(get_tree(), "line")
+
+
 func _finish_opening(skip: Button) -> void:
+	_play_line()
 	_unlock(skip)
 	render(_ctl.state, [])
 

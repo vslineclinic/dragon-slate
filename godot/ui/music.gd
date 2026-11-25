@@ -61,6 +61,8 @@ func current_set() -> String:
 func cycle_set() -> String:
 	_set = SETS[(SETS.find(_set) + 1) % SETS.size()]
 	var config: ConfigFile = ConfigFile.new()
+	## 같은 파일에 효과음 설정도 있다: 읽어서 음악 칸만 바꾼다.
+	config.load(SETTINGS_PATH)
 	config.set_value("music", "set", _set)
 	config.save(SETTINGS_PATH)
 	_start()

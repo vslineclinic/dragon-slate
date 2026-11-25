@@ -207,7 +207,9 @@ func _on_change(events: Array, state: Dictionary) -> void:
 	var leveled: int = 0
 	var shop_opened: bool = false
 	var relic_gained: String = ""
-	_play_cue(events)
+	## 전투 결과가 든 변화는 승패 소리가 대신한다(레벨 업 · 보상 소리가 전투 재생 전에 나지 않게).
+	if not events.any(func(e: Dictionary) -> bool: return e["t"] == "battle"):
+		_play_cue(events)
 	for event: Dictionary in events:
 		match event["t"]:
 			"shop":
@@ -417,8 +419,6 @@ func _show_sfx() -> void:
 
 ## 일반 전투에서 적이 더 몰려오면 급박한 곡으로 바꾼다. 보스전은 처음부터 보스 곡이다.
 func _on_reinforced() -> void:
-	if controller.busy:
-		Sfx.play(get_tree(), "horn")
 	if not _boss_fight and controller.busy:
 		Music.get_for(get_tree()).play("battle_rush")
 

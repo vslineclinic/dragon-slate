@@ -262,5 +262,7 @@ func _return_to_title() -> void:
 	_select_level(0)
 	_show_continue()
 	_show_length()
+	_show_sfx()
+	_music_button.text = Music.SET_KO[Music.get_for(get_tree()).current_set()]
 	_menu.show()
 	_start_button.grab_focus()

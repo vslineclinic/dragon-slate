@@ -452,6 +452,7 @@ func _apply(event: Dictionary, animate: bool) -> void:
 					view.root.create_tween().tween_property(view.root, "modulate:a", 1.0, 0.3 / _store.speed)
 			reinforced.emit()
 			if animate:
+				Sfx.play(get_tree(), "horn")
 				_say("%d번째 무리 등장! (%d / %d)" % [int(event["stage"]) + 1, int(event["stage"]) + 1, int(event["total"])])
 				_flash.color.a = 0.18
 				_flash.create_tween().tween_property(_flash, "color:a", 0.0, 0.35)
@@ -550,7 +551,6 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				var follow: float = 0.1 / _store.speed if event.get("via", "") == "twin" else 0.0
 				if event.get("ward", false):
 					_impact(defender.center, GameTheme.COLOR["steel"], 0)
-				Sfx.play(get_tree(), "crit" if event.get("crit", false) else ("hit_strong" if strong or event.get("ult", false) else "hit"), 0.92 + 0.04 * float(int(event["dst"]) % 5))
 				if event.get("ult", false):
 					_breath(attacker, defender, true, int(event["dmg"]), 2)
 				elif event.get("crit", false):
@@ -668,6 +668,8 @@ func _lunge(attacker: UnitView, defender: UnitView) -> void:
 func _hit(view: UnitView, damage: int, color: Color, strong: bool, power: int = 0, tint: Color = Color.WHITE) -> void:
 	if view.dead and view.root.modulate.a <= 0.0:
 		return
+	## 소리는 맞는 순간에(숨결이 날아가는 동안이 아니라).
+	Sfx.play(get_tree(), "crit" if power == 1 else ("hit_strong" if strong or power == 2 else "hit"), 0.92 + 0.04 * float(view.pops % 5))
 	if view.kind == "dragon" or power > 0:
 		_impact(view.center, tint, power)
 	if not view.dead:
