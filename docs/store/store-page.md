@@ -1,4 +1,4 @@
-# Wyrmslot Steam 상점 페이지 초안
+# Dragon Slate Steam 상점 페이지 초안
 
 2026-11-24 고침: 방향 B(석판 짜기 + 드래곤 계보 + 줄 전투)에 맞춰 다시 썼어요. 영어 문장은 코덱스 검토 11건을 반영했어요(2026-11-24).
 
@@ -147,4 +147,4 @@ The planned price for the full game is around US$9.99. The free demo covers the 
 | 13–18초 | 숨결, 피해 숫자, 궁극기 컷인. |
 | 18–23초 | 드래곤 둘을 합쳐 두 갈래 가운데 하나를 고른다. 새 드래곤 발견. |
 | 23–27초 | 심판 보스전과 유물 선택. |
-| 27–30초 | Wyrmslot 제목과 「무료 데모 · 10웨이브」. 영문판에는 “Free Demo · 10 Waves”. |
+| 27–30초 | Dragon Slate 제목과 「무료 데모 · 10웨이브」. 영문판에는 “Free Demo · 10 Waves”. |

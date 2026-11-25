@@ -1,4 +1,4 @@
-# Wyrmslot — Codex 작업 규칙
+# Dragon Slate(예전 이름 Wyrmslot) — Codex 작업 규칙
 
 설계: `docs/superpowers/specs/2026-11-23-wyrmslot-design.md` · 계획: `docs/superpowers/plans/2026-11-23-phase0-prototype.md` · 작업 카드: `docs/tasks/`
 

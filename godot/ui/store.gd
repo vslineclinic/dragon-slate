@@ -8,6 +8,20 @@ const DEMO_RUN_PATH: String = "user://run_demo.json"
 const RUN_VERSION: int = 2
 const RUN_PHASES: Array[String] = ["spin", "pick", "manage", "reward", "relic", "fork", "slab", "shop"]
 
+## 게임 이름이 Wyrmslot이던 때의 저장 폴더(app_userdata/Wyrmslot)에서 저장을 한 번 옮겨 온다.
+## 새 폴더에 설정 파일이 이미 있으면 아무것도 하지 않는다. 옛 파일은 지우지 않고 복사만 한다.
+static func carry_over_old_saves() -> void:
+	if autosave_off or OS.has_feature("web") or FileAccess.file_exists(PATH):
+		return
+	var old_dir: String = OS.get_user_data_dir().get_base_dir().path_join("Wyrmslot")
+	if old_dir == OS.get_user_data_dir() or not DirAccess.dir_exists_absolute(old_dir):
+		return
+	for file: String in ["wyrmslot.cfg", "wyrmslot-music.cfg", "run.json", "run_demo.json"]:
+		var from: String = old_dir.path_join(file)
+		if FileAccess.file_exists(from):
+			DirAccess.copy_absolute(from, ProjectSettings.globalize_path("user://" + file))
+
+
 ## 화면 캡처 · 메모리 측정 같은 도구가 켠다: 하던 판 저장 파일을 쓰지도 지우지도 않는다(사용자의 저장을 지킨다).
 static var autosave_off: bool = false
 

@@ -30,6 +30,7 @@ var _max_level: int = 0
 
 
 func _ready() -> void:
+	Store.carry_over_old_saves()
 	_data = Build.load_data()
 	_store = Store.new()
 	_max_level = Build.max_calamity(_data)
@@ -91,7 +92,7 @@ func _logo(stage: Control) -> void:
 	var font: FontVariation = FontVariation.new()
 	font.base_font = GameTheme.serif_font(900)
 	font.spacing_glyph = 10
-	var heading: Label = GameTheme.label(stage, Rect2(140, 96, 1000, 140), "WYRMSLOT", 104, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	var heading: Label = GameTheme.label(stage, Rect2(140, 96, 1000, 140), "DRAGON SLATE", 88, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	heading.add_theme_font_override("font", font)
 	heading.add_theme_color_override("font_outline_color", Color("#2a1405"))
 	heading.add_theme_constant_override("outline_size", 14)

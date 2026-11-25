@@ -7,7 +7,7 @@ npm run godot:web
 ```
 
 `release-godot-web/`에 웹판이 생겨요(약 88MB). 스레드를 쓰지 않는 판이라 서버에 특별한 설정(SharedArrayBuffer, COOP/COEP 헤더)이 없어도 돌아가요.
-올릴 묶음은 이 폴더 안의 파일을 zip으로 묶은 것이에요(`release-godot/Wyrmslot-web.zip`, 약 55MB, `index.html`이 zip 맨 위에 있어야 해요).
+올릴 묶음은 이 폴더 안의 파일을 zip으로 묶은 것이에요(`release-godot/DragonSlate-web.zip`, 약 55MB, `index.html`이 zip 맨 위에 있어야 해요).
 
 내 컴퓨터에서 확인: 미리보기 설정 `wyrmslot-web`(`.claude/launch.json`) 또는
 `python -m http.server 8765 --directory release-godot-web` → http://localhost:8765
@@ -17,7 +17,7 @@ npm run godot:web
 
 1. itch.io에 로그인 → 오른쪽 위 메뉴 → **Upload new project**
 2. **Kind of project**: HTML
-3. **Uploads**: `Wyrmslot-web.zip`을 올리고 **This file will be played in the browser**에 체크
+3. **Uploads**: `DragonSlate-web.zip`을 올리고 **This file will be played in the browser**에 체크
 4. **Embed options**: Viewport 1280 × 720, **Fullscreen button** 체크. SharedArrayBuffer 항목은 켜지 않아도 돼요.
 5. **Visibility & access**: **Restricted** → 비밀번호를 정해요. 시험해 줄 사람에게 주소와 비밀번호를 함께 보내요.
 6. 저장 → **View page**로 열어 첫 화면까지 뜨는지 확인

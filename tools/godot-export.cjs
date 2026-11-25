@@ -3,12 +3,12 @@ const { execFileSync } = require('node:child_process');
 const { mkdirSync, writeFileSync } = require('node:fs');
 const GODOT = 'C:/claude/tools/godot/Godot_v4.7.2-stable_win64_console.exe';
 const jobs = process.argv[2] === 'android'
-  ? [['Android', 'release-godot-android', 'Wyrmslot-debug.apk', '--export-debug']]
+  ? [['Android', 'release-godot-android', 'DragonSlate-debug.apk', '--export-debug']]
   : process.argv[2] === 'web'
   ? [['Web', 'release-godot-web', 'index.html', '--export-release']]
   : [
-      ['Windows', 'release-godot', 'Wyrmslot.exe', '--export-release'],
-      ['Windows Demo', 'release-godot-demo', 'Wyrmslot Demo.exe', '--export-release'],
+      ['Windows', 'release-godot', 'Dragon Slate.exe', '--export-release'],
+      ['Windows Demo', 'release-godot-demo', 'Dragon Slate Demo.exe', '--export-release'],
     ];
 for (const [preset, dir, file, mode] of jobs) {
   mkdirSync(dir, { recursive: true });

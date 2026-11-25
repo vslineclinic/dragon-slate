@@ -1,4 +1,6 @@
-# Wyrmslot (드래곤 룬 석판 로그라이트)
+# Dragon Slate (드래곤 룬 석판 로그라이트, 예전 이름 Wyrmslot)
+
+게임 이름은 2026-11-25부터 **Dragon Slate**(사용자 결정). 저장 파일 이름(`user://wyrmslot*.cfg`)과 안드로이드 패키지 id(`com.wyrmslot.game`)는 옛 이름 그대로 둔다(바꾸면 저장 · 설치가 끊긴다). 옛 저장 폴더는 `Store.carry_over_old_saves`가 한 번 복사해 온다.
 
 설계: `docs/superpowers/specs/2026-11-23-wyrmslot-design.md` · 현재 계획: `docs/superpowers/plans/2026-11-23-phase0-prototype.md`
 
