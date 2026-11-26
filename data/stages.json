@@ -4,38 +4,34 @@
     "nameKo": "잊힌 평원",
     "scene": "plains_ruins",
     "ambience": "pollen",
-    "ruleKo": "지역 규칙 없음. 석판과 줄을 익히는 곳이에요.",
+    "ruleKo": "지역 규칙 없음. 10웨이브 동안 석판과 줄을 익히는 곳이에요.",
     "bosses": [
       5,
-      10,
-      15,
-      20
+      10
     ],
     "waves": {
+      "maxWave": 10,
+      "nestUnlockAfter": [
+        2,
+        4,
+        7
+      ],
       "growthBands": [
         {
           "from": 2,
-          "pct": 125
+          "pct": 128
         },
         {
           "from": 9,
           "pct": 123
-        },
-        {
-          "from": 15,
-          "pct": 117
         }
       ],
       "bossPct": {
-        "5": 113,
-        "10": 135,
-        "15": 110,
-        "20": 112
+        "5": 115,
+        "10": 160
       },
       "elitePct": {
-        "7": 115,
-        "13": 110,
-        "17": 105
+        "7": 110
       }
     },
     "battleRules": {}

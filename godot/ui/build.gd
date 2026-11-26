@@ -2,20 +2,19 @@ extends RefCounted
 
 const MAX_WAVE: int = 10
 const MAX_CALAMITY: int = 1
-const FINAL_BOSS_PCT: int = 105
 
 
 static func load_data() -> Dictionary:
 	return apply(GameData.load_all(), OS.has_feature("demo"))
 
 
-## 데모판: 첫 지역(잊힌 평원)의 처음 10웨이브. 지역 자료가 없으면 원래 자료의 처음 10웨이브.
+## 데모판: 첫 지역(잊힌 평원) 그대로(10웨이브). 지역 자료가 없으면 원래 자료의 처음 10웨이브.
 static func apply(data: Dictionary, demo: bool) -> Dictionary:
 	if not demo:
 		return data
 	var result: Dictionary = for_stage(data, 0).duplicate(true) if not data.get("stages", []).is_empty() else data.duplicate(true)
-	result["waves"]["maxWave"] = MAX_WAVE
-	result["waves"]["bossPct"][str(MAX_WAVE)] = FINAL_BOSS_PCT
+	## 1지역이 이미 10웨이브라 데모판은 1지역과 같다(지역 자료가 없을 때만 여기서 자른다).
+	result["waves"]["maxWave"] = mini(MAX_WAVE, int(result["waves"]["maxWave"]))
 	var levels: Array = []
 	for calamity: Dictionary in result["calamity"]:
 		if calamity["level"] <= MAX_CALAMITY:
@@ -76,7 +75,7 @@ static func for_stage(data: Dictionary, index: int) -> Dictionary:
 		waves[key] = stage["waves"][key]
 	for key: String in stage.get("squad", {}):
 		waves["squad"][key] = stage["squad"][key]
-	## 보스: 그 지역이 고른 보스 넷을 5 · 10 · 15 · 20웨이브에 세운다.
+	## 보스: 그 지역이 고른 보스를 5웨이브마다(5 · 10 · 15 · 20) 차례로 세운다. 1지역은 10웨이브라 둘.
 	var picked: Array = []
 	var from: Array = stage.get("bosses", [])
 	for k: int in range(from.size()):

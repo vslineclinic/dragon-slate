@@ -8,8 +8,8 @@ func test_demo_overrides() -> void:
 	var original: Dictionary = data.duplicate(true)
 	var demo: Dictionary = Build.apply(data, true)
 	assert_eq(demo["waves"]["maxWave"], 10)
-	assert_eq(demo["waves"]["bossPct"]["10"], 105)
-	assert_eq(demo["waves"]["bossPct"]["5"], original["waves"]["bossPct"]["5"])
+	## 데모판은 1지역(10웨이브)과 같은 난이도.
+	assert_eq(demo["waves"]["bossPct"], Build.for_stage(original, 0)["waves"]["bossPct"])
 	assert_eq(Build.max_calamity(demo), 1)
 	assert_eq(demo["calamity"].size(), 1)
 	assert_eq(data, original)
@@ -56,6 +56,9 @@ func test_demo_is_the_first_ten_waves_of_the_first_region() -> void:
 	assert_eq(demo["waves"]["stageName"], first["waves"]["stageName"])
 	assert_eq(demo["waves"]["nestUnlockAfter"], first["waves"]["nestUnlockAfter"])
 	assert_eq(demo["battle"]["level"]["evolveLevel"], first["battle"]["level"]["evolveLevel"])
+	assert_eq(first["waves"]["maxWave"], 10, "1지역은 익히는 곳이라 10웨이브")
+	assert_eq(demo["waves"]["bossPct"], first["waves"]["bossPct"], "데모판은 1지역과 같은 난이도")
+	assert_eq(first["bosses"].map(func(b: Dictionary) -> int: return int(b["wave"])), [5, 10])
 
 
 func test_standard_run_can_be_played_to_the_end_by_the_bot() -> void:
@@ -82,7 +85,7 @@ func test_changing_the_standard_run_does_not_leak_into_the_original() -> void:
 	assert_eq(data, original)
 
 
-func test_there_are_four_regions_and_each_is_a_twenty_wave_run_with_its_own_bosses() -> void:
+func test_there_are_four_regions_and_each_has_its_own_bosses() -> void:
 	var data: Dictionary = GameData.load_all()
 	var original: Dictionary = data.duplicate(true)
 	assert_eq(data["stages"].size(), 4)
@@ -90,16 +93,18 @@ func test_there_are_four_regions_and_each_is_a_twenty_wave_run_with_its_own_boss
 	for index: int in range(4):
 		var stage: Dictionary = Build.for_stage(data, index)
 		var waves: Dictionary = stage["waves"]
-		assert_eq([waves["maxWave"], waves["stage"]], [20, index])
+		## 1지역은 익히는 곳이라 10웨이브, 나머지는 20웨이브.
+		var last: int = 10 if index == 0 else 20
+		assert_eq([waves["maxWave"], waves["stage"]], [last, index])
 		assert_true(not str(waves["stageName"]).is_empty() and not str(waves["stageRule"]).is_empty())
 		assert_true(ResourceLoader.exists("res://assets/backgrounds/%s.png" % waves["scene"]), str(waves["scene"]))
 		var names: Array = []
-		for wave: int in [5, 10, 15, 20]:
+		for wave: int in range(5, last + 1, 5):
 			var boss: Variant = Run._boss_spec(stage, wave)
 			assert_true(boss != null, "지역 %d의 %d웨이브 보스" % [index, wave])
 			if boss != null:
 				names.append(boss["id"] if boss.has("id") else boss["nameKo"])
-		assert_eq(stage["bosses"].size(), 4)
+		assert_eq(stage["bosses"].size(), last / 5)
 		boss_sets[str(names)] = true
 	assert_eq(boss_sets.size(), 4, "지역마다 보스 구성이 다르다")
 	assert_true(Build.for_stage(data, 3)["waves"]["battleRules"].get("enemyUlt", false))
