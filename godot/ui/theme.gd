@@ -152,6 +152,13 @@ static func ability_text(data: Dictionary, species_id: String) -> String:
 	return "「%s」 %s" % [spec.get("nameKo", id), spec.get("descKo", "")]
 
 
+## 장비 한 줄 설명: 자료의 {v}를 그 제련 단계의 수치로 바꾼다.
+static func gear_text(data: Dictionary, gear: Dictionary, level: int = -1) -> String:
+	var spec: Dictionary = Battle.gear_spec(data, str(gear.get("id", "")))
+	var effect: Dictionary = Battle.gear_effect(data, {"id": gear.get("id", ""), "level": int(gear.get("level", 0)) if level < 0 else level})
+	return str(spec.get("descKo", "")).replace("{v}", str(int(effect.get("value", 0))))
+
+
 ## 역할 이름과 한 줄 설명. 전열·후열(놓는 자리)과 헷갈리지 않게 수호·사수·지원이라 부른다.
 const ROLE_KO: Dictionary = {"front": "수호", "back": "사수", "support": "지원"}
 const ROLE_NOTE: Dictionary = {

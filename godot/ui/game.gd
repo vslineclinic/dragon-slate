@@ -39,6 +39,9 @@ const REJECT_KO: Dictionary = {
 	"noRerollLeft": "이 보상은 더 다시 뽑을 수 없어요",
 	"cannotNudge": "그쪽으로는 더 밀 수 없어요",
 	"sameRune": "이미 그 룬이에요",
+	"temperMax": "끝까지 단련했어요",
+	"forgeMax": "끝까지 제련했어요",
+	"noGear": "그 장비가 없어요",
 }
 const FORK_DONE_KO: Dictionary = {
 	"elite": "정예 사냥! 다음 적이 강해져요.\n이기면 보상을 한 번 더 골라요.",
@@ -216,6 +219,12 @@ func _on_change(events: Array, state: Dictionary) -> void:
 				shop_opened = true
 			"shopClosed":
 				_shop_note = ""
+			"forged":
+				var forged_name: String = str(Battle.gear_spec(controller.data, str(event["id"])).get("nameKo", ""))
+				if event["ok"]:
+					_shop_note = "제련 성공! %s +%d" % [forged_name, int(event["to"])]
+				else:
+					_shop_note = "제련 실패… %s은(는) 상점에 들어올 때의 +%d으로 돌아갔어요." % [forged_name, int(event["to"])]
 			"bought":
 				var item: Dictionary = event["item"]
 				if item["kind"] in ["transmute", "life", "relic"]:
@@ -348,6 +357,10 @@ func _play_cue(events: Array) -> void:
 				cues["relic"] = true
 			"transmuted":
 				cues["evolve" if event["ok"] else "error"] = true
+			"forged":
+				cues["levelup" if event["ok"] else "error"] = true
+			"equipped", "gear":
+				cues["reward"] = true
 			"tempered":
 				cues["levelup" if event["ok"] else "error"] = true
 			"rejected":
@@ -725,6 +738,11 @@ func _shop_view(item: Dictionary, state: Dictionary) -> Dictionary:
 			for relic: Dictionary in controller.data.get("relics", []):
 				if relic["id"] == detail:
 					return {"title": relic["nameKo"], "tint": GameTheme.GOLD, "icon": relic["id"], "body": relic["descKo"], "tag": "유물"}
+		"gear":
+			var gear_spec: Dictionary = Battle.gear_spec(controller.data, str(detail))
+			if not gear_spec.is_empty():
+				return {"title": gear_spec["nameKo"], "tint": GameTheme.EMBER.lightened(0.35), "icon": gear_spec.get("icon", ""), "tag": "장비",
+					"body": GameTheme.gear_text(controller.data, {"id": detail, "level": 0})}
 	return {"title": str(item.get("nameKo", "")), "tint": GameTheme.GOLD, "icon": "", "body": ""}
 
 
@@ -754,7 +772,7 @@ func _show_shop(state: Dictionary) -> void:
 		else:
 			GameTheme.place(card, Icons.new(view["icon"], tint), Rect2((card_w - 100) / 2.0, 26, 100, 100))
 		## 설명은 좁은 카드에서 넉 줄까지 들어간다(가장 긴 유물 설명 기준).
-		var body: Label = GameTheme.label(card, Rect2(12, 184, card_w - 24, 76), view["body"], 13, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+		var body: Label = GameTheme.label(card, Rect2(8 if items.size() > 5 else 12, 184, card_w - (16 if items.size() > 5 else 24), 76), view["body"], 12 if items.size() > 5 else 13, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 		body.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		GameTheme.wrap(body)
 		GameTheme.divider(card, Rect2(30, 262, card_w - 60, 6), Color(tint, 0.5))
@@ -770,7 +788,41 @@ func _show_shop(state: Dictionary) -> void:
 				GameTheme.label(card, Rect2(4, 292, card_w - 8, 18), REJECT_KO.get(reason, ""), 12, warn, HORIZONTAL_ALIGNMENT_CENTER)
 	var mid: float = field.size.x / 2.0
 	GameTheme.label(_reward_overlay, Rect2(0, 198 + card_h + 8, field.size.x, 22), _shop_note, 15, GameTheme.GOLD_HI, HORIZONTAL_ALIGNMENT_CENTER)
-	GameTheme.cta(_reward_overlay, Rect2(mid - 120, 198 + card_h + 38, 240, 46), "나가기", controller.dispatch.bind({"type": "leaveShop"}), "gold", 19)
+	var leave: Callable = controller.dispatch.bind({"type": "leaveShop"})
+	var owned: Array = Run.gear_owned(state)
+	if owned.is_empty():
+		GameTheme.cta(_reward_overlay, Rect2(mid - 120, 198 + card_h + 38, 240, 46), "나가기", leave, "gold", 19)
+		return
+	## 장비가 있으면 아래 한 줄에 제련 칸과 나가기를 나란히 둔다.
+	var top: float = 198 + card_h + 36
+	var gap: float = 8.0
+	var cell_w: float = minf(168.0, (field.size.x - 40.0 - 96.0 - 150.0 - gap * (owned.size() + 1)) / owned.size())
+	var total: float = 96.0 + (cell_w + gap) * owned.size() + gap + 150.0
+	var left: float = (field.size.x - total) / 2.0
+	GameTheme.heading(_reward_overlay, Rect2(left, top + 4, 96, 24), "장비 제련", 17, GameTheme.GOLD_HI)
+	GameTheme.label(_reward_overlay, Rect2(left, top + 28, 96, 32), "실패하면 이번에\n올린 단계만 잃어요", 10, GameTheme.DIM)
+	for i: int in range(owned.size()):
+		var gear: Dictionary = owned[i]
+		var spec: Dictionary = Battle.gear_spec(controller.data, str(gear["id"]))
+		var offer: Dictionary = Run.forge_offer(controller.data, state, gear["id"])
+		var level: int = int(gear.get("level", 0))
+		var copy: String = "%s\n+%d · 끝까지 제련했어요" % [spec.get("nameKo", ""), level]
+		if not offer.is_empty():
+			copy = "%s\n+%d→+%d · 마력 %d · %d%%" % [spec.get("nameKo", ""), level, int(offer["next"]), int(offer["cost"]), int(offer["chance"])]
+		var cell: Button = GameTheme.button(_reward_overlay, Rect2(left + 96.0 + i * (cell_w + gap), top, cell_w, 60), copy,
+			controller.dispatch.bind({"type": "forge", "gear": gear["id"]}), GameTheme.CARD, GameTheme.GOLD_DIM, 1)
+		cell.add_theme_font_size_override("font_size", 12)
+		var poor: bool = not offer.is_empty() and int(state["mana"]) < int(offer["cost"])
+		cell.disabled = offer.is_empty() or poor
+		if poor:
+			cell.add_theme_color_override("font_disabled_color", warn)
+		var tip: String = "지금: " + GameTheme.gear_text(controller.data, gear)
+		if not offer.is_empty():
+			tip += "\n+%d이 되면: %s" % [int(offer["next"]), GameTheme.gear_text(controller.data, gear, int(offer["next"]))]
+			if int(offer["chance"]) < 100:
+				tip += "\n실패하면 +%d으로 돌아가요(상점에 들어올 때의 단계)." % int(offer["fall"])
+		cell.tooltip_text = tip
+	GameTheme.cta(_reward_overlay, Rect2(left + total - 150.0, top + 6, 150, 48), "나가기", leave, "gold", 19)
 
 
 ## 계보 선택: 합쳐서 진화할 때 갈래가 둘이면 어느 종이 될지 고른다. 성장(레벨 · 스킬 · 계승 특성)은 어느 쪽이든 같다.

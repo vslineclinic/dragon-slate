@@ -280,7 +280,36 @@ static func _run_is_playable(state: Dictionary, data: Dictionary) -> bool:
 	for inst: Variant in state["nest"] + state["bench"]:
 		if inst != null and (not inst is Dictionary or not data["dragons"].has(inst.get("speciesId", ""))):
 			return false
+		if inst != null and inst.has("gear") and not _gear_is_sound(inst["gear"], data):
+			return false
+	## 장비: 가방은 목록이고, 가방의 것과 드래곤이 찬 것 모두 아는 장비여야 한다. 같은 장비가 둘일 수 없다.
+	if state.has("gear"):
+		if not state["gear"] is Array:
+			return false
+		for gear: Variant in state["gear"]:
+			if not _gear_is_sound(gear, data):
+				return false
+	var seen: Dictionary = {}
+	for gear: Dictionary in Run.gear_owned(state):
+		if seen.has(gear["id"]):
+			return false
+		seen[gear["id"]] = true
 	return true
+
+
+static func _forge_max(data: Dictionary) -> int:
+	var forge: Dictionary = data["gear"].get("forge", {}) if data.get("gear") is Dictionary else {}
+	return mini(forge.get("cost", []).size(), forge.get("chancePct", []).size())
+
+
+## 0 이상 top 이하의 정수인가(저장에서 읽은 값).
+static func _whole_in(value: Variant, low: int, top: int) -> bool:
+	return (value is int or value is float) and floorf(value) == value and value >= low and value <= top
+
+
+static func _gear_is_sound(gear: Variant, data: Dictionary) -> bool:
+	return gear is Dictionary and gear.get("id") is String and not Battle.gear_spec(data, gear["id"]).is_empty() \
+		and _whole_in(gear.get("level", 0), 0, _forge_max(data))
 
 
 ## 저장에 든 상점이 온전한가: 상점 · 석판 차례에만 있고, 물건마다 아는 종류 · 0 이상의 정수 값 · 이름 · 판 여부가 있고,
@@ -296,7 +325,7 @@ static func _shop_is_sound(state: Dictionary, data: Dictionary) -> bool:
 	for relic: Dictionary in data.get("relics", []):
 		relic_ids.append(relic["id"])
 	for item: Variant in items:
-		if not item is Dictionary or item.get("kind") not in ["rune", "erase", "transmute", "life", "relic"]:
+		if not item is Dictionary or item.get("kind") not in ["rune", "erase", "transmute", "life", "relic", "gear"]:
 			return false
 		var cost: Variant = item.get("cost")
 		if not (cost is int or cost is float) or cost < 0 or floorf(cost) != cost:
@@ -307,6 +336,14 @@ static func _shop_is_sound(state: Dictionary, data: Dictionary) -> bool:
 			return false
 		if item["kind"] == "relic" and item.get("detail") not in relic_ids:
 			return false
+		if item["kind"] == "gear" and Battle.gear_spec(data, str(item.get("detail", ""))).is_empty():
+			return false
+	if shop.has("forgeBase"):
+		if not shop["forgeBase"] is Dictionary:
+			return false
+		for base: Variant in shop["forgeBase"].values():
+			if not _whole_in(base, 0, _forge_max(data)):
+				return false
 	var refund: Variant = shop.get("refund", -1)
 	if not (refund is int or refund is float) or floorf(refund) != refund or refund < -1 or refund >= items.size():
 		return false

@@ -157,6 +157,10 @@ static func apply_command(data: Dictionary, state: Dictionary, cmd: Dictionary) 
 			reason = _do_transmute(data, next, cmd["at"], cmd["element"], rng, events)
 		"temper":
 			reason = _do_temper(data, next, cmd["at"], rng, events)
+		"forge":
+			reason = _do_forge(data, next, cmd.get("gear"), rng, events)
+		"equip":
+			reason = _do_equip(next, cmd.get("gear"), cmd.get("at"), events)
 		"replaceRune":
 			reason = _do_rune(data, next, cmd["index"], rng, events)
 		"skipRune":
@@ -431,6 +435,12 @@ static func _do_merge(data: Dictionary, state: Dictionary, main: Dictionary, mat
 		return "emptySlot"
 	var result: Dictionary = Fusion.merge(data, a, b, state["nextUid"], int(choice) if preview["kind"] == "evolve" else 0)
 	var inst: Dictionary = result["inst"]
+	## 장비: 주 드래곤의 것을 그대로 차고, 없으면 재료의 것을 물려받는다. 남는 장비는 가방으로 돌아온다.
+	var worn: Array = [a.get("gear"), b.get("gear")].filter(func(gear: Variant) -> bool: return gear is Dictionary)
+	if not worn.is_empty():
+		inst["gear"] = worn[0]
+		for extra: Dictionary in worn.slice(1):
+			_gear_bag(state).append(extra)
 	main_zone[main_index] = inst
 	material_zone[material_index] = null
 	if result["kind"] == "evolve":
@@ -474,6 +484,8 @@ static func _do_release(data: Dictionary, state: Dictionary, from: Dictionary, e
 	if _dragon_count(state) <= 1:
 		return "needDragon"
 	zone[index] = null
+	if inst.get("gear") is Dictionary:
+		_gear_bag(state).append(inst["gear"])
 	var spec: Dictionary = data["dragons"].get(inst["speciesId"], {})
 	var release_mana: int = int(data["waves"]["releaseMana"].get(spec.get("tier", "base"), 0))
 	_add_mana(state, Rng.fdiv(release_mana * (100 + int(relic_bonus(data, state).get("releasePct", 0))), 100), "release", events)
@@ -783,11 +795,20 @@ static func _open_shop(data: Dictionary, state: Dictionary, events: Array) -> bo
 				if unowned.is_empty():
 					continue
 				item["detail"] = unowned[rng.next_int(unowned.size())]
+			"gear":
+				var fresh: Array = _gear_unowned(data, state)
+				if fresh.is_empty():
+					continue
+				item["detail"] = fresh[rng.next_int(fresh.size())]
 		items.append(item)
+	## 들어올 때의 제련 단계. 이번 방문에서 제련에 실패하면 여기로 돌아간다.
+	var forge_base: Dictionary = {}
+	for gear: Dictionary in gear_owned(state):
+		forge_base[gear["id"]] = int(gear.get("level", 0))
 	if items.is_empty():
 		return false
 	state["shopVisits"] = visits + 1
-	state["shop"] = {"items": items, "refund": -1}
+	state["shop"] = {"items": items, "refund": -1, "forgeBase": forge_base}
 	state["phase"] = "shop"
 	events.append({"t": "shop", "items": items.duplicate(true)})
 	return true
@@ -816,6 +837,9 @@ static func shop_rejection(data: Dictionary, state: Dictionary, index: Variant) 
 				return "emptySlot"
 		"relic":
 			if not item.get("detail") is String or item["detail"] in state["relics"]:
+				return "soldOut"
+		"gear":
+			if not item.get("detail") is String or item["detail"] not in _gear_unowned(data, state):
 				return "soldOut"
 	if int(state["mana"]) < int(item["cost"]):
 		return "notEnoughMana"
@@ -851,6 +875,13 @@ static func _do_buy(data: Dictionary, state: Dictionary, index: Variant, events:
 			events.append({"t": "lives", "lives": state["lives"]})
 		"relic":
 			_grant_relic(data, state, item["detail"], events)
+		"gear":
+			_gear_bag(state).append({"id": item["detail"], "level": 0})
+			## 방금 산 장비는 0단계에서 들어온 것으로 친다(이번 방문에서 올리다 실패하면 0으로).
+			if not state["shop"].get("forgeBase") is Dictionary:
+				state["shop"]["forgeBase"] = {}
+			state["shop"]["forgeBase"][item["detail"]] = 0
+			events.append({"t": "gear", "id": item["detail"]})
 	return ""
 
 
@@ -931,6 +962,116 @@ static func _do_transmute(data: Dictionary, state: Dictionary, at: Dictionary, e
 	return ""
 
 
+## 가방(아무도 차지 않은 장비). 옛 저장에는 없어서 처음 쓸 때 만든다.
+static func _gear_bag(state: Dictionary) -> Array:
+	if not state.get("gear") is Array:
+		state["gear"] = []
+	return state["gear"]
+
+
+## 가진 장비 전부: 가방의 것과 드래곤이 찬 것. 사전을 그대로 돌려주므로 단계를 고치면 판에 반영된다.
+static func gear_owned(state: Dictionary) -> Array:
+	var out: Array = []
+	if state.get("gear") is Array:
+		for gear: Variant in state["gear"]:
+			if gear is Dictionary:
+				out.append(gear)
+	for inst: Variant in state["nest"] + state["bench"]:
+		if inst != null and inst.get("gear") is Dictionary:
+			out.append(inst["gear"])
+	return out
+
+
+static func _gear_unowned(data: Dictionary, state: Dictionary) -> Array:
+	var have: Array = gear_owned(state).map(func(gear: Dictionary) -> String: return str(gear.get("id", "")))
+	var out: Array = []
+	var table: Variant = data.get("gear")
+	if table is Dictionary:
+		for spec: Dictionary in table.get("items", []):
+			if spec["id"] not in have:
+				out.append(spec["id"])
+	return out
+
+
+static func _gear_by_id(state: Dictionary, id: Variant) -> Variant:
+	for gear: Dictionary in gear_owned(state):
+		if id is String and gear.get("id") == id:
+			return gear
+	return null
+
+
+## 제련: 상점에서 그 장비를 한 단계 올리는 값·확률·실패하면 돌아갈 단계. 끝까지 올렸거나 없는 장비면 빈 사전.
+static func forge_offer(data: Dictionary, state: Dictionary, id: Variant) -> Dictionary:
+	var gear: Variant = _gear_by_id(state, id)
+	var cfg: Dictionary = data["gear"].get("forge", {}) if data.get("gear") is Dictionary else {}
+	var costs: Array = cfg.get("cost", [])
+	var chances: Array = cfg.get("chancePct", [])
+	var top: int = mini(costs.size(), chances.size())
+	if gear == null:
+		return {}
+	var level: int = clampi(int(gear.get("level", 0)), 0, top)
+	if level >= top:
+		return {}
+	var shop: Variant = state.get("shop")
+	var base: int = int(shop.get("forgeBase", {}).get(id, level)) if shop is Dictionary else level
+	return {"level": level, "next": level + 1, "cost": int(costs[level]), "chance": clampi(int(chances[level]), 0, 100), "fall": clampi(base, 0, level)}
+
+
+static func _do_forge(data: Dictionary, state: Dictionary, id: Variant, rng: Rng, events: Array) -> String:
+	if state["phase"] != "shop" or not state.get("shop") is Dictionary:
+		return "wrongPhase"
+	var gear: Variant = _gear_by_id(state, id)
+	if gear == null:
+		return "noGear"
+	var offer: Dictionary = forge_offer(data, state, id)
+	if offer.is_empty():
+		return "forgeMax"
+	if int(state["mana"]) < int(offer["cost"]):
+		return "notEnoughMana"
+	_add_mana(state, -int(offer["cost"]), "forge", events)
+	var ok: bool = rng.next_int(100) < int(offer["chance"])
+	gear["level"] = int(offer["next"]) if ok else int(offer["fall"])
+	events.append({"t": "forged", "id": id, "ok": ok, "from": offer["level"], "to": gear["level"], "chance": offer["chance"], "cost": offer["cost"]})
+	return ""
+
+
+## 장비 채우기: at의 드래곤에게 채운다(이미 찬 장비는 가방으로). at이 없으면 벗겨 가방에 넣는다.
+static func _do_equip(state: Dictionary, id: Variant, at: Variant, events: Array) -> String:
+	if state["phase"] not in ARRANGE_PHASES:
+		return "wrongPhase"
+	var gear: Variant = _gear_by_id(state, id)
+	if gear == null:
+		return "noGear"
+	var target: Variant = null
+	if at != null and not at is Dictionary:
+		return "emptySlot"
+	if at is Dictionary:
+		var reason: String = _valid_ref(state, at)
+		if not reason.is_empty():
+			return reason
+		target = _zone_of(state, at)[int(at["index"])]
+		if target == null:
+			return "emptySlot"
+		if target.get("gear") is Dictionary and target["gear"].get("id") == id:
+			return "sameSlot"
+	## 지금 있는 곳에서 뺀다.
+	var bag: Array = _gear_bag(state)
+	for inst: Variant in state["nest"] + state["bench"]:
+		if inst != null and inst.get("gear") is Dictionary and inst["gear"].get("id") == id:
+			inst.erase("gear")
+	for i: int in range(bag.size() - 1, -1, -1):
+		if bag[i] is Dictionary and bag[i].get("id") == id:
+			bag.remove_at(i)
+	if target == null:
+		bag.append(gear)
+	else:
+		if target.get("gear") is Dictionary:
+			bag.append(target["gear"])
+		target["gear"] = gear
+	events.append({"t": "equipped", "id": id, "at": at.duplicate(true) if at is Dictionary else null})
+	return ""
+
+
 ## 단련: 지금 단계에서 한 단계 올리는 값·확률·실패하면 내려갈 단계. 끝까지 올렸으면 빈 사전.
 static func temper_offer(data: Dictionary, inst: Dictionary) -> Dictionary:
 	var cfg: Dictionary = data["battle"].get("temper", {})
@@ -960,7 +1101,7 @@ static func _do_temper(data: Dictionary, state: Dictionary, at: Dictionary, rng:
 	if offer.is_empty():
 		return "temperMax"
 	if int(state["mana"]) < int(offer["cost"]):
-		return "noMana"
+		return "notEnoughMana"
 	_add_mana(state, -int(offer["cost"]), "temper", events)
 	var ok: bool = rng.next_int(100) < int(offer["chance"])
 	inst["temper"] = int(offer["next"]) if ok else int(offer["fall"])

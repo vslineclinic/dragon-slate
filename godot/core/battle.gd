@@ -140,7 +140,31 @@ static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary =
 	var boost: int = temper_boost(data, inst)
 	if boost > 0:
 		unit["abilityBoost"] = boost
+	var worn: Dictionary = gear_effect(data, inst.get("gear"))
+	if not worn.is_empty():
+		unit["gear"] = worn
 	return unit
+
+
+## 장비 자료(id로 찾는다). 없으면 빈 사전.
+static func gear_spec(data: Dictionary, id: String) -> Dictionary:
+	var table: Variant = data.get("gear")
+	if table is Dictionary:
+		for spec: Dictionary in table.get("items", []):
+			if spec["id"] == id:
+				return spec
+	return {}
+
+
+## 장비 하나({id, level})가 전투에서 내는 효과: {kind, value}. 모르는 장비면 빈 사전.
+static func gear_effect(data: Dictionary, gear: Variant) -> Dictionary:
+	if not gear is Dictionary:
+		return {}
+	var spec: Dictionary = gear_spec(data, str(gear.get("id", "")))
+	var values: Array = spec.get("values", [])
+	if values.is_empty():
+		return {}
+	return {"kind": spec["kind"], "value": int(values[clampi(int(gear.get("level", 0)), 0, values.size() - 1)])}
 
 
 ## 그 드래곤이 데리고 나오는 호위 수: 등급 기본값 + 스킬 · 유물 · 시너지, escort.max를 넘지 않는다.
@@ -452,7 +476,14 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 						strikes.append([behind, ability_pct, "pierce"])
 				elif ability_pct > 0 and ability == "twin":
 					strikes.append([target, ability_pct, "twin"])
+				## 장비 "첫 공격": 전투에서 처음 하는 보통 공격만 세다.
+				var opening: bool = unit["gearKind"] == "opener" and not unit["gearUsed"] and not is_ult
+				if opening:
+					unit["gearUsed"] = true
 				for strike: Array in strikes:
+					## 가시에 쓰러진 공격자는 남은 추가타를 치지 못한다.
+					if unit["hp"] <= 0:
+						break
 					var victim: Dictionary = strike[0]
 					var via: String = strike[2]
 					if not via.is_empty() and victim["hp"] <= 0:
@@ -471,11 +502,16 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 					var lane_pct: int = 100
 					if unit["kind"] == "dragon" and not is_ult and not (keen_back and side == "ally" and int(unit["slot"]) >= 3):
 						lane_pct = _lane_pct(field, unit, victim)
+						## 장비 "먼눈": 줄 감쇠를 그만큼 되돌린다(100%를 넘지 않는다).
+						if lane_pct < 100 and unit["gearKind"] == "reach":
+							lane_pct = mini(100, lane_pct + int(unit["gearVal"]))
 						if lane_pct != 100:
 							dmg = maxi(1, Rng.fdiv(dmg * lane_pct, 100))
 					## 저격: 후열에 선 드래곤의 보통 공격이 더 세다.
 					if int(unit["edge"]) > 0 and not is_ult:
 						dmg = Rng.fdiv(dmg * (100 + int(unit["edge"])), 100)
+					if opening and via.is_empty():
+						dmg = Rng.fdiv(dmg * (100 + int(unit["gearVal"])), 100)
 					## 맞대결: 제 줄의 적을 칠 때 더 세다.
 					if ability_pct > 0 and ability == "duel" and unit["lane"] == victim["lane"]:
 						dmg = Rng.fdiv(dmg * (100 + ability_pct), 100)
@@ -489,6 +525,11 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 					if side == "enemy" and syn.has("bulwark") and victim["kind"] == "dragon" and _has_escort(units, victim):
 						dmg = maxi(1, Rng.fdiv(dmg * (100 - int(syn["bulwark"]["pct"])), 100))
 					victim["hp"] -= dmg
+					## 장비 "버티기": 공격에 쓰러질 때 한 번, 체력 일부로 버틴다.
+					var endured: bool = victim["hp"] <= 0 and victim["gearKind"] == "endure" and not victim["gearUsed"]
+					if endured:
+						victim["gearUsed"] = true
+						victim["hp"] = maxi(1, Rng.fdiv(int(victim["maxHp"]) * int(victim["gearVal"]), 100))
 					var raw_heal: int = Rng.fdiv(dmg * int(unit["lifesteal"]), 100)
 					if side == "ally" and heal_cut_pct != 0 and tick >= heal_cut_from:
 						raw_heal = Rng.fdiv(raw_heal * (100 - heal_cut_pct), 100)
@@ -510,16 +551,30 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 						hit["via"] = via
 					if ward_pct > 0:
 						hit["ward"] = true
+					if endured:
+						## 버틴 뒤의 체력(화면이 체력 막대를 맞춘다).
+						hit["endure"] = int(victim["hp"])
 					events.append(hit)
 					if victim["hp"] <= 0:
 						_kill(units, victim, tick, "hit", events)
+						## 장비 "사냥": 보통 공격으로 쓰러뜨리면 궁극기 게이지가 찬다(가득 찬 채로 멈춘다).
+						if unit["gearKind"] == "trophy" and not is_ult and int(unit["ultNeed"]) > 0 and int(unit["charge"]) < int(unit["ultNeed"]):
+							unit["charge"] = mini(int(unit["ultNeed"]), int(unit["charge"]) + int(unit["gearVal"]))
+							events.append({"tick": tick, "kind": "charge", "id": unit["id"], "charge": unit["charge"]})
+					## 장비 "가시": 보통 공격을 맞으면(그 공격에 쓰러져도) 받은 피해 일부를 친 쪽에 되돌린다.
+					if victim["gearKind"] == "thorns" and not is_ult and via.is_empty() and unit["hp"] > 0:
+						var back: int = maxi(1, Rng.fdiv(dmg * int(victim["gearVal"]), 100))
+						unit["hp"] -= back
+						events.append({"tick": tick, "kind": "attack", "src": victim["id"], "dst": unit["id"], "dmg": back, "mult": 100, "heal": 0, "via": "thorns"})
+						if unit["hp"] <= 0:
+							_kill(units, unit, tick, "hit", events)
 					## 시너지 규칙 효과는 우리 드래곤의 보통 공격(추가타 · 궁극기 제외)에서만 일어난다.
 					if side == "ally" and not syn.is_empty() and unit["kind"] == "dragon" and via.is_empty() and not is_ult:
 						_synergy_on_hit(syn, units, unit, victim, dmg, tick, events)
 				if side == "ally" and syn.has("chain") and unit["kind"] == "dragon" and not is_ult and "lightning" in unit["elements"]:
 					_chain(cfg, syn["chain"], units, unit, target, tick, events)
 				## 돌봄: 공격할 때마다 제 줄·옆줄에서 가장 다친 아군 드래곤을 고친다.
-				if ability_pct > 0 and ability == "mend":
+				if ability_pct > 0 and ability == "mend" and unit["hp"] > 0:
 					var patient: Variant = _most_hurt(units, unit)
 					if patient != null:
 						var mend: int = Rng.fdiv(int(unit["atk"]) * ability_pct, 100)
@@ -569,6 +624,8 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, rules: Dictio
 		dragon["role"] = unit.get("role", "")
 		dragon["ability"] = unit.get("ability", "")
 		dragon["boost"] = int(unit.get("abilityBoost", 0))
+		dragon["gearKind"] = str(unit.get("gear", {}).get("kind", ""))
+		dragon["gearVal"] = int(unit.get("gear", {}).get("value", 0))
 		## 선봉은 전열에서, 저격은 후열에서 힘을 낸다.
 		var stance_pct: int = _apct(cfg.get("abilities", {}), dragon)
 		if dragon["ability"] == "ambush" and slot >= 3:
@@ -650,6 +707,7 @@ static func _make(
 		"stage": 0, "active": true, "tier": "", "ultNeed": 0, "charge": 0, "elite": false,
 		"ultPower": 0, "critBonus": 0, "guard": 0, "range": 0, "role": "", "ability": "", "edge": 0, "armed": false, "type": "", "reach": 0,
 		"chilled": false, "venom": 0, "venomSrc": -1, "boost": 0,
+		"gearKind": "", "gearVal": 0, "gearUsed": false,
 	}
 
 

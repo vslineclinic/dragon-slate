@@ -61,7 +61,7 @@ func test_first_step_always_succeeds_and_costs_mana() -> void:
 
 
 func test_rejections() -> void:
-	assert_eq(_reason(_state(0, 1), _cmd()), "noMana")
+	assert_eq(_reason(_state(0, 1), _cmd()), "notEnoughMana")
 	assert_eq(_reason(_state(9), _cmd()), "temperMax")
 	assert_eq(_reason(_state(), _cmd(1)), "emptySlot")
 	var fighting: Dictionary = _state()

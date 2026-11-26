@@ -14,8 +14,8 @@ const HAZARD_KO: Dictionary = {
 	"pulse": "월식의 파동! 아군 모두 피해를 입어요",
 }
 ## 원소 시너지 규칙 효과로 생긴 피해: 숨결 없이 맞은 자리에서 원소색으로 터진다.
-const SYNERGY_FX: Dictionary = {"burst": "fire", "chain": "lightning", "venom": "poison"}
-const SYNERGY_FX_KO: Dictionary = {"burst": "폭발!", "chain": "연쇄!", "venom": "중독!"}
+const SYNERGY_FX: Dictionary = {"burst": "fire", "chain": "lightning", "venom": "poison", "thorns": "steel"}
+const SYNERGY_FX_KO: Dictionary = {"burst": "폭발!", "chain": "연쇄!", "venom": "중독!", "thorns": "가시!"}
 const TICK_SECONDS: float = 0.05
 const SIZE_BY_KIND: Dictionary = {"dragon": 112.0, "escort": 62.0, "minion": 64.0}
 
@@ -553,6 +553,11 @@ func _apply(event: Dictionary, animate: bool) -> void:
 			if attacker == null or defender == null:
 				return
 			_change_hp(defender, -int(event["dmg"]))
+			## 장비 "마지막 비늘"로 버텼으면 남은 체력으로 맞춘다.
+			if event.has("endure"):
+				_change_hp(defender, int(event["endure"]) - defender.hp)
+				if animate:
+					_name_tag(defender, "버텼다!", GameTheme.GOLD_HI)
 			_change_hp(attacker, int(event["heal"]))
 			if animate and int(event["heal"]) > 0 and attacker.kind == "dragon":
 				_number(attacker, "+%d" % int(event["heal"]), 15, Color("#8ce99a"), 0)

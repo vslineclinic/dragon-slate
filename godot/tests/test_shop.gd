@@ -64,7 +64,7 @@ func _after_boss(seed: int = 3) -> Dictionary:
 
 func test_shop_values_live_in_data() -> void:
 	var kinds: Array = _data["waves"]["shop"]["stock"].map(func(item: Dictionary) -> String: return item["kind"])
-	assert_eq(kinds, ["rune", "erase", "transmute", "life", "relic"])
+	assert_eq(kinds, ["rune", "erase", "transmute", "life", "relic", "gear"])
 	for item: Dictionary in _data["waves"]["shop"]["stock"]:
 		assert_true(int(item["cost"]) > 0 and not str(item["nameKo"]).is_empty(), str(item))
 	assert_true(int(_data["slot"]["nudgeBuy"]["cost"]) > 0 and int(_data["slot"]["nudgeBuy"]["perWave"]) > 0)
@@ -75,7 +75,7 @@ func test_shop_opens_after_a_boss_win_and_leaving_goes_on() -> void:
 	var state: Dictionary = _after_boss()
 	assert_eq(state["phase"], "shop")
 	assert_eq(int(state["wave"]), 6)
-	assert_eq(state["shop"]["items"].size(), 5)
+	assert_eq(state["shop"]["items"].size(), 6)
 	for item: Dictionary in state["shop"]["items"]:
 		assert_eq(item["sold"], false)
 	var rune: Dictionary = state["shop"]["items"][_item(state, "rune")]

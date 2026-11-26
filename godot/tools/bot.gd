@@ -19,6 +19,9 @@ static func choose(data: Dictionary, state: Dictionary) -> Dictionary:
 				return spend
 			var manage: Dictionary = _choose_manage(data, state)
 			if manage["type"] == "startBattle":
+				var equip: Dictionary = _choose_equip(data, state)
+				if not equip.is_empty():
+					return equip
 				var temper: Dictionary = _choose_temper(data, state)
 				if not temper.is_empty():
 					return temper
@@ -50,7 +53,7 @@ const REWARD_ORDER: Array = ["t2egg", "trait", "egg", "life", "mana", "freeSpin"
 const RELIC_ORDER: Array = ["sword", "shell", "horn", "hawkeye", "banner", "feather", "fang", "seal", "crown", "tome", "scale", "dice", "phoenix", "kiln", "chisel", "philosopher"]
 const SKILL_ORDER: Array = ["fang", "scale", "pack", "alpha", "frenzy", "leech"]
 ## 상점에서 사는 순서. 전환의 룬은 봇이 쓸 줄 몰라서 사지 않는다.
-const SHOP_ORDER: Array = ["life", "relic", "rune", "erase"]
+const SHOP_ORDER: Array = ["life", "relic", "gear", "rune", "erase"]
 
 
 ## 상점: 생명이 모자라면 생명, 다음은 유물, 쓸 데가 있는 룬. 살 것이 없으면 나간다.
@@ -66,6 +69,11 @@ static func _choose_shop(data: Dictionary, state: Dictionary) -> Dictionary:
 			if kind == "erase" and _unowned_rune(data, state) < 0:
 				continue
 			return {"type": "buy", "index": i}
+	## 제련: 살 것을 다 산 뒤, 확률이 괜찮고 마력이 남으면 가진 장비를 올린다.
+	for gear: Dictionary in Run.gear_owned(state):
+		var offer: Dictionary = Run.forge_offer(data, state, gear["id"])
+		if not offer.is_empty() and int(offer["chance"]) >= FORGE_MIN_CHANCE and int(state["mana"]) >= int(offer["cost"]) + TEMPER_KEEP:
+			return {"type": "forge", "gear": gear["id"]}
 	return {"type": "leaveShop"}
 
 
@@ -178,6 +186,18 @@ static func _choose_skill(data: Dictionary, state: Dictionary) -> Dictionary:
 ## 단련: 정비를 마친 뒤 가장 센 둥지 드래곤을 올린다. 다시 돌릴 마력(TEMPER_KEEP)은 남기고, 확률이 낮으면 멈춘다.
 const TEMPER_KEEP: int = 3
 const TEMPER_MIN_CHANCE: int = 50
+const FORGE_MIN_CHANCE: int = 65
+
+
+## 장비: 가방에 남은 장비를 둥지의 센 드래곤부터 맨몸인 드래곤에게 채운다.
+static func _choose_equip(data: Dictionary, state: Dictionary) -> Dictionary:
+	var bag: Variant = state.get("gear")
+	if not bag is Array or bag.is_empty():
+		return {}
+	for slot: Dictionary in _ranked(data, _occupied(state, "nest"), true):
+		if not slot["inst"].get("gear") is Dictionary:
+			return {"type": "equip", "gear": bag[0]["id"], "at": slot["ref"]}
+	return {}
 
 
 static func _choose_temper(data: Dictionary, state: Dictionary) -> Dictionary:

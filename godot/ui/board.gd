@@ -202,6 +202,8 @@ func _draw_card(rect: Rect2, inst: Dictionary, ref: Dictionary, draggable: bool,
 		for learned: Variant in inst.get("skills", {}).values():
 			skill_total += int(learned)
 		var bonus: String = " 스킬 %d" % skill_total if skill_total > 0 else ""
+		if inst.get("gear") is Dictionary:
+			bonus += " 장비"
 		GameTheme.label(card, Rect2(6, 52, 75, 16), dots + bonus, 10, GameTheme.DIM)
 		var power: Label = GameTheme.label(card, Rect2(4, 35, 60, 17), "⚔%d" % Waves.unit_power(Battle.to_unit(_ctl.data, inst, _team_bonus)), 12, Color("#ffd8a8"))
 		power.add_theme_constant_override("outline_size", 4)

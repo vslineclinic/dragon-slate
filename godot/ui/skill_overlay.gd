@@ -5,6 +5,7 @@ const GameTheme = preload("res://godot/ui/theme.gd")
 const Controller = preload("res://godot/ui/controller.gd")
 const FusionRules = preload("res://godot/core/fusion.gd")
 const RunRules = preload("res://godot/core/run.gd")
+const Icons = preload("res://godot/ui/icons.gd")
 const BRANCHES: Array = [
 	{"id": "attack", "nameKo": "니드호그 자리", "noteKo": "발톱 · 공격", "color": Color("#ff8f7a")},
 	{"id": "defense", "nameKo": "현무 자리", "noteKo": "비늘 · 방어", "color": Color("#7cc4ff")},
@@ -77,6 +78,8 @@ var _transmuting: bool = false
 var _tempering: bool = false
 var _temper_note: String = ""
 var _temper_won: bool = false
+## 장비 화면이 열려 있는지.
+var _gearing: bool = false
 
 
 func setup(ctl: Controller, ref: Dictionary, screen: Vector2) -> void:
@@ -174,14 +177,19 @@ func _draw_map() -> void:
 		var rune_copy: String = "별자리로 돌아가기" if _transmuting else "전환의 룬 ×%d" % runes
 		var rune_button: Button = GameTheme.cta(_body, Rect2(500, 10, 168, 38), rune_copy, _toggle_transmute, "mystic", 16)
 		rune_button.tooltip_text = "이 드래곤을 다른 원소의 같은 드래곤으로 바꿔요"
-	var temper_copy: String = "별자리로 돌아가기" if _tempering else "단련 +%d" % Battle.temper_step(_ctl.data, inst)
-	var temper_button: Button = GameTheme.cta(_body, Rect2(500, 54, 168, 38), temper_copy, _toggle_temper, "ember", 16)
+	var temper_copy: String = "돌아가기" if _tempering else "단련 +%d" % Battle.temper_step(_ctl.data, inst)
+	var temper_button: Button = GameTheme.cta(_body, Rect2(500, 54, 82, 38), temper_copy, _toggle_temper, "ember", 15)
 	temper_button.tooltip_text = "마력을 내고 이 드래곤을 한 단계씩 단련해요"
+	var gear_button: Button = GameTheme.cta(_body, Rect2(586, 54, 82, 38), "돌아가기" if _gearing else "장비", _toggle_gear, "gold", 15)
+	gear_button.tooltip_text = "가진 장비를 이 드래곤에게 채우거나 벗겨요"
 	if _transmuting and runes > 0:
 		_draw_transmute(inst, spec)
 		return
 	if _tempering:
 		_draw_temper(inst)
+		return
+	if _gearing:
+		_draw_gear(inst)
 		return
 	var hint: String = "레벨이 오를 때마다 스킬 점수를 1점 받아요. 별은 아래에서 위로 이어져요." if points == 0 else "금빛으로 깜빡이는 별을 누르면 한 단계 배워요. 별은 아래에서 위로 이어져요."
 	GameTheme.label(_body, Rect2(20, PANEL_SIZE.y - 32, PANEL_SIZE.x - 40, 22), hint, 13, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
@@ -255,12 +263,64 @@ func _draw_star(center: Vector2, skill: Dictionary, inst: Dictionary, learned: D
 func _toggle_transmute() -> void:
 	_transmuting = not _transmuting
 	_tempering = false
+	_gearing = false
 	_draw_map()
+
+
+func _toggle_gear() -> void:
+	_gearing = not _gearing
+	_transmuting = false
+	_tempering = false
+	_draw_map()
+
+
+## 장비: 가진 장비를 늘어놓고 이 드래곤에게 채우거나 벗긴다. 제련은 상점에서 한다.
+func _draw_gear(inst: Dictionary) -> void:
+	var wide: float = PANEL_SIZE.x - 48
+	var owned: Array = RunRules.gear_owned(_ctl.state)
+	GameTheme.heading(_body, Rect2(24, 118, wide, 38), "장비", 28, GameTheme.GOLD_HI, HORIZONTAL_ALIGNMENT_CENTER)
+	GameTheme.label(_body, Rect2(24, 158, wide, 22), "드래곤 한 마리는 장비 하나를 차요. 장비는 보스 뒤 상점에서 얻고, 상점에서 제련해요.", 14, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	if owned.is_empty():
+		GameTheme.heading(_body, Rect2(24, 320, wide, 40), "아직 장비가 없어요", 24, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		return
+	var gap: float = 12.0
+	var card_w: float = minf(200.0, (wide - gap * (owned.size() - 1)) / owned.size())
+	var left: float = (PANEL_SIZE.x - (card_w * owned.size() + gap * (owned.size() - 1))) / 2.0
+	for i: int in range(owned.size()):
+		var gear: Dictionary = owned[i]
+		var spec: Dictionary = Battle.gear_spec(_ctl.data, str(gear["id"]))
+		var mine: bool = inst.get("gear") is Dictionary and inst["gear"].get("id") == gear["id"]
+		## 누가 차고 있는지.
+		var wearer: String = "가방에 있어요"
+		for other: Variant in _ctl.state["nest"] + _ctl.state["bench"]:
+			if other != null and other.get("gear") is Dictionary and other["gear"].get("id") == gear["id"]:
+				wearer = "이 드래곤이 찼어요" if mine else "%s이(가) 찼어요" % _ctl.data["dragons"][other["speciesId"]]["nameKo"]
+		var origin: Vector2 = Vector2(left + i * (card_w + gap), 200)
+		var card: Panel = GameTheme.frame(_body, Rect2(origin, Vector2(card_w, 330)), GameTheme.PANEL, GameTheme.GOLD_HI if mine else GameTheme.GOLD_DIM, 12)
+		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		GameTheme.place(_body, Icons.new(str(spec.get("icon", "")), GameTheme.GOLD), Rect2(origin.x + (card_w - 84) / 2.0, origin.y + 16, 84, 84))
+		var name_label: Label = GameTheme.heading(_body, Rect2(origin.x + 6, origin.y + 108, card_w - 12, 26), "%s +%d" % [spec.get("nameKo", ""), int(gear.get("level", 0))], 17, GameTheme.GOLD_HI, HORIZONTAL_ALIGNMENT_CENTER)
+		name_label.clip_text = true
+		var body: Label = GameTheme.label(_body, Rect2(origin.x + 12, origin.y + 142, card_w - 24, 84), GameTheme.gear_text(_ctl.data, gear), 13, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+		body.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		GameTheme.wrap(body)
+		var where: Label = GameTheme.label(_body, Rect2(origin.x + 6, origin.y + 234, card_w - 12, 20), wearer, 12, GameTheme.RECOMMEND if mine else GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		where.clip_text = true
+		if mine:
+			GameTheme.cta(_body, Rect2(origin.x + 14, origin.y + 268, card_w - 28, 46), "벗기기", _equip.bind(gear["id"], false), "ember", 17)
+		else:
+			GameTheme.cta(_body, Rect2(origin.x + 14, origin.y + 268, card_w - 28, 46), "채우기", _equip.bind(gear["id"], true), "gold", 17)
+	GameTheme.label(_body, Rect2(24, 560, wide, 22), "다른 드래곤이 찬 장비를 채우면 그 드래곤은 벗어요. 차고 있던 장비는 가방으로 돌아가요.", 13, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+func _equip(id: String, on: bool) -> void:
+	_ctl.dispatch({"type": "equip", "gear": id, "at": _ref if on else null})
 
 
 func _toggle_temper() -> void:
 	_tempering = not _tempering
 	_transmuting = false
+	_gearing = false
 	_temper_note = ""
 	_draw_map()
 

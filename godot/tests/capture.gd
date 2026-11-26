@@ -71,7 +71,7 @@ func _init() -> void:
 			scene.call("_render", [], ctl.state)
 			for i in 20:
 				await process_frame
-		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "temper", "lineage", "slab", "erase", "live", "wave7", "synergy", "synergy4", "burst", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear", "shop", "shoppoor", "shopslab", "reroll", "rerollpoor", "rerollused"]:
+		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "temper", "gear", "lineage", "slab", "erase", "live", "wave7", "synergy", "synergy4", "burst", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear", "shop", "shoppoor", "shopslab", "reroll", "rerollpoor", "rerollused"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -174,6 +174,12 @@ func _init() -> void:
 			ctl.state["lives"] = 3 if mode != "shoppoor" else int(ctl.data["waves"]["startLives"])
 			if mode == "shoppoor":
 				ctl.state["slab"] = ctl.state["slab"].slice(0, int(ctl.data["slot"]["slab"]["minSize"]))
+			## 장비 둘을 가진 채 들어오면 아래에 제련 띠가 보인다.
+			ctl.state["gear"] = [{"id": "last_scale", "level": 2}]
+			for worn in range(3):
+				if ctl.state["nest"][worn] != null:
+					ctl.state["nest"][worn]["gear"] = {"id": "hunter_horn", "level": 5}
+					break
 			ctl.dispatch({"type": "chooseFork", "option": "merchant"})
 			for item in ctl.state["shop"]["items"]:
 				if item["kind"] == "relic":
@@ -244,6 +250,23 @@ func _init() -> void:
 					var temper_overlay = scene.get_child(scene.get_child_count() - 1)
 					if args.size() > 4:
 						temper_overlay.call("_toggle_temper")
+					break
+			for i in 20:
+				await process_frame
+		if mode == "gear":
+			ctl.state["gear"] = [{"id": "first_fang", "level": 0}, {"id": "far_eye", "level": 3}]
+			var first_worn: bool = false
+			for slot in range(3):
+				if ctl.state["nest"][slot] != null:
+					ctl.state["nest"][slot]["gear"] = {"id": "thorn_mail", "level": 1} if not first_worn else {"id": "last_scale", "level": 2}
+					if first_worn:
+						break
+					first_worn = true
+			for slot in range(3):
+				if ctl.state["nest"][slot] != null:
+					scene.call("_render", [], ctl.state)
+					scene.call("_open_skills", {"zone": "nest", "index": slot})
+					scene.get_child(scene.get_child_count() - 1).call("_toggle_gear")
 					break
 			for i in 20:
 				await process_frame
