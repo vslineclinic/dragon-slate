@@ -87,6 +87,8 @@ var _defeat_note: String = ""
 var _live_battle: bool = false
 var _live_done: bool = false
 var _ult_button: Button
+var _save_button: Button
+var _save_panel: Control
 var _ult_toggle: Button
 ## 상점 화면 아래에 띄우는 한 줄(방금 산 것 · 무른 것). 상점이 닫히면 비운다.
 var _shop_note: String = ""
@@ -158,6 +160,10 @@ func _build_panels() -> void:
 	_ult_toggle = GameTheme.button(self, Rect2(field_rect.position.x + 12, field_rect.position.y + 10, 168, 34), "", _toggle_ult_auto, Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
 	_ult_toggle.tooltip_text = "자동: 게이지가 차면 바로 써요. 수동: 전투 중에 궁극기 단추를 눌러 원하는 때 써요."
 	_show_ult_mode()
+	if is_instance_valid(_save_button):
+		_save_button.queue_free()
+	_save_button = GameTheme.button(self, Rect2(field_rect.position.x + 188, field_rect.position.y + 10, 96, 34), "저장", _save_now, Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
+	_save_button.tooltip_text = "지금 판을 저장해요. 다음에 타이틀의 \"이어 하기\"로 이어서 해요."
 	_battle.finished.connect(_battle_finished)
 	_hud.boss_info.connect(flash)
 	_dex_button = GameTheme.button(_hud, Rect2(width - 328, 0, 80, 44), "도감", _open_dex)
@@ -582,6 +588,60 @@ func _start_new_run() -> void:
 	var seed_value: int = (int(controller.state["seed"]) * 7 + 13) % 1000000007
 	_start_open = true
 	controller.restart(seed_value)
+
+
+## 저장 단추: 지금 판을 저장하고, 계속할지 타이틀로 나갈지 묻는다.
+func _save_now() -> void:
+	var phase: String = str(controller.state.get("phase", ""))
+	if controller.busy or _live_battle or _start_open or phase in ["gameOver", "victory"]:
+		flash("지금은 저장할 수 없어요.\n전투가 끝난 뒤에 눌러 주세요.")
+		return
+	var saved: bool = store.save_run(controller.state, run_length)
+	_open_save_panel(saved)
+
+
+func _open_save_panel(saved: bool) -> void:
+	_close_save_panel()
+	_set_modal(true)
+	## 알림 글이 저장 창 뒤로 비치지 않게 지운다.
+	if _toast_animation != null:
+		_toast_animation.kill()
+	_toast.modulate.a = 0.0
+	var screen: Vector2 = Vector2(_areas["width"], GameTheme.HEIGHT)
+	_save_panel = Control.new()
+	_save_panel.z_index = 90
+	GameTheme.place(self, _save_panel, Rect2(Vector2.ZERO, screen))
+	var dim: ColorRect = ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.6)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	GameTheme.place(_save_panel, dim, Rect2(Vector2.ZERO, screen))
+	var size: Vector2 = Vector2(460, 236)
+	var box: Panel = GameTheme.frame(_save_panel, Rect2((screen - size) / 2.0, size), GameTheme.INK, GameTheme.GOLD, 14)
+	box.mouse_filter = Control.MOUSE_FILTER_STOP
+	var title: String = "저장했어요" if saved else "저장하지 못했어요"
+	GameTheme.heading(box, Rect2(0, 22, size.x, 40), title, 30, GameTheme.GOLD_HI if saved else GameTheme.EMBER.lightened(0.4), HORIZONTAL_ALIGNMENT_CENTER)
+	GameTheme.divider(box, Rect2(60, 66, size.x - 120, 8), GameTheme.GOLD_DIM)
+	var note: String = "저장 %d칸 · 웨이브 %d\n타이틀의 \"이어 하기\"로 이 자리부터 다시 해요." % [Store.active_slot(), int(controller.state.get("wave", 1))]
+	if not saved:
+		note = "디스크에 쓰지 못했어요. 잠시 뒤 다시 눌러 주세요.\n(차례가 바뀔 때마다 자동으로도 저장해요.)"
+	var body: Label = GameTheme.label(box, Rect2(20, 82, size.x - 40, 52), note, 15, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	GameTheme.wrap(body)
+	var keep: Button = GameTheme.cta(box, Rect2(30, 156, 190, 50), "계속하기", _close_save_panel, "gold", 19)
+	keep.grab_focus()
+	var leave: Button = GameTheme.cta(box, Rect2(240, 156, 190, 50), "타이틀로", _leave_after_save, "ember", 19)
+	leave.disabled = not saved
+
+
+func _close_save_panel() -> void:
+	if is_instance_valid(_save_panel):
+		_save_panel.queue_free()
+		_save_panel = null
+		_set_modal(false)
+
+
+func _leave_after_save() -> void:
+	_close_save_panel()
+	_return_to_title()
 
 
 func _return_to_title() -> void:

@@ -149,3 +149,10 @@ func test_stars_follow_the_lives_lost() -> void:
 	assert_eq(Store.stars_for({"phase": "victory", "livesLost": 0}), 3)
 	assert_eq(Store.stars_for({"phase": "victory", "livesLost": 1}), 2)
 	assert_eq(Store.stars_for({"phase": "victory", "livesLost": 4}), 1)
+
+
+func test_save_run_reports_whether_it_wrote_the_file() -> void:
+	var store: Store = Store.new()
+	assert_true(store.save_run(_played(25, 10), "standard", PATH), "쓸 수 있는 곳이면 true")
+	assert_true(not store.load_run(GameData.load_all(), PATH).is_empty())
+	assert_true(not store.save_run(_played(25, 10), "standard", "user://no_such_dir/run.json"), "쓸 수 없는 곳이면 false")

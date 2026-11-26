@@ -71,7 +71,7 @@ func _init() -> void:
 			scene.call("_render", [], ctl.state)
 			for i in 20:
 				await process_frame
-		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "temper", "gear", "lineage", "slab", "erase", "live", "wave7", "synergy", "synergy4", "burst", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear", "shop", "shoppoor", "shopslab", "reroll", "rerollpoor", "rerollused"]:
+		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "temper", "gear", "save", "lineage", "slab", "erase", "live", "wave7", "synergy", "synergy4", "burst", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear", "shop", "shoppoor", "shopslab", "reroll", "rerollpoor", "rerollused"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -268,6 +268,10 @@ func _init() -> void:
 					scene.call("_open_skills", {"zone": "nest", "index": slot})
 					scene.get_child(scene.get_child_count() - 1).call("_toggle_gear")
 					break
+			for i in 20:
+				await process_frame
+		if mode == "save":
+			scene.call("_save_now")
 			for i in 20:
 				await process_frame
 		if mode == "skills":

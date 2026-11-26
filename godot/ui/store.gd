@@ -369,25 +369,28 @@ func _run_file() -> String:
 
 
 ## path를 비우면 이 저장 칸의 하던 판 파일. 임시 파일에 다 쓴 뒤 바꿔치기해서, 쓰는 도중 꺼져도 직전 저장이 남는다.
-func save_run(state: Dictionary, length: String, path: String = "") -> void:
+## 저장했으면 true(도구가 저장을 꺼 둔 때도 true: 일부러 건너뛴 것이다).
+func save_run(state: Dictionary, length: String, path: String = "") -> bool:
 	var real: bool = path.is_empty()
 	if real and autosave_off:
-		return
+		return true
 	var target: String = _run_file() if real else path
 	var draft: String = target + ".tmp"
 	var file: FileAccess = FileAccess.open(draft, FileAccess.WRITE)
 	if file == null:
 		push_warning("판을 저장하지 못했어요 (%s)" % error_string(FileAccess.get_open_error()))
-		return
+		return false
 	file.store_string(pack_run(state, length, OS.has_feature("demo")))
 	var failed: bool = file.get_error() != OK
 	file.close()
 	if failed:
 		push_warning("판을 저장하지 못했어요")
-		return
+		return false
 	var error: Error = DirAccess.rename_absolute(ProjectSettings.globalize_path(draft), ProjectSettings.globalize_path(target))
 	if error != OK:
 		push_warning("판을 저장하지 못했어요 (%s)" % error_string(error))
+		return false
+	return true
 
 
 func load_run(data: Dictionary, path: String = "") -> Dictionary:
