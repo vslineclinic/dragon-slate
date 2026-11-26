@@ -32,13 +32,14 @@
 - 역할(2026-11-24): 화면에서는 front · back · support를 **수호 · 사수 · 지원**이라 부른다(`GameTheme.ROLE_KO`, 전열·후열은 놓는 자리 이름). 사수는 줄 감쇠가 100 · 90 · 75이고 사거리 +80(`battle.field.roleLanePct` · `roleRangeAdd`).
 - 계보 선택(2026-11-24): 진화 후보가 둘이면 고른다. 첫째는 조합표의 결과, 둘째는 받는 쪽 드래곤의 역할을 잇는 종(`Fusion.merge_options`, `merge` 명령의 `choice`). 조합표의 첫째 결과는 바꾸지 않는다.
 - 형태별 능력(2026-11-24): 꿰뚫기 · 연속 공격 · 돌봄 · 방패막 · 맞대결 · 선봉 · 저격 · 함성, 그리고 신화 이름 용 30종의 신화의 숨결(`species` 목록으로 붙음). `battle.abilities`의 `forms`(종 id에서 원소 머리말을 뗀 형태 이름)로 붙고 보통 공격에만 든다. 새 능력은 `Battle.simulate_battle`의 strikes · `_warded` · `_most_hurt` 옆에 넣고 `test_ability.gd`에 시험을 쓴다.
-- 지역(2026-11-25): 지역 넷. 1지역은 익히는 곳이라 10웨이브(2026-11-26, 사용자 제안), 나머지는 20웨이브(`data/stages.json`, `Build.for_stage`). 지역을 깨면 용 한 마리를 다음 지역으로 데려간다(종 · 계승 특성만, 레벨 1). 봇 클리어율 목표는 1지역 약 70~80%, 2~4지역 약 15%(둘 다 사용자 결정, 1지역은 2026-11-26). 측정: `npm run sim -- --stage N --start [--carry 종id]`.
+- 지역(2026-11-25): 지역 넷. 1지역은 익히는 곳이라 10웨이브(2026-11-26, 사용자 제안), 나머지는 20웨이브(`data/stages.json`, `Build.for_stage`). 지역을 깨면 드래곤 두 마리(`waves.carryCount`, 2026-11-26)를 다음 지역으로 데려간다(종 · 계승 특성만, 레벨 1, `Run.carry_list`). 봇 클리어율 목표는 1지역 약 70~80%, 2~4지역 약 15%(둘 다 사용자 결정, 1지역은 2026-11-26). 측정: `npm run sim -- --stage N --start [--carry 종id]`.
 - 원소 시너지(2026-11-26): 2마리는 수치, 4마리는 규칙 효과(폭발 · 얼림 · 연쇄 · 중독 · 방벽 · 흡수, `data/synergies.json`의 `rule`). 전투에는 `rules.synergy`(`Battle.synergy_rules`)로 들어가고 우리 드래곤의 보통 공격에서만 일어난다. 설계 `docs/superpowers/specs/2026-11-26-synergy-rules-design.md`, 시험 `test_synergy_rules.gd`.
 - 호위병(2026-11-25): 기본 0마리. 스킬 "무리 부름"으로 1마리, 모든 출처를 합쳐 용 한 마리당 최대 2마리(`battle.escort.max`).
 - 마력을 쓸 곳(2026-11-25, 사용자 결정): 보스 뒤 상점(`waves.shop.stock`, 차례 `shop`, 명령 `buy` · `leaveShop`), 밀기 추가 구매(`slot.nudgeBuy`), 보상 다시 뽑기(`waves.rewardReroll`, 명령 `rerollRewards`). 갈림길의 떠돌이 상인은 상점을 한 번 더 여는 길이다. 상점 진열은 판 난수와 따로 뽑는다(판 씨앗 · 웨이브 · 들른 횟수). 이자와 경험치 사기는 만들지 않는다. 설계 문서 2.19절, 시험 `test_shop.gd`.
 - 전투는 `Battle.begin_battle` → `step_battle` → `battle_result`로 한 틱씩 돈다(`simulate_battle`은 이것을 끝까지 돌린 것). 수동 궁극기 전투는 화면이 직접 돌리고 쏜 틱을 `startBattle`의 `ults`로 보낸다. 전투 규칙을 고치면 `test_stepper.gd`의 "한 번에 = 한 틱씩"과 "기록으로 다시 계산" 시험이 통과해야 한다.
 - 원정 길이(2026-11-24): 기본 원정 20웨이브(`waves.standard`로 덮어씀, `Build.for_length`)와 긴 원정 40웨이브. 봇 측정은 `--standard`를 붙여 잰다. 수치를 고칠 때 두 길이를 따로 본다.
-- 자동 저장(2026-11-24): 하던 판은 `user://run.json`. 규칙·자료가 바뀌어 옛 저장을 이을 수 없으면 `Store.RUN_VERSION`을 올린다. 게임 장면을 띄우는 도구는 반드시 `Store.autosave_off`를 켠다(사용자의 저장을 덮어쓰지 않게).
+- 저장 칸(2026-11-26): 셋(`Store.SLOTS`). 칸마다 진행 기록(`profile_path`)과 하던 판(`run_path_for`)이 따로고, 1번 칸은 옛 파일 이름 그대로다. 고른 칸은 `user://slots.cfg`. 데모판은 한 칸.
+- 자동 저장(2026-11-24): 하던 판은 `user://run.json`(1번 칸). 규칙·자료가 바뀌어 옛 저장을 이을 수 없으면 `Store.RUN_VERSION`을 올린다. 게임 장면을 띄우는 도구는 반드시 `Store.autosave_off`를 켠다(사용자의 저장을 덮어쓰지 않게).
 - 용의 공격 동작은 그림 한 장을 셰이더로 휘어 만든다(`godot/ui/dragon_pose.gdshader`, `dragon_sprite.gd`). 용 그림은 왼쪽을 보고 머리가 왼쪽 위에 오게 그린다. 숨결 모양은 `godot/ui/breath_fx.gd`.
 
 ## 레인 소유권 (설계 8.1)

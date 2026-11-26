@@ -1,13 +1,10 @@
 extends SceneTree
 ## 메모리 측정(테스트 아님): 화면을 단계별로 띄우며 Godot 모니터와 프로세스 메모리를 적는다.
 ## godot --audio-driver Dummy --path . --position -4000,-4000 --script res://godot/tests/memprobe.gd -- <웨이브 수> [창 크기 바꾸기 0|1]
-## 사용자 저장(user://wyrmslot.cfg)은 시작할 때 읽어 두고 끝날 때 그대로 되돌린다.
+## 사용자 저장(설정 · 진행 기록 · 하던 판)은 Store.autosave_off로 쓰지도 지우지도 않는다(어느 저장 칸이든).
 
-const SAVE: String = "user://wyrmslot.cfg"
 const Bot = preload("res://godot/tools/bot.gd")
 
-var _backup: PackedByteArray
-var _had_save: bool = false
 var _base_objects: int = 0
 
 
@@ -17,9 +14,6 @@ func _init() -> void:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	var waves: int = int(args[0]) if args.size() > 0 else 10
 	var resize: bool = args.size() > 1 and args[1] == "1"
-	_had_save = FileAccess.file_exists(SAVE)
-	if _had_save:
-		_backup = FileAccess.get_file_as_bytes(SAVE)
 	DisplayServer.window_set_size(Vector2i(1280, 720))
 	await _frames(30)
 	_sample("0 빈 엔진")
@@ -86,7 +80,6 @@ func _init() -> void:
 	game.call("_return_to_title")
 	await _frames(60)
 	_sample("8 타이틀로 돌아옴")
-	_restore()
 	quit()
 
 
@@ -95,17 +88,8 @@ func _frames(count: int) -> void:
 		await process_frame
 
 
-func _restore() -> void:
-	if _had_save:
-		var file: FileAccess = FileAccess.open(SAVE, FileAccess.WRITE)
-		file.store_buffer(_backup)
-		file.close()
-	elif FileAccess.file_exists(SAVE):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE))
-
 
 func _sample(stage: String) -> void:
-	_restore()
 	_census(stage)
 	var out: Array = []
 	var command: String = "$p = Get-Process -Id %d; '{0} {1}' -f $p.WorkingSet64, $p.PrivateMemorySize64" % OS.get_process_id()

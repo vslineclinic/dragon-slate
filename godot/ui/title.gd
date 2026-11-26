@@ -29,6 +29,8 @@ var _continue_button: Button
 var _saved: Dictionary = {}
 var _intro: Label
 var _max_level: int = 0
+var _slot_button: Button
+var _slot_overlay: Control
 
 
 func _ready() -> void:
@@ -84,6 +86,11 @@ func _ready() -> void:
 	_sfx_button = GameTheme.button(stage, Rect2(1050, 20, 100, 44), "", _toggle_sfx, Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
 	_sfx_button.tooltip_text = "효과음 켜기 · 끄기"
 	_show_sfx()
+	## 저장 칸 셋: 칸마다 진행과 하던 판이 따로다. 데모판은 한 칸.
+	_slot_button = GameTheme.button(stage, Rect2(20, 20, 150, 44), "", _open_slots, Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
+	_slot_button.tooltip_text = "저장 칸 바꾸기(셋까지)"
+	_slot_button.visible = not OS.has_feature("demo")
+	_show_slot()
 	_lower = GameTheme.button(stage, Rect2(850, 548, 44, 48), "◀", _select_level.bind(-1), Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
 	_higher = GameTheme.button(stage, Rect2(1190, 548, 44, 48), "▶", _select_level.bind(1), Color("#15131ccc"), GameTheme.GOLD_DIM, 1)
 	_calamity_label = GameTheme.label(stage, Rect2(902, 524, 280, 96), "", 16, Color("#ffc078"), HORIZONTAL_ALIGNMENT_CENTER)
@@ -191,9 +198,11 @@ func _show_length() -> void:
 		var stars: int = _store.stage_stars(index)
 		_length_button.text = "%d지역 · %s  %s  ⇄" % [index + 1, data["waves"]["stageName"], "★".repeat(stars) + "☆".repeat(3 - stars)]
 		intro += "\n" + str(data["waves"]["stageRule"])
-		var carry: Dictionary = _store.carry_for(index)
-		if _data["dragons"].has(carry.get("speciesId", "")):
-			intro += "\n데려가는 드래곤: " + str(_data["dragons"][carry["speciesId"]]["nameKo"])
+		var names: PackedStringArray = []
+		for carried: Dictionary in Run.carry_list(_data, _store.carry_for(index)):
+			names.append(str(_data["dragons"][carried["speciesId"]]["nameKo"]))
+		if not names.is_empty():
+			intro += "\n데려가는 드래곤: " + " · ".join(names)
 	else:
 		_length_button.text = "긴 원정 · %d웨이브  ⇄" % waves
 	_intro.text = intro
@@ -212,6 +221,76 @@ func _select_level(delta: int) -> void:
 		if calamity["level"] == _level:
 			_calamity_label.text = "%s\n%s (누적)" % [calamity["nameKo"], calamity["descKo"]]
 			break
+
+
+func _show_slot() -> void:
+	_slot_button.text = "저장 %d ▾" % _store.slot()
+
+
+## 저장 칸 고르기: 칸마다 깬 지역 · 도감 · 하던 판을 한 줄로 보여 준다.
+func _open_slots() -> void:
+	if _slot_overlay != null:
+		_slot_overlay.queue_free()
+	## 뒤쪽 메뉴를 잠근다: 창이 떠 있는 동안 키보드로 시작하기 등을 누를 수 없게.
+	_lock_menu(true)
+	_slot_overlay = Control.new()
+	_slot_overlay.z_index = 90
+	GameTheme.place(_menu, _slot_overlay, Rect2(Vector2.ZERO, _menu.size))
+	var shade: Button = GameTheme.button(_slot_overlay, Rect2(Vector2.ZERO, _menu.size), "", _close_slots, Color("#000000b0"), Color.TRANSPARENT, 0)
+	shade.focus_mode = Control.FOCUS_NONE
+	var left: float = (_menu.size.x - 560.0) / 2.0
+	var box: Panel = GameTheme.frame(_slot_overlay, Rect2(left, 150, 560, 400), GameTheme.INK, GameTheme.GOLD, 14)
+	GameTheme.heading(box, Rect2(0, 18, 560, 40), "저장 칸", 28, GameTheme.GOLD_HI, HORIZONTAL_ALIGNMENT_CENTER, 800)
+	GameTheme.label(box, Rect2(0, 58, 560, 22), "칸마다 지역 진행 · 도감 · 하던 판이 따로 저장돼요.", 14, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	var first: Button = null
+	for slot: int in range(1, Store.SLOTS + 1):
+		var info: Dictionary = Store.slot_summary(slot)
+		var text: String = "저장 %d  ·  " % slot
+		if info["empty"]:
+			text += "비어 있음"
+		else:
+			text += "깬 지역 %d · 도감 %d종" % [int(info["cleared"]), int(info["found"])]
+			if int(info["wave"]) > 0:
+				text += " · 하던 판 웨이브 %d" % int(info["wave"])
+		var current: bool = slot == _store.slot()
+		var row: Button = GameTheme.button(box, Rect2(30, 96 + (slot - 1) * 80, 500, 66), text, _pick_slot.bind(slot),
+			Color("#2a2110") if current else GameTheme.CARD, GameTheme.GOLD if current else GameTheme.PANEL_LINE, 2 if current else 1)
+		row.add_theme_font_size_override("font_size", 18)
+		if current:
+			first = row
+	GameTheme.button(box, Rect2(200, 340, 160, 44), "닫기", _close_slots, Color("#1c1a24"), GameTheme.GOLD_DIM, 1)
+	if first != null:
+		first.grab_focus()
+
+
+func _close_slots() -> void:
+	if _slot_overlay != null:
+		_slot_overlay.queue_free()
+		_slot_overlay = null
+	_lock_menu(false)
+	_start_button.grab_focus()
+
+
+func _lock_menu(locked: bool) -> void:
+	for button: Button in [_start_button, _continue_button, _length_button, _dex_button, _slot_button, _music_button, _sfx_button, _lower, _higher]:
+		button.disabled = locked
+		button.focus_mode = Control.FOCUS_NONE if locked else Control.FOCUS_ALL
+	if not locked:
+		## 재앙 단추는 고른 단계에 따라 다시 막는다.
+		_select_level(0)
+
+
+## 다른 칸으로 바꾸면 그 칸의 진행 기록을 읽어 타이틀을 다시 채운다.
+func _pick_slot(slot: int) -> void:
+	if slot != _store.slot():
+		Store.set_active_slot(slot)
+		_store = Store.new(slot)
+		_level = 0
+		_select_level(0)
+		_show_continue()
+		_show_length()
+		_show_slot()
+	_close_slots()
 
 
 func _cycle_music() -> void:
@@ -247,7 +326,7 @@ func _start() -> void:
 	_game.store = _store
 	_game.calamity = _level
 	_game.run_length = "long" if OS.has_feature("demo") else _mode()
-	## 둘째 지역부터는 앞 지역에서 고른 드래곤 한 마리를 데려간다.
+	## 둘째 지역부터는 앞 지역에서 고른 드래곤들을 데려간다.
 	if _game.run_length.begins_with("stage:"):
 		_game.controller.carry = _store.carry_for(int(_game.run_length.substr(6)))
 	_game.title_requested.connect(_return_to_title)

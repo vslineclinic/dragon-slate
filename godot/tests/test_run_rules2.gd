@@ -122,12 +122,32 @@ func test_a_carried_dragon_starts_on_the_bench_at_level_one_with_its_traits() ->
 	var inst: Dictionary = state["bench"][0]
 	assert_eq([inst["speciesId"], inst["level"], inst["xp"], inst["skills"], inst["skillPoints"]], ["fire_god", 1, 0, {}, 0])
 	assert_eq(inst["traits"], ["tr_fire_wyvern", "tr_fire_drake"], "아는 특성만, 한도까지")
-	assert_eq(state["carry"], "fire_god")
+	assert_eq(state["carry"], ["fire_god"])
 	## 시작 묶음의 드래곤과 함께 올 수 있다.
 	var option: Dictionary = RunRules.start_options(_data, 5)[0]
 	var both: Dictionary = RunRules.create_run(_data, 5, 0, option["id"], carry)["state"]
 	assert_eq([both["bench"][0]["speciesId"], both["bench"][1]["speciesId"]], ["fire_god", option["speciesId"]])
 	assert_eq(RunRules.create_run(_data, 5, 0, "", {"speciesId": "nope"})["state"]["bench"], [null, null, null, null])
+
+
+func test_two_carried_dragons_each_keep_their_own_traits_and_a_third_is_left_behind() -> void:
+	assert_eq(int(_data["waves"]["carryCount"]), 2)
+	var carry: Array = [
+		{"speciesId": "fire_god", "traits": ["tr_fire_wyvern"]},
+		{"speciesId": "ice_drake", "traits": ["tr_ice_drake"]},
+		{"speciesId": "fire_drake", "traits": []},
+	]
+	var option: Dictionary = RunRules.start_options(_data, 5)[0]
+	var state: Dictionary = RunRules.create_run(_data, 5, 0, option["id"], carry)["state"]
+	var bench: Array = state["bench"]
+	assert_eq([bench[0]["speciesId"], bench[0]["traits"]], ["fire_god", ["tr_fire_wyvern"]])
+	assert_eq([bench[1]["speciesId"], bench[1]["traits"]], ["ice_drake", ["tr_ice_drake"]])
+	assert_eq(bench[2]["speciesId"], option["speciesId"], "시작 묶음의 드래곤이 그 뒤에 온다")
+	assert_eq(bench[3], null, "셋째는 데려가지 않는다")
+	assert_eq(state["carry"], ["fire_god", "ice_drake"])
+	## 모르는 종은 건너뛰고 다음 것을 데려간다.
+	var skipped: Array = RunRules.carry_list(_data, [{"speciesId": "nope"}, {"speciesId": "fire_drake"}, {"speciesId": "ice_drake"}])
+	assert_eq(skipped.map(func(d: Dictionary) -> String: return d["speciesId"]), ["fire_drake", "ice_drake"])
 
 
 func test_pact_makes_every_later_enemy_stronger_and_offers_a_relic() -> void:

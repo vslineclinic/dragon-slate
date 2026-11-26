@@ -20,13 +20,13 @@ func _init() -> void:
 	elif not demo and int(_arg(args, "--stage", "0")) == 0:
 		## 지역도 기본 원정도 아니면 긴 원정(40웨이브).
 		data = Build.for_length(data, "long")
-	## --stage N: N번째 지역(1부터). --carry 종id: 앞 지역에서 데려온 드래곤.
+	## --stage N: N번째 지역(1부터). --carry 종id[,종id]: 앞 지역에서 데려온 드래곤들.
 	var stage_arg: int = int(_arg(args, "--stage", "0"))
 	if stage_arg > 0 and not demo:
 		data = Build.for_stage(data, stage_arg - 1)
-	var carry: Dictionary = {}
-	if not _arg(args, "--carry", "").is_empty():
-		carry = {"speciesId": _arg(args, "--carry", ""), "traits": []}
+	var carry: Array = []
+	for id: String in _arg(args, "--carry", "").split(",", false):
+		carry.append({"speciesId": id, "traits": []})
 	## --set waves.basePower=190 처럼 자료 값을 바꿔 가며 잰다(여러 번 쓸 수 있다). 배열 칸은 숫자로: battle.field.crossLanePct.1=80
 	for i: int in range(args.size() - 1):
 		if args[i] == "--set":

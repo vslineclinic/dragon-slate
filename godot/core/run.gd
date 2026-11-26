@@ -51,8 +51,9 @@ static func start_options(data: Dictionary, seed: int) -> Array:
 
 
 ## start = 시작 묶음의 원소. 이번 판에 내놓은 묶음이 아니면(빈 글 포함) 기본 묶음으로, 드래곤 없이 시작한다.
-## carry = 앞 지역에서 데려온 드래곤({"speciesId", "traits"}). 레벨 1로 대기칸에 들어온다.
-static func create_run(data: Dictionary, seed: int, calamity: int = 0, start: String = "", carry: Dictionary = {}) -> Dictionary:
+## carry = 앞 지역에서 데려온 드래곤들([{"speciesId", "traits"}, ...], 옛 모양인 한 마리 Dictionary도 받는다).
+## waves.carryCount마리까지 레벨 1로 대기칸에 들어온다.
+static func create_run(data: Dictionary, seed: int, calamity: int = 0, start: String = "", carry: Variant = []) -> Dictionary:
 	var mods: Dictionary = Calamity.mods(data, calamity)
 	var chosen: Dictionary = {}
 	for option: Dictionary in start_options(data, seed):
@@ -100,20 +101,21 @@ static func create_run(data: Dictionary, seed: int, calamity: int = 0, start: St
 		"slab": data["slot"].get("slab", {}).get("start", []).duplicate(),
 		"runePending": null,
 		"start": "",
-		"carry": "",
+		"carry": [],
 		"cursePct": 0,
 		"livesLost": 0,
 		"log": [],
 	}
 	var events: Array = []
-	if data["dragons"].has(carry.get("speciesId", "")):
+	for dragon: Dictionary in carry_list(data, carry):
 		var kept: Array = []
-		for trait_id: Variant in carry.get("traits", []):
+		for trait_id: Variant in dragon.get("traits", []):
 			if data["traits"].has(trait_id) and kept.size() < int(data["battle"]["maxTraits"]) and trait_id not in kept:
 				kept.append(trait_id)
-		if _add_to_bench(state, carry["speciesId"], "carry", events):
-			state["bench"][0]["traits"] = kept
-			state["carry"] = carry["speciesId"]
+		var index: int = state["bench"].find(null)
+		if _add_to_bench(state, dragon["speciesId"], "carry", events):
+			state["bench"][index]["traits"] = kept
+			state["carry"].append(dragon["speciesId"])
 	if not chosen.is_empty():
 		state["slab"] = chosen["runes"].duplicate()
 		state["start"] = chosen["id"]
@@ -245,6 +247,18 @@ static func _species_of_tier(data: Dictionary, tier: String, element: String = "
 			pool.append(spec["id"])
 	pool.sort()
 	return pool
+
+
+## 데려온 드래곤 목록을 고른다: 아는 종만, waves.carryCount(없으면 1)마리까지. 한 마리 Dictionary도 받는다.
+static func carry_list(data: Dictionary, carry: Variant) -> Array:
+	var given: Array = [carry] if carry is Dictionary else (carry if carry is Array else [])
+	var out: Array = []
+	for dragon: Variant in given:
+		if out.size() >= int(data["waves"].get("carryCount", 1)):
+			break
+		if dragon is Dictionary and data["dragons"].has(dragon.get("speciesId", "")):
+			out.append(dragon)
+	return out
 
 
 static func _add_to_bench(state: Dictionary, species: String, via: String, events: Array) -> bool:

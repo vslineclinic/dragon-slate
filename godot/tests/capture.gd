@@ -21,6 +21,11 @@ func _init() -> void:
 	DisplayServer.window_set_position(Vector2i(-4000, -4000))
 	for i in 30:
 		await process_frame
+	if mode == "slots" and scene.has_method("_open_slots"):
+		## 타이틀의 저장 칸 고르기.
+		scene.call("_open_slots")
+		for i in 10:
+			await process_frame
 	if mode != "" and scene.get("controller") != null:
 		var tut = scene.get("_tutorial")
 		if tut != null and tut.has_method("finish"):

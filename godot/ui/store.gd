@@ -7,6 +7,12 @@ const RUN_PATH: String = "user://run.json"
 const DEMO_RUN_PATH: String = "user://run_demo.json"
 const RUN_VERSION: int = 2
 const RUN_PHASES: Array[String] = ["spin", "pick", "manage", "reward", "relic", "fork", "slab", "shop"]
+## 저장 칸 셋. 1번 칸은 예전 파일 이름(PATH · RUN_PATH) 그대로라 옛 저장이 1번 칸이 된다.
+## 칸마다 진행 기록(지역 · 별 · 데려갈 드래곤 · 재앙 · 도감 · 설정)과 하던 판이 따로다. 배경음악 · 효과음 설정은 함께 쓴다.
+const SLOTS: int = 3
+const SLOTS_PATH: String = "user://slots.cfg"
+
+static var _active: int = 0
 
 ## 게임 이름이 Wyrmslot이던 때의 저장 폴더(app_userdata/Wyrmslot)에서 저장을 한 번 옮겨 온다.
 ## 새 폴더에 설정 파일이 이미 있으면 아무것도 하지 않는다. 옛 파일은 지우지 않고 복사만 한다.
@@ -26,6 +32,7 @@ static func carry_over_old_saves() -> void:
 static var autosave_off: bool = false
 
 var _config: ConfigFile = ConfigFile.new()
+var _slot: int = 1
 var speed: int:
 	get:
 		var value: int = int(_config.get_value("settings", "speed", 1))
@@ -64,14 +71,19 @@ func record_stage(index: int, stars: int) -> void:
 	_save()
 
 
-## index번째 지역으로 데려갈 드래곤({"speciesId", "traits"}). 없으면 {}.
-func carry_for(index: int) -> Dictionary:
-	var found: Variant = _config.get_value("stages", "carry%d" % index, {})
-	return found if found is Dictionary else {}
+## index번째 지역으로 데려갈 드래곤들([{"speciesId", "traits"}, ...]). 없으면 []. 옛 저장(한 마리 Dictionary)도 읽는다.
+func carry_for(index: int) -> Array:
+	var found: Variant = _config.get_value("stages", "carry%d" % index, [])
+	if found is Dictionary:
+		return [] if found.is_empty() else [found]
+	return found if found is Array else []
 
 
-func set_carry(index: int, dragon: Dictionary) -> void:
-	_config.set_value("stages", "carry%d" % index, {"speciesId": dragon.get("speciesId", ""), "traits": dragon.get("traits", []).duplicate()})
+func set_carry(index: int, dragons: Array) -> void:
+	var list: Array = []
+	for dragon: Dictionary in dragons:
+		list.append({"speciesId": dragon.get("speciesId", ""), "traits": dragon.get("traits", []).duplicate()})
+	_config.set_value("stages", "carry%d" % index, list)
 	_save()
 
 
@@ -101,8 +113,60 @@ static func stars_for(state: Dictionary) -> int:
 	return 3 if lost == 0 else (2 if lost <= 1 else 1)
 
 
-func _init() -> void:
-	var error: Error = _config.load(PATH)
+## 지금 고른 저장 칸(1~SLOTS). 데모판은 늘 1번 칸.
+static func active_slot() -> int:
+	if OS.has_feature("demo"):
+		return 1
+	if _active == 0:
+		var config: ConfigFile = ConfigFile.new()
+		_active = int(config.get_value("slots", "active", 1)) if config.load(SLOTS_PATH) == OK else 1
+	return clampi(_active, 1, SLOTS)
+
+
+static func set_active_slot(slot: int) -> void:
+	_active = clampi(slot, 1, SLOTS)
+	if autosave_off:
+		return
+	var config: ConfigFile = ConfigFile.new()
+	config.set_value("slots", "active", _active)
+	config.save(SLOTS_PATH)
+
+
+static func profile_path(slot: int) -> String:
+	return PATH if slot <= 1 else "user://wyrmslot-slot%d.cfg" % slot
+
+
+static func run_path_for(slot: int) -> String:
+	return RUN_PATH if slot <= 1 else "user://run-slot%d.json" % slot
+
+
+## 저장 칸 고르기 화면에 쓰는 한 줄 요약. 하던 판의 웨이브는 저장 글에서 바로 읽는다(자료로 풀지 않는다).
+static func slot_summary(slot: int) -> Dictionary:
+	var config: ConfigFile = ConfigFile.new()
+	var has_profile: bool = config.load(profile_path(slot)) == OK
+	var wave: int = 0
+	var length: String = ""
+	if FileAccess.file_exists(run_path_for(slot)):
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(run_path_for(slot)))
+		## 이어 할 수 있어 보이는 판만(저장 버전 · 진행 중인 차례). 자세한 검사는 이어 하기에서 한다.
+		if parsed is Dictionary and parsed.get("state") is Dictionary and int(parsed.get("version", 0)) == RUN_VERSION 				and str(parsed["state"].get("phase", "")) in RUN_PHASES:
+			wave = int(parsed["state"].get("wave", 0))
+			length = str(parsed.get("length", ""))
+	return {
+		"empty": not has_profile and wave == 0,
+		"cleared": maxi(0, int(config.get_value("stages", "cleared", 0))) if has_profile else 0,
+		"found": PackedStringArray(config.get_value("codex", "discovered", PackedStringArray())).size() if has_profile else 0,
+		"wave": wave, "length": length,
+	}
+
+
+func slot() -> int:
+	return _slot
+
+
+func _init(slot_index: int = 0) -> void:
+	_slot = active_slot() if slot_index <= 0 else clampi(slot_index, 1, SLOTS)
+	var error: Error = _config.load(profile_path(_slot))
 	if error != OK and error != ERR_FILE_NOT_FOUND:
 		push_warning("설정을 읽지 못했어요 (%s)" % error_string(error))
 
@@ -257,17 +321,22 @@ static func _shop_is_sound(state: Dictionary, data: Dictionary) -> bool:
 	return true
 
 
-## 지금 판(정식 · 데모)의 저장 파일.
+## 지금 판(정식 · 데모)의 저장 파일. 정식판은 지금 고른 저장 칸의 파일.
 static func run_path() -> String:
-	return DEMO_RUN_PATH if OS.has_feature("demo") else RUN_PATH
+	return DEMO_RUN_PATH if OS.has_feature("demo") else run_path_for(active_slot())
 
 
-## path를 비우면 지금 판의 저장 파일. 임시 파일에 다 쓴 뒤 바꿔치기해서, 쓰는 도중 꺼져도 직전 저장이 남는다.
+## 이 저장 칸의 하던 판 파일(데모판은 데모 파일).
+func _run_file() -> String:
+	return DEMO_RUN_PATH if OS.has_feature("demo") else run_path_for(_slot)
+
+
+## path를 비우면 이 저장 칸의 하던 판 파일. 임시 파일에 다 쓴 뒤 바꿔치기해서, 쓰는 도중 꺼져도 직전 저장이 남는다.
 func save_run(state: Dictionary, length: String, path: String = "") -> void:
 	var real: bool = path.is_empty()
 	if real and autosave_off:
 		return
-	var target: String = run_path() if real else path
+	var target: String = _run_file() if real else path
 	var draft: String = target + ".tmp"
 	var file: FileAccess = FileAccess.open(draft, FileAccess.WRITE)
 	if file == null:
@@ -285,7 +354,7 @@ func save_run(state: Dictionary, length: String, path: String = "") -> void:
 
 
 func load_run(data: Dictionary, path: String = "") -> Dictionary:
-	var target: String = run_path() if path.is_empty() else path
+	var target: String = _run_file() if path.is_empty() else path
 	if not FileAccess.file_exists(target):
 		return {}
 	return unpack_run(FileAccess.get_file_as_string(target), data, OS.has_feature("demo"))
@@ -295,7 +364,7 @@ func clear_run(path: String = "") -> void:
 	var real: bool = path.is_empty()
 	if real and autosave_off:
 		return
-	var target: String = run_path() if real else path
+	var target: String = _run_file() if real else path
 	if FileAccess.file_exists(target):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(target))
 
@@ -304,6 +373,6 @@ func _save() -> void:
 	## 도구(캡처 · 메모리 측정)가 켠 동안에는 사용자의 설정 · 진행 기록도 디스크에 쓰지 않는다.
 	if autosave_off:
 		return
-	var error: Error = _config.save(PATH)
+	var error: Error = _config.save(profile_path(_slot))
 	if error != OK:
 		push_warning("설정을 저장하지 못했어요 (%s)" % error_string(error))

@@ -74,15 +74,16 @@ func test_store_writes_reads_and_clears_the_run_file() -> void:
 
 func test_tools_can_switch_the_real_autosave_off() -> void:
 	var store: Store = Store.new()
-	var before: bool = FileAccess.file_exists(Store.RUN_PATH)
-	var kept: String = FileAccess.get_file_as_string(Store.RUN_PATH) if before else ""
+	var real: String = Store.run_path()
+	var before: bool = FileAccess.file_exists(real)
+	var kept: String = FileAccess.get_file_as_string(real) if before else ""
 	Store.autosave_off = true
 	store.save_run(_played(25, 10), "standard")
 	store.clear_run()
 	Store.autosave_off = false
-	assert_eq(FileAccess.file_exists(Store.RUN_PATH), before, "실제 저장 파일은 그대로")
+	assert_eq(FileAccess.file_exists(real), before, "실제 저장 파일은 그대로")
 	if before:
-		assert_eq(FileAccess.get_file_as_string(Store.RUN_PATH), kept)
+		assert_eq(FileAccess.get_file_as_string(real), kept)
 
 
 func test_saves_that_could_not_go_on_are_rejected() -> void:
@@ -103,7 +104,34 @@ func test_saves_that_could_not_go_on_are_rejected() -> void:
 
 func test_demo_and_full_game_keep_separate_save_files() -> void:
 	assert_true(Store.RUN_PATH != Store.DEMO_RUN_PATH)
-	assert_eq(Store.run_path(), Store.DEMO_RUN_PATH if OS.has_feature("demo") else Store.RUN_PATH)
+	assert_eq(Store.run_path(), Store.DEMO_RUN_PATH if OS.has_feature("demo") else Store.run_path_for(Store.active_slot()))
+
+
+func test_three_save_slots_use_their_own_files_and_slot_one_keeps_the_old_names() -> void:
+	assert_eq(Store.SLOTS, 3)
+	assert_eq([Store.profile_path(1), Store.run_path_for(1)], [Store.PATH, Store.RUN_PATH], "옛 저장은 1번 칸")
+	var files: Dictionary = {}
+	for slot: int in range(1, Store.SLOTS + 1):
+		files[Store.profile_path(slot)] = true
+		files[Store.run_path_for(slot)] = true
+		assert_true(Store.run_path_for(slot) != Store.DEMO_RUN_PATH)
+	assert_eq(files.size(), Store.SLOTS * 2, "칸마다 파일이 다르다")
+	assert_true(Store.active_slot() >= 1 and Store.active_slot() <= Store.SLOTS)
+	assert_eq(Store.new(2).slot(), 2)
+	assert_eq(Store.new(9).slot(), Store.SLOTS, "없는 칸은 마지막 칸으로")
+
+
+func test_an_old_single_carried_dragon_still_reads_as_a_list() -> void:
+	var store: Store = Store.new()
+	Store.autosave_off = true
+	store._config.set_value("stages", "carry7", {"speciesId": "fire_drake", "traits": []})
+	var old: Array = store.carry_for(7)
+	store.set_carry(8, [{"speciesId": "fire_drake", "traits": ["tr_fire_drake"], "level": 9}, {"speciesId": "ice_drake"}])
+	var both: Array = store.carry_for(8)
+	Store.autosave_off = false
+	assert_eq(old, [{"speciesId": "fire_drake", "traits": []}])
+	assert_eq(both, [{"speciesId": "fire_drake", "traits": ["tr_fire_drake"]}, {"speciesId": "ice_drake", "traits": []}])
+	assert_eq(store.carry_for(9), [])
 
 
 func test_saving_leaves_no_draft_file_behind() -> void:

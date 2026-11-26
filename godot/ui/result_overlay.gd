@@ -8,6 +8,10 @@ var _store: RefCounted
 var _next_stage: int = -1
 var _rings: Array = []
 var _picked: Label
+## 데려갈 드래곤 고르기: 후보(세기 순)와 고른 순서대로의 번호, 고를 수 있는 수(waves.carryCount).
+var _roster: Array = []
+var _chosen: Array = []
+var _carry_max: int = 1
 
 
 ## store와 stage(지역 번호, 지역이 아니면 -1)를 주면 별을 보여 주고, 다음 지역으로 데려갈 드래곤을 고르게 한다.
@@ -91,9 +95,11 @@ func _strongest(data: Dictionary, state: Dictionary) -> Dictionary:
 	return best
 
 
-## 다음 지역으로 데려갈 드래곤 한 마리 고르기. 처음에는 가장 센 드래곤이 골라져 있다.
+## 다음 지역으로 데려갈 드래곤 고르기(waves.carryCount마리까지). 처음에는 가장 센 드래곤들이 골라져 있다.
+## 누르면 고르고, 다시 누르면 뺀다. 이미 다 골랐으면 가장 먼저 고른 것을 빼고 새로 고른다.
 func _carry_picker(panel: Panel, data: Dictionary, state: Dictionary, next_name: String) -> void:
-	GameTheme.heading(panel, Rect2(24, 152, 652, 30), "「%s」%s 데려갈 드래곤 한 마리" % [next_name, _josa(next_name, "으로", "로", true)], 20, GameTheme.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	_carry_max = maxi(1, int(data["waves"].get("carryCount", 1)))
+	GameTheme.heading(panel, Rect2(24, 152, 652, 30), "「%s」%s 데려갈 드래곤 %d마리" % [next_name, _josa(next_name, "으로", "로", true), _carry_max], 20, GameTheme.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
 	GameTheme.label(panel, Rect2(24, 182, 652, 22), "종과 계승 특성은 그대로 가고, 레벨과 스킬은 처음부터 다시 키워요.", 14, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 	var roster: Array = []
 	for zone: String in ["nest", "bench"]:
@@ -109,7 +115,7 @@ func _carry_picker(panel: Panel, data: Dictionary, state: Dictionary, next_name:
 		var inst: Dictionary = roster[i]["inst"]
 		var spec: Dictionary = data["dragons"][inst["speciesId"]]
 		var rect: Rect2 = Rect2(left + i * step, 214, 64, 92)
-		var tile: Button = GameTheme.button(panel, rect, "", _pick_carry.bind(i, inst, spec["nameKo"]), GameTheme.CARD, GameTheme.PANEL_LINE, 1)
+		var tile: Button = GameTheme.button(panel, rect, "", _pick_carry.bind(i), GameTheme.CARD, GameTheme.PANEL_LINE, 1)
 		tile.tooltip_text = "%s · %s" % [spec["nameKo"], GameTheme.TIER_KO.get(spec["tier"], "")]
 		GameTheme.glow(tile, Vector2(32, 34), 34.0, Color(GameTheme.COLOR.get(spec["elements"][0], GameTheme.GOLD), 0.4))
 		DexOverlay.portrait(tile, Rect2(4, 4, 56, 56), spec["id"])
@@ -119,18 +125,36 @@ func _carry_picker(panel: Panel, data: Dictionary, state: Dictionary, next_name:
 		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ring.hide()
 		_rings.append(ring)
-	if not roster.is_empty():
-		_pick_carry(0, roster[0]["inst"], data["dragons"][roster[0]["inst"]["speciesId"]]["nameKo"])
+	_roster = []
+	for row: Dictionary in roster:
+		_roster.append({"inst": row["inst"], "name": data["dragons"][row["inst"]["speciesId"]]["nameKo"]})
+	_chosen = range(mini(_carry_max, _roster.size()))
+	_show_carry()
 	var found: int = state["discovered"].size()
 	GameTheme.label(panel, Rect2(24, 356, 652, 22), "이번 판에서 만든 드래곤 %d종" % found, 14, GameTheme.DIM, HORIZONTAL_ALIGNMENT_CENTER)
 
 
-func _pick_carry(index: int, inst: Dictionary, dragon_name: String) -> void:
+func _pick_carry(index: int) -> void:
+	if index in _chosen:
+		_chosen.erase(index)
+	else:
+		_chosen.append(index)
+		if _chosen.size() > _carry_max:
+			_chosen.remove_at(0)
+	_show_carry()
+
+
+func _show_carry() -> void:
+	var names: PackedStringArray = []
+	var picked: Array = []
 	for i: int in range(_rings.size()):
-		_rings[i].visible = i == index
-	_picked.text = "데려가는 드래곤: " + dragon_name
+		_rings[i].visible = i in _chosen
+	for index: int in _chosen:
+		names.append(_roster[index]["name"])
+		picked.append(_roster[index]["inst"])
+	_picked.text = "데려가는 드래곤: %s (%d/%d)" % ["없음" if names.is_empty() else " · ".join(names), names.size(), _carry_max]
 	if _store != null and _next_stage >= 0:
-		_store.set_carry(_next_stage, inst)
+		_store.set_carry(_next_stage, picked)
 
 
 func _go_next(on_title: Callable) -> void:
