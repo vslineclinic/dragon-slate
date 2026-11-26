@@ -348,6 +348,8 @@ func _play_cue(events: Array) -> void:
 				cues["relic"] = true
 			"transmuted":
 				cues["evolve" if event["ok"] else "error"] = true
+			"tempered":
+				cues["levelup" if event["ok"] else "error"] = true
 			"rejected":
 				cues["error"] = true
 	if spun:

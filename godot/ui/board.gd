@@ -194,7 +194,8 @@ func _draw_card(rect: Rect2, inst: Dictionary, ref: Dictionary, draggable: bool,
 	var filled: float = 1.0 if need == 0 else clampf(float(inst.get("xp", 0)) / need, 0.0, 1.0)
 	GameTheme.panel(card, Rect2(8, rect.size.y - 5, (rect.size.x - 16) * filled, 3), Color("#ffd43b"))
 	if image != null:
-		GameTheme.label(card, Rect2(6, 4, 50, 18), "Lv.%d" % level, 12, Color("#fff3bf"))
+		var tempered: int = Battle.temper_step(_ctl.data, inst)
+		GameTheme.label(card, Rect2(6, 4, 80, 18), "Lv.%d" % level + ("  +%d" % tempered if tempered > 0 else ""), 12, Color("#fff3bf"))
 		GameTheme.label(card, Rect2(6, 20, 50, 16), GameTheme.TIER_KO[tier], 10, GameTheme.TIER_RING[tier] if tier != "base" else tier_color)
 		GameTheme.label(card, Rect2(0, 68, 120, 18), spec["nameKo"], 12, GameTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 		var skill_total: int = 0

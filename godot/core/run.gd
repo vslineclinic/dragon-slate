@@ -155,6 +155,8 @@ static func apply_command(data: Dictionary, state: Dictionary, cmd: Dictionary) 
 			reason = _do_choose_fork(data, next, cmd["option"], rng, events)
 		"transmute":
 			reason = _do_transmute(data, next, cmd["at"], cmd["element"], rng, events)
+		"temper":
+			reason = _do_temper(data, next, cmd["at"], rng, events)
 		"replaceRune":
 			reason = _do_rune(data, next, cmd["index"], rng, events)
 		"skipRune":
@@ -926,6 +928,47 @@ static func _do_transmute(data: Dictionary, state: Dictionary, at: Dictionary, e
 	else:
 		state["transmuteFails"] = int(state.get("transmuteFails", 0)) + 1
 	events.append({"t": "transmuted", "at": at.duplicate(true), "ok": ok, "from": from, "to": target, "chance": chance, "inst": inst})
+	return ""
+
+
+## 단련: 지금 단계에서 한 단계 올리는 값·확률·실패하면 내려갈 단계. 끝까지 올렸으면 빈 사전.
+static func temper_offer(data: Dictionary, inst: Dictionary) -> Dictionary:
+	var cfg: Dictionary = data["battle"].get("temper", {})
+	var costs: Array = cfg.get("cost", [])
+	var chances: Array = cfg.get("chancePct", [])
+	var step: int = Battle.temper_step(data, inst)
+	if step >= Battle.temper_max(data):
+		return {}
+	var fall: int = 0
+	for safe: Variant in cfg.get("safe", []):
+		if int(safe) <= step:
+			fall = maxi(fall, int(safe))
+	var chance: int = int(chances[step]) + int(cfg.get("failAddPct", 0)) * maxi(0, int(inst.get("temperFails", 0)))
+	return {"step": step, "next": step + 1, "cost": int(costs[step]), "chance": clampi(chance, 0, 100), "fall": fall}
+
+
+static func _do_temper(data: Dictionary, state: Dictionary, at: Dictionary, rng: Rng, events: Array) -> String:
+	if state["phase"] not in ARRANGE_PHASES:
+		return "wrongPhase"
+	var reason: String = _valid_ref(state, at)
+	if not reason.is_empty():
+		return reason
+	var inst: Variant = _zone_of(state, at)[int(at["index"])]
+	if inst == null:
+		return "emptySlot"
+	var offer: Dictionary = temper_offer(data, inst)
+	if offer.is_empty():
+		return "temperMax"
+	if int(state["mana"]) < int(offer["cost"]):
+		return "noMana"
+	_add_mana(state, -int(offer["cost"]), "temper", events)
+	var ok: bool = rng.next_int(100) < int(offer["chance"])
+	inst["temper"] = int(offer["next"]) if ok else int(offer["fall"])
+	inst["temperFails"] = 0 if ok else int(inst.get("temperFails", 0)) + 1
+	events.append({
+		"t": "tempered", "at": at.duplicate(true), "ok": ok, "from": offer["step"], "to": inst["temper"],
+		"chance": offer["chance"], "cost": offer["cost"], "inst": inst,
+	})
 	return ""
 
 

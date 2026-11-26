@@ -124,6 +124,7 @@ static func merge(data: Dictionary, main: Dictionary, material: Dictionary, new_
 			"skills": carrier.get("skills", {}).duplicate(), "skillPoints": int(carrier.get("skillPoints", 0)),
 			"level": level_of(carrier), "xp": int(carrier.get("xp", 0)),
 		}
+		_keep_temper(evolved, main, material)
 		return {"inst": evolved, "kind": "evolve", "trait": null, "levels": 0}
 
 	var traits: Array = main["traits"].duplicate()
@@ -135,8 +136,19 @@ static func merge(data: Dictionary, main: Dictionary, material: Dictionary, new_
 		"skills": main.get("skills", {}).duplicate(), "skillPoints": int(main.get("skillPoints", 0)),
 		"level": level_of(main), "xp": int(main.get("xp", 0)),
 	}
+	_keep_temper(absorbed, main, material)
 	var levels: int = add_xp(data, absorbed, int(preview["xp"]))
 	return {"inst": absorbed, "kind": "absorb", "trait": inherited, "levels": levels}
+
+
+## 단련 단계는 두 드래곤 중 높은 쪽을 잇는다(단련한 적이 없으면 칸을 만들지 않는다).
+static func _keep_temper(into: Dictionary, main: Dictionary, material: Dictionary) -> void:
+	var step: int = maxi(int(main.get("temper", 0)), int(material.get("temper", 0)))
+	if step > 0:
+		into["temper"] = step
+	## 연달아 실패해 오른 확률은 주 드래곤의 것만 잇는다.
+	if int(main.get("temperFails", 0)) > 0:
+		into["temperFails"] = int(main["temperFails"])
 
 
 ## 스킬 맵: 찍을 수 있으면 "" 아니면 거부 이유.

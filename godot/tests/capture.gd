@@ -71,7 +71,7 @@ func _init() -> void:
 			scene.call("_render", [], ctl.state)
 			for i in 20:
 				await process_frame
-		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "lineage", "slab", "erase", "live", "wave7", "synergy", "synergy4", "burst", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear", "shop", "shoppoor", "shopslab", "reroll", "rerollpoor", "rerollused"]:
+		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "temper", "lineage", "slab", "erase", "live", "wave7", "synergy", "synergy4", "burst", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear", "shop", "shoppoor", "shopslab", "reroll", "rerollpoor", "rerollused"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -230,6 +230,20 @@ func _init() -> void:
 					var overlay = scene.get_child(scene.get_child_count() - 1)
 					if args.size() > 4:
 						overlay.call("_toggle_transmute")
+					break
+			for i in 20:
+				await process_frame
+		if mode == "temper":
+			ctl.state["mana"] = 14
+			for slot in range(3):
+				if ctl.state["nest"][slot] != null:
+					ctl.state["nest"][slot]["temper"] = 4
+					ctl.state["nest"][slot]["temperFails"] = 1
+					scene.call("_render", [], ctl.state)
+					scene.call("_open_skills", {"zone": "nest", "index": slot})
+					var temper_overlay = scene.get_child(scene.get_child_count() - 1)
+					if args.size() > 4:
+						temper_overlay.call("_toggle_temper")
 					break
 			for i in 20:
 				await process_frame

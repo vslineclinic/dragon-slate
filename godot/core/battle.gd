@@ -28,6 +28,34 @@ static func ability_of(data: Dictionary, species_id: String) -> String:
 	return ""
 
 
+## 단련 단계의 끝(값과 확률이 둘 다 있는 단계까지).
+static func temper_max(data: Dictionary) -> int:
+	var cfg: Dictionary = data["battle"].get("temper", {})
+	return mini(cfg.get("cost", []).size(), cfg.get("chancePct", []).size())
+
+
+## 그 드래곤의 단련 단계. 저장이 깨져 범위를 벗어난 값은 0~끝으로 자른다.
+static func temper_step(data: Dictionary, inst: Dictionary) -> int:
+	return clampi(int(inst.get("temper", 0)), 0, temper_max(data))
+
+
+## 단련 단계가 형태 능력을 얼마나 키우는가(%). 넘긴 문턱 가운데 가장 높은 값.
+static func temper_boost(data: Dictionary, inst: Dictionary) -> int:
+	var table: Dictionary = data["battle"].get("temper", {}).get("abilityPct", {})
+	var step: int = temper_step(data, inst)
+	var best: int = 0
+	for key: String in table:
+		if step >= int(key):
+			best = maxi(best, int(table[key]))
+	return best
+
+
+## 형태 능력의 수치. 단련한 드래곤은 boost만큼 세다.
+static func _apct(abilities: Dictionary, unit: Dictionary) -> int:
+	var base: int = int(abilities.get(unit["ability"], {}).get("pct", 0))
+	return Rng.fdiv(base * (100 + int(unit.get("boost", 0))), 100)
+
+
 ## 종 고유 특성과 계승 특성을 모두 적용한다.
 static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary = {}) -> Dictionary:
 	var species_id: String = inst["speciesId"]
@@ -89,7 +117,8 @@ static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary =
 
 	var stats: Dictionary = spec["stats"]
 	var level_pct: int = int(data["battle"].get("level", {}).get("statPct", 0)) * (maxi(1, int(inst.get("level", 1))) - 1)
-	var bonus_pct: int = int(inst.get("bonusPct", 0)) + level_pct
+	var temper_pct: int = int(data["battle"].get("temper", {}).get("statPct", 0)) * temper_step(data, inst)
+	var bonus_pct: int = int(inst.get("bonusPct", 0)) + level_pct + temper_pct
 	var unit: Dictionary = {
 		"speciesId": spec["id"],
 		"tier": spec["tier"],
@@ -108,6 +137,9 @@ static func to_unit(data: Dictionary, inst: Dictionary, team_bonus: Dictionary =
 	var ability: String = ability_of(data, species_id)
 	if not ability.is_empty():
 		unit["ability"] = ability
+	var boost: int = temper_boost(data, inst)
+	if boost > 0:
+		unit["abilityBoost"] = boost
 	return unit
 
 
@@ -405,7 +437,7 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 						is_ult = true
 						power_pct = int(ultimate["powerPct"].get(unit["tier"], 100)) + int(unit["ultPower"])
 						## 신화의 숨결: 궁극기가 한 마리를 더 친다.
-						var extra_targets: int = int(abilities.get("mythic", {}).get("pct", 0)) if unit["ability"] == "mythic" else 0
+						var extra_targets: int = _apct(abilities, unit) if unit["ability"] == "mythic" else 0
 						victims = _nearest_many(field, units, unit, int(ultimate["targets"].get(unit["tier"], 1)) + extra_targets)
 						events.append({"tick": tick, "kind": "ult", "src": unit["id"]})
 				## 형태별 능력(보통 공격에만): 꿰뚫기는 같은 줄의 다음 적도, 연속 공격은 같은 적을 한 번 더.
@@ -413,7 +445,7 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 				for victim: Dictionary in victims:
 					strikes.append([victim, 100, ""])
 				var ability: String = unit["ability"]
-				var ability_pct: int = 0 if ability.is_empty() or is_ult else int(abilities.get(ability, {}).get("pct", 0))
+				var ability_pct: int = 0 if ability.is_empty() or is_ult else _apct(abilities, unit)
 				if ability_pct > 0 and ability == "pierce":
 					var behind: Variant = _next_in_lane(field, units, unit, target)
 					if behind != null:
@@ -448,9 +480,9 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 					if ability_pct > 0 and ability == "duel" and unit["lane"] == victim["lane"]:
 						dmg = Rng.fdiv(dmg * (100 + ability_pct), 100)
 					## 방패막: 같은 줄에 방패막 드래곤이 살아 있으면 다른 드래곤이 보통 공격을 덜 맞는다(궁극기는 그대로).
-					var warded: bool = not is_ult and victim["kind"] == "dragon" and _warded(units, victim)
-					if warded:
-						dmg = maxi(1, Rng.fdiv(dmg * (100 - int(abilities.get("ward", {}).get("pct", 0))), 100))
+					var ward_pct: int = _warded(abilities, units, victim) if not is_ult and victim["kind"] == "dragon" else 0
+					if ward_pct > 0:
+						dmg = maxi(1, Rng.fdiv(dmg * (100 - mini(90, ward_pct)), 100))
 					if int(victim["guard"]) > 0:
 						dmg = maxi(1, Rng.fdiv(dmg * (100 - int(victim["guard"])), 100))
 					## 방벽(강철 시너지): 호위가 살아 있는 우리 드래곤은 덜 맞는다.
@@ -476,7 +508,7 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 						hit["lane"] = lane_pct
 					if not via.is_empty():
 						hit["via"] = via
-					if warded:
+					if ward_pct > 0:
 						hit["ward"] = true
 					events.append(hit)
 					if victim["hp"] <= 0:
@@ -536,8 +568,9 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, rules: Dictio
 		dragon["slot"] = slot
 		dragon["role"] = unit.get("role", "")
 		dragon["ability"] = unit.get("ability", "")
+		dragon["boost"] = int(unit.get("abilityBoost", 0))
 		## 선봉은 전열에서, 저격은 후열에서 힘을 낸다.
-		var stance_pct: int = int(cfg.get("abilities", {}).get(dragon["ability"], {}).get("pct", 0))
+		var stance_pct: int = _apct(cfg.get("abilities", {}), dragon)
 		if dragon["ability"] == "ambush" and slot >= 3:
 			dragon["edge"] = stance_pct
 		dragon["range"] = _role_range(field, int(field.get("frontRange" if slot < 3 else "backRange", 0)), dragon["role"])
@@ -594,12 +627,15 @@ static func _spawn(cfg: Dictionary, allies: Array, enemies: Array, rules: Dictio
 		for unit: Dictionary in units:
 			if unit["kind"] != "dragon" or not unit["active"]:
 				continue
+			## 함성 드래곤이 여럿이면 가장 센 함성 하나만 듣는다.
+			var heard: int = 0
 			for other: Dictionary in units:
 				## 아직 나오지 않은 무리의 드래곤은 함성을 주지도 받지도 않는다.
 				if other["ability"] == "rally" and other["active"] and other["kind"] == "dragon" and other["side"] == unit["side"] \
 						and other["lane"] == unit["lane"] and other["id"] != unit["id"]:
-					unit["cd"] = maxi(5, Rng.fdiv(int(unit["cd"]) * (100 - rally_pct), 100))
-					break
+					heard = maxi(heard, _apct(cfg.get("abilities", {}), other))
+			if heard > 0:
+				unit["cd"] = maxi(5, Rng.fdiv(int(unit["cd"]) * (100 - mini(90, heard)), 100))
 	return units
 
 
@@ -613,7 +649,7 @@ static func _make(
 		"lane": lane, "x": x, "laneTimer": 0, "slot": -1, "owner": -1, "lifesteal": 0,
 		"stage": 0, "active": true, "tier": "", "ultNeed": 0, "charge": 0, "elite": false,
 		"ultPower": 0, "critBonus": 0, "guard": 0, "range": 0, "role": "", "ability": "", "edge": 0, "armed": false, "type": "", "reach": 0,
-		"chilled": false, "venom": 0, "venomSrc": -1,
+		"chilled": false, "venom": 0, "venomSrc": -1, "boost": 0,
 	}
 
 
@@ -723,13 +759,14 @@ static func _next_in_lane(field: Dictionary, units: Array, me: Dictionary, targe
 	return best
 
 
-## 방패막: victim과 같은 편·같은 줄에 방패막 능력을 가진 다른 드래곤이 살아 있는가.
-static func _warded(units: Array, victim: Dictionary) -> bool:
+## 방패막: victim과 같은 편·같은 줄에 살아 있는 다른 방패막 드래곤이 막아 주는 비율(%). 없으면 0, 여럿이면 가장 센 것.
+static func _warded(abilities: Dictionary, units: Array, victim: Dictionary) -> int:
+	var best: int = 0
 	for other: Dictionary in units:
 		if other["ability"] == "ward" and other["side"] == victim["side"] and other["lane"] == victim["lane"] \
 				and other["id"] != victim["id"] and other["hp"] > 0 and other["active"] and other["kind"] == "dragon":
-			return true
-	return false
+			best = maxi(best, _apct(abilities, other))
+	return best
 
 
 ## 돌봄: 제 줄과 옆줄의 같은 편 드래곤 가운데 체력 비율이 가장 낮은(다친) 드래곤. 다친 드래곤이 없으면 null.

@@ -15,7 +15,14 @@ static func choose(data: Dictionary, state: Dictionary) -> Dictionary:
 			return _choose_pick(data, state, state["grid"])
 		"manage":
 			var spend: Dictionary = _choose_skill(data, state)
-			return spend if not spend.is_empty() else _choose_manage(data, state)
+			if not spend.is_empty():
+				return spend
+			var manage: Dictionary = _choose_manage(data, state)
+			if manage["type"] == "startBattle":
+				var temper: Dictionary = _choose_temper(data, state)
+				if not temper.is_empty():
+					return temper
+			return manage
 		"reward":
 			return _choose_reward(data, state)
 		"relic":
@@ -166,6 +173,21 @@ static func _choose_skill(data: Dictionary, state: Dictionary) -> Dictionary:
 		if not pick.is_empty():
 			return {"type": "skill", "at": slot["ref"], "node": pick}
 	return {}
+
+
+## 단련: 정비를 마친 뒤 가장 센 둥지 드래곤을 올린다. 다시 돌릴 마력(TEMPER_KEEP)은 남기고, 확률이 낮으면 멈춘다.
+const TEMPER_KEEP: int = 3
+const TEMPER_MIN_CHANCE: int = 50
+
+
+static func _choose_temper(data: Dictionary, state: Dictionary) -> Dictionary:
+	var ranked: Array = _ranked(data, _occupied(state, "nest"), true)
+	if ranked.is_empty():
+		return {}
+	var offer: Dictionary = Run.temper_offer(data, ranked[0]["inst"])
+	if offer.is_empty() or int(offer["chance"]) < TEMPER_MIN_CHANCE or int(state["mana"]) < int(offer["cost"]) + TEMPER_KEEP:
+		return {}
+	return {"type": "temper", "at": ranked[0]["ref"]}
 
 
 static func _occupied(state: Dictionary, zone: String) -> Array:
