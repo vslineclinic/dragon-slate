@@ -338,7 +338,7 @@ func test_real_synergy_table_covers_six_elements() -> void:
 	for row: Dictionary in table:
 		seen.append(row["element"])
 		assert_true(int(row["levels"][0]["count"]) < int(row["levels"][1]["count"]))
-		assert_true(int(row["levels"][0]["value"]) < int(row["levels"][1]["value"]))
+		assert_true(int(row["levels"][0]["value"]) <= int(row["levels"][1]["value"]))
 	assert_eq(seen, ELEMENTS)
 
 

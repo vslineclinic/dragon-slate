@@ -66,7 +66,7 @@ func _init() -> void:
 			scene.call("_render", [], ctl.state)
 			for i in 20:
 				await process_frame
-		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "lineage", "slab", "erase", "live", "wave7", "synergy", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear", "shop", "shoppoor", "shopslab", "reroll", "rerollpoor", "rerollused"]:
+		if mode in ["manage", "battle", "battle-late", "crit", "ult", "reward", "skills", "transmute", "lineage", "slab", "erase", "live", "wave7", "synergy", "synergy4", "burst", "dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear", "shop", "shoppoor", "shopslab", "reroll", "rerollpoor", "rerollused"]:
 			ctl.busy = false
 			var offers: Array = Slot.offers_from(ctl.data, ctl.state["grid"])
 			var pick: int = 0
@@ -118,6 +118,19 @@ func _init() -> void:
 			scene.call("_render", [], ctl.state)
 			for i in 10:
 				await process_frame
+		if mode in ["synergy4", "burst"]:
+			## 불 드래곤 넷: 4마리 규칙 효과(폭발)가 켜진 칩, burst는 그 전투.
+			var fours: Array = ["fire_drake", "fire_wyvern", "fire_serpent", "fire_drake"]
+			ctl.state["nestOpen"] = maxi(4, int(ctl.state["nestOpen"]))
+			for slot in range(4):
+				ctl.state["nest"][slot] = {"uid": 950 + slot, "speciesId": fours[slot], "traits": [], "bonusPct": 0, "skills": {}, "skillPoints": 0, "level": 6, "xp": 0}
+			scene.call("_render", [], ctl.state)
+			for i in 10:
+				await process_frame
+			if mode == "burst":
+				ctl.dispatch({"type": "startBattle"})
+				for i in (int(args[4]) if args.size() > 4 else 130):
+					await process_frame
 		if mode in ["dex", "dexpick", "dexmixed", "relic", "levels", "fork", "result", "stageclear"]:
 			var team: Array = [["fafnir", 7, 3], ["fire_whelp", 4, 1], ["zhulong", 11, 0]]
 			for slot in range(3):

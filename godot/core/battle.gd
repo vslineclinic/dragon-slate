@@ -144,11 +144,32 @@ static func synergies(data: Dictionary, insts: Array) -> Array:
 				value = int(step["value"])
 			elif next_count == 0:
 				next_count = int(step["count"])
-		found.append({
+		var entry: Dictionary = {
 			"element": row["element"], "nameKo": row["nameKo"], "kind": row["kind"], "descKo": row.get("descKo", ""),
 			"count": count, "level": level, "value": value, "nextCount": next_count,
-		})
+		}
+		## 규칙 효과(4마리 단계): 켜졌으면 rule, 아직이면 다음에 켜질 nextRule.
+		for i: int in range(row["levels"].size()):
+			var rule: Variant = row["levels"][i].get("rule")
+			if rule is Dictionary:
+				entry["rule" if level > i else "nextRule"] = rule
+				entry["ruleCount"] = int(row["levels"][i]["count"])
+				break
+		found.append(entry)
 	return found
+
+
+## 발동한 시너지의 규칙 효과: {규칙 id: 수치}. 전투에는 rules.synergy로 들어간다.
+static func synergy_rules(data: Dictionary, insts: Array) -> Dictionary:
+	var out: Dictionary = {}
+	for row: Dictionary in synergies(data, insts):
+		if row.has("rule"):
+			var params: Dictionary = row["rule"].duplicate()
+			var id: String = params["id"]
+			for key: String in ["id", "nameKo", "descKo"]:
+				params.erase(key)
+			out[id] = params
+	return out
 
 
 ## 열린 둥지 칸의 드래곤(빈칸 null).
@@ -273,6 +294,8 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 	## 유물 "매의 눈": 후열에 선 우리 드래곤은 줄 감쇠를 받지 않는다.
 	var keen_back: bool = bool(rules.get("backRowNoLane", false))
 	var manual: bool = bool(rules.get("manualUlt", false))
+	## 원소 시너지 규칙 효과(우리 편만): 폭발 · 얼림 · 연쇄 · 중독 · 방벽 · 흡수.
+	var syn: Dictionary = rules.get("synergy", {})
 	var enraged: bool = sim["enraged"]
 	var dirty: Dictionary = sim["dirty"]
 	var winner: String = ""
@@ -328,6 +351,15 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 		enraged = true
 		sim["enraged"] = true
 		events.append({"tick": tick, "kind": "enrage"})
+	if syn.has("venom") and _hazard_due(syn["venom"], tick):
+		for unit: Dictionary in units:
+			if unit["side"] == "enemy" and unit["hp"] > 0 and int(unit["venom"]) > 0:
+				var venom: int = int(unit["venom"])
+				unit["venom"] = 0
+				unit["hp"] -= venom
+				events.append({"tick": tick, "kind": "attack", "src": unit["venomSrc"], "dst": unit["id"], "dmg": venom, "mult": 100, "heal": 0, "via": "venom"})
+				if unit["hp"] <= 0:
+					_kill(units, unit, tick, "hit", events)
 	if not _any_alive(units, "ally"):
 		winner = "enemy"
 	if winner.is_empty():
@@ -351,6 +383,7 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 					unit["timer"] = unit["cd"]
 					continue
 				unit["timer"] = 0
+				unit["chilled"] = false
 				## 궁극기: 아군 드래곤은 공격할 때마다 게이지가 차고, 다 차면 가까운 적 여럿을 세게 친다.
 				var victims: Array = [target]
 				var power_pct: int = 100
@@ -420,6 +453,9 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 						dmg = maxi(1, Rng.fdiv(dmg * (100 - int(abilities.get("ward", {}).get("pct", 0))), 100))
 					if int(victim["guard"]) > 0:
 						dmg = maxi(1, Rng.fdiv(dmg * (100 - int(victim["guard"])), 100))
+					## 방벽(강철 시너지): 호위가 살아 있는 우리 드래곤은 덜 맞는다.
+					if side == "enemy" and syn.has("bulwark") and victim["kind"] == "dragon" and _has_escort(units, victim):
+						dmg = maxi(1, Rng.fdiv(dmg * (100 - int(syn["bulwark"]["pct"])), 100))
 					victim["hp"] -= dmg
 					var raw_heal: int = Rng.fdiv(dmg * int(unit["lifesteal"]), 100)
 					if side == "ally" and heal_cut_pct != 0 and tick >= heal_cut_from:
@@ -445,6 +481,11 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 					events.append(hit)
 					if victim["hp"] <= 0:
 						_kill(units, victim, tick, "hit", events)
+					## 시너지 규칙 효과는 우리 드래곤의 보통 공격(추가타 · 궁극기 제외)에서만 일어난다.
+					if side == "ally" and not syn.is_empty() and unit["kind"] == "dragon" and via.is_empty() and not is_ult:
+						_synergy_on_hit(syn, units, unit, victim, dmg, tick, events)
+				if side == "ally" and syn.has("chain") and unit["kind"] == "dragon" and not is_ult and "lightning" in unit["elements"]:
+					_chain(cfg, syn["chain"], units, unit, target, tick, events)
 				## 돌봄: 공격할 때마다 제 줄·옆줄에서 가장 다친 아군 드래곤을 고친다.
 				if ability_pct > 0 and ability == "mend":
 					var patient: Variant = _most_hurt(units, unit)
@@ -457,6 +498,8 @@ static func step_battle(sim: Dictionary, arm: Array = []) -> Array:
 							patient["hp"] += mend
 							events.append({"tick": tick, "kind": "heal", "src": unit["id"], "dst": patient["id"], "amount": mend})
 
+		if syn.has("siphon"):
+			_siphon(syn["siphon"], units, events, first_event, tick)
 		if pos_every > 0 and tick % pos_every == 0 and not dirty.is_empty():
 			_record_pos(units, dirty, tick, events)
 			dirty.clear()
@@ -570,6 +613,7 @@ static func _make(
 		"lane": lane, "x": x, "laneTimer": 0, "slot": -1, "owner": -1, "lifesteal": 0,
 		"stage": 0, "active": true, "tier": "", "ultNeed": 0, "charge": 0, "elite": false,
 		"ultPower": 0, "critBonus": 0, "guard": 0, "range": 0, "role": "", "ability": "", "edge": 0, "armed": false, "type": "", "reach": 0,
+		"chilled": false, "venom": 0, "venomSrc": -1,
 	}
 
 
@@ -700,6 +744,83 @@ static func _most_hurt(units: Array, me: Dictionary) -> Variant:
 		if best == null or int(other["hp"]) * int(best["maxHp"]) < int(best["hp"]) * int(other["maxHp"]):
 			best = other
 	return best
+
+
+## 방벽: 그 드래곤의 호위가 하나라도 살아 있는가.
+static func _has_escort(units: Array, dragon: Dictionary) -> bool:
+	for other: Dictionary in units:
+		if other["owner"] == dragon["id"] and other["hp"] > 0:
+			return true
+	return false
+
+
+## 얼림 · 중독 · 폭발: 우리 드래곤의 보통 공격 한 번이 맞은 뒤.
+static func _synergy_on_hit(syn: Dictionary, units: Array, unit: Dictionary, victim: Dictionary, dmg: int, tick: int, events: Array) -> void:
+	var elements: Array = unit["elements"]
+	if syn.has("chill") and "ice" in elements and victim["hp"] > 0 and not victim["chilled"]:
+		## 맞은 적의 다음 공격이 늦어진다. 그 적이 한 번 공격할 때까지 한 번만.
+		## 막 공격해 타이머가 0이어도 온전히 늦도록 0 아래로 내려갈 수 있다.
+		victim["timer"] = int(victim["timer"]) - int(syn["chill"]["ticks"])
+		victim["chilled"] = true
+	if syn.has("venom") and "poison" in elements and victim["hp"] > 0:
+		victim["venom"] = int(victim["venom"]) + Rng.fdiv(dmg * int(syn["venom"]["pct"]), 100)
+		victim["venomSrc"] = unit["id"]
+	if syn.has("burst") and "fire" in elements and victim["hp"] <= 0:
+		## 쓰러진 적이 터진다. 폭발로 쓰러진 적은 다시 터지지 않는다.
+		var blast: int = maxi(1, Rng.fdiv(int(victim["maxHp"]) * int(syn["burst"]["pct"]), 100))
+		for other: Dictionary in units:
+			if other["side"] != victim["side"] or other["hp"] <= 0 or not other["active"] or other["lane"] != victim["lane"]:
+				continue
+			if absi(int(other["x"]) - int(victim["x"])) > int(syn["burst"]["radius"]):
+				continue
+			other["hp"] -= blast
+			events.append({"tick": tick, "kind": "attack", "src": unit["id"], "dst": other["id"], "dmg": blast, "mult": 100, "heal": 0, "via": "burst"})
+			if other["hp"] <= 0:
+				_kill(units, other, tick, "hit", events)
+
+
+## 연쇄(번개 시너지): 맞은 적의 옆줄에서 가로로 가장 가까운 적에게 튄다(같으면 줄 번호, 그다음 id).
+static func _chain(cfg: Dictionary, chain: Dictionary, units: Array, unit: Dictionary, target: Dictionary, tick: int, events: Array) -> void:
+	var best: Variant = null
+	var best_key: int = 0
+	for other: Dictionary in units:
+		if other["side"] == unit["side"] or other["hp"] <= 0 or not other["active"]:
+			continue
+		if absi(int(other["lane"]) - int(target["lane"])) != 1:
+			continue
+		var key: int = absi(int(other["x"]) - int(target["x"])) * 10 + int(other["lane"])
+		if best == null or key < best_key:
+			best = other
+			best_key = key
+	if best == null:
+		return
+	var victim: Dictionary = best
+	var mult: int = element_mult(cfg, _primary(unit), _primary(victim))
+	var dmg: int = maxi(1, Rng.fdiv(int(unit["atk"]) * mult * int(chain["pct"]), 10000))
+	if int(victim["guard"]) > 0:
+		dmg = maxi(1, Rng.fdiv(dmg * (100 - int(victim["guard"])), 100))
+	victim["hp"] -= dmg
+	events.append({"tick": tick, "kind": "attack", "src": unit["id"], "dst": victim["id"], "dmg": dmg, "mult": mult, "heal": 0, "via": "chain"})
+	if victim["hp"] <= 0:
+		_kill(units, victim, tick, "hit", events)
+
+
+## 흡수(심연 시너지): 이번 틱에 쓰러진 적 수만큼 우리 심연 드래곤의 궁극기 게이지가 찬다(가득 찬 채로 멈춘다).
+static func _siphon(siphon: Dictionary, units: Array, events: Array, first_event: int, tick: int) -> void:
+	var fallen: int = 0
+	for i: int in range(first_event, events.size()):
+		var event: Dictionary = events[i]
+		if event["kind"] == "death" and units[int(event["id"])]["side"] == "enemy":
+			fallen += 1
+	if fallen == 0:
+		return
+	for unit: Dictionary in units:
+		if unit["side"] != "ally" or unit["kind"] != "dragon" or unit["hp"] <= 0 or int(unit["ultNeed"]) <= 0 or "abyss" not in unit["elements"]:
+			continue
+		var before: int = unit["charge"]
+		unit["charge"] = mini(int(unit["ultNeed"]), before + fallen * int(siphon["charge"]))
+		if unit["charge"] != before:
+			events.append({"tick": tick, "kind": "charge", "id": unit["id"], "charge": unit["charge"]})
 
 
 ## 걷는 유닛이 닿는 가로 거리: 궁병처럼 reach가 있으면 그 값, 없으면 근접 거리.

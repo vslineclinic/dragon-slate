@@ -1033,6 +1033,9 @@ static func _battle_setup(data: Dictionary, state: Dictionary, rng: Rng) -> Dict
 		rules["strongAddPct"] = relics["strongAddPct"]
 	if relics.has("backRowNoLane"):
 		rules["backRowNoLane"] = true
+	var synergy: Dictionary = Battle.synergy_rules(data, Battle.fielded(state["nest"], state["nestOpen"]))
+	if not synergy.is_empty():
+		rules["synergy"] = synergy
 	rules["critSeed"] = rng.next_int(1000000007)
 	return {
 		"allies": allies, "enemies": enemies, "rules": rules, "relics": relics, "mods": mods, "waveMod": wave_mod,

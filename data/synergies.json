@@ -1,8 +1,8 @@
 [
-  {"element":"fire","nameKo":"불길","kind":"atkPct","descKo":"공격력 +%d%%","levels":[{"count":2,"value":10},{"count":4,"value":22}]},
-  {"element":"ice","nameKo":"서리","kind":"hpPct","descKo":"체력 +%d%%","levels":[{"count":2,"value":12},{"count":4,"value":26}]},
-  {"element":"lightning","nameKo":"번개","kind":"hastePct","descKo":"공격 속도 +%d%%","levels":[{"count":2,"value":6},{"count":4,"value":14}]},
-  {"element":"poison","nameKo":"맹독","kind":"lifestealPct","descKo":"흡혈 +%d%%","levels":[{"count":2,"value":4},{"count":4,"value":10}]},
-  {"element":"steel","nameKo":"강철","kind":"escortPct","descKo":"호위 능력 +%d%%","levels":[{"count":2,"value":15},{"count":4,"value":35}]},
-  {"element":"abyss","nameKo":"심연","kind":"escortCount","descKo":"호위 +%d마리","levels":[{"count":2,"value":1},{"count":4,"value":2}]}
+  {"element":"fire","nameKo":"불길","kind":"atkPct","descKo":"공격력 +%d%%","levels":[{"count":2,"value":10},{"count":4,"value":15,"rule":{"id":"burst","nameKo":"폭발","descKo":"불 드래곤에게 쓰러진 적이 터져, 같은 줄 가까운 적에게 그 적 최대 체력의 20% 피해","pct":20,"radius":140}}]},
+  {"element":"ice","nameKo":"서리","kind":"hpPct","descKo":"체력 +%d%%","levels":[{"count":2,"value":12},{"count":4,"value":18,"rule":{"id":"chill","nameKo":"얼림","descKo":"얼음 드래곤에게 맞은 적의 다음 공격이 5틱 늦어짐(공격 한 번마다 한 번)","ticks":5}}]},
+  {"element":"lightning","nameKo":"번개","kind":"hastePct","descKo":"공격 속도 +%d%%","levels":[{"count":2,"value":6},{"count":4,"value":9,"rule":{"id":"chain","nameKo":"연쇄","descKo":"번개 드래곤의 공격이 옆줄의 가장 가까운 적에게 45% 힘으로 튐","pct":45}}]},
+  {"element":"poison","nameKo":"맹독","kind":"lifestealPct","descKo":"흡혈 +%d%%","levels":[{"count":2,"value":4},{"count":4,"value":6,"rule":{"id":"venom","nameKo":"중독","descKo":"독 드래곤이 준 피해의 35%가 독으로 쌓였다가 10틱마다 한꺼번에 들어감","pct":35,"everyTicks":10}}]},
+  {"element":"steel","nameKo":"강철","kind":"escortPct","descKo":"호위 능력 +%d%%","levels":[{"count":2,"value":15},{"count":4,"value":24,"rule":{"id":"bulwark","nameKo":"방벽","descKo":"호위가 살아 있는 우리 드래곤은 받는 공격 피해 20% 감소","pct":20}}]},
+  {"element":"abyss","nameKo":"심연","kind":"escortCount","descKo":"호위 +%d마리","levels":[{"count":2,"value":1},{"count":4,"value":1,"rule":{"id":"siphon","nameKo":"흡수","descKo":"적이 쓰러질 때마다 심연 드래곤의 궁극기 게이지 +1","charge":1}}]}
 ]

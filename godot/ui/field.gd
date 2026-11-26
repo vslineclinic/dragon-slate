@@ -13,6 +13,9 @@ const HAZARD_KO: Dictionary = {
 	"rowBlast": "용암탄! 한 줄 전체가 피해를 입어요",
 	"pulse": "월식의 파동! 아군 모두 피해를 입어요",
 }
+## 원소 시너지 규칙 효과로 생긴 피해: 숨결 없이 맞은 자리에서 원소색으로 터진다.
+const SYNERGY_FX: Dictionary = {"burst": "fire", "chain": "lightning", "venom": "poison"}
+const SYNERGY_FX_KO: Dictionary = {"burst": "폭발!", "chain": "연쇄!", "venom": "중독!"}
 const TICK_SECONDS: float = 0.05
 const SIZE_BY_KIND: Dictionary = {"dragon": 112.0, "escort": 62.0, "minion": 64.0}
 
@@ -22,6 +25,9 @@ const MAX_NUMBERS: int = 70
 const CRIT_CUT_GAP_MS: int = 900
 ## 다른 줄을 쳐서 약해진 공격의 숫자 색.
 const GLANCE: Color = Color("#a9b4c9")
+
+## 이번 전투에서 이름을 한 번 띄운 시너지 효과(burst · chain · venom).
+var _fx_named: Dictionary = {}
 
 signal finished
 ## 수동 궁극기 전투: 지금 쏠 수 있는 드래곤의 수가 바뀌었다.
@@ -312,6 +318,7 @@ func _clear_units() -> void:
 			layer.remove_child(child)
 			child.queue_free()
 	_views = {}
+	_fx_named = {}
 
 
 func _point(x: float, lane: float) -> Vector2:
@@ -496,6 +503,15 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				_say("광폭화! 적의 공격력이 올라가요")
 				_flash.color.a = 0.3
 				_flash.create_tween().tween_property(_flash, "color:a", 0.0, 0.3)
+		"charge":
+			## 흡수(심연 시너지): 적이 쓰러져 궁극기 게이지가 찼다.
+			var drinker: UnitView = _views.get(int(event["id"]))
+			if drinker == null or drinker.gauge == null or drinker.dead:
+				return
+			drinker.gauge.size.x = drinker.gauge_full * int(event["charge"]) / drinker.ult_need
+			drinker.gauge.modulate = Color(1.7, 1.7, 1.4) if int(event["charge"]) >= drinker.ult_need else Color.WHITE
+			if animate:
+				_impact(drinker.center, GameTheme.COLOR["abyss"], 0)
 		"heal":
 			## 돌봄: 다친 드래곤 머리 위로 초록 숫자와 빛.
 			var patient: UnitView = _views.get(int(event["dst"]))
@@ -551,7 +567,15 @@ func _apply(event: Dictionary, animate: bool) -> void:
 				var follow: float = 0.1 / _store.speed if event.get("via", "") == "twin" else 0.0
 				if event.get("ward", false):
 					_impact(defender.center, GameTheme.COLOR["steel"], 0)
-				if event.get("ult", false):
+				var effect: String = str(event.get("via", ""))
+				if SYNERGY_FX.has(effect):
+					var shade: Color = GameTheme.COLOR[SYNERGY_FX[effect]]
+					_impact(defender.center, shade, 0)
+					_hit(defender, int(event["dmg"]), shade.lightened(0.35), false, 0, shade)
+					if not _fx_named.has(effect):
+						_fx_named[effect] = true
+						_name_tag(defender, SYNERGY_FX_KO[effect], shade.lightened(0.4))
+				elif event.get("ult", false):
 					_breath(attacker, defender, true, int(event["dmg"]), 2)
 				elif event.get("crit", false):
 					## 치명타: 누가 쳤는지 이름을 띄우고, 잠깐 멈췄다가 크게 터뜨린다.

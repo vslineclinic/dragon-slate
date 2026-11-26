@@ -178,6 +178,9 @@ static func _margin(data: Dictionary, state: Dictionary) -> int:
 		rules["strongAddPct"] = relics["strongAddPct"]
 	if relics.has("backRowNoLane"):
 		rules["backRowNoLane"] = true
+	var synergy: Dictionary = Battle.synergy_rules(data, Battle.fielded(state["nest"], state["nestOpen"]))
+	if not synergy.is_empty():
+		rules["synergy"] = synergy
 	var best: int = 25
 	var pct: int = 35
 	while pct <= 900:
